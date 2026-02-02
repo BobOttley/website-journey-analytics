@@ -9,10 +9,10 @@ const { TokenCredentialAuthenticationProvider } = require('@microsoft/microsoft-
 
 // Configuration from environment variables
 const config = {
-  clientId: process.env.AZURE_CLIENT_ID,
-  clientSecret: process.env.AZURE_CLIENT_SECRET,
-  tenantId: process.env.AZURE_TENANT_ID,
-  senderEmail: process.env.EMAIL_SENDER,
+  clientId: process.env.MS_CLIENT_ID,
+  clientSecret: process.env.MS_CLIENT_SECRET,
+  tenantId: process.env.MS_TENANT_ID,
+  senderEmail: process.env.SENDER_EMAIL,
   notifyEmail: process.env.EMAIL_NOTIFY
 };
 
