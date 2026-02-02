@@ -47,10 +47,14 @@ function validateEvent(body) {
 
 // POST /api/event - Capture a single event
 router.post('/', (req, res) => {
+  console.log('EVENT RECEIVED:', JSON.stringify(req.body));
+  console.log('Content-Type:', req.headers['content-type']);
+
   try {
     const errors = validateEvent(req.body);
 
     if (errors.length > 0) {
+      console.log('VALIDATION ERRORS:', errors);
       return res.status(400).json({
         success: false,
         errors
