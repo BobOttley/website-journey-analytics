@@ -95,8 +95,8 @@ function determineInitialIntent(events) {
   return 'browsing';
 }
 
-function reconstructJourney(journeyId) {
-  const events = getEventsByJourneyId(journeyId);
+async function reconstructJourney(journeyId) {
+  const events = await getEventsByJourneyId(journeyId);
 
   if (events.length === 0) {
     return null;
@@ -123,8 +123,8 @@ function reconstructJourney(journeyId) {
   return journey;
 }
 
-function reconstructAllJourneys() {
-  const journeyIds = getUniqueJourneyIds();
+async function reconstructAllJourneys() {
+  const journeyIds = await getUniqueJourneyIds();
   const results = {
     processed: 0,
     updated: 0,
@@ -133,9 +133,9 @@ function reconstructAllJourneys() {
 
   for (const journeyId of journeyIds) {
     try {
-      const journey = reconstructJourney(journeyId);
+      const journey = await reconstructJourney(journeyId);
       if (journey) {
-        upsertJourney(journey);
+        await upsertJourney(journey);
         results.updated++;
       }
       results.processed++;
@@ -147,9 +147,9 @@ function reconstructAllJourneys() {
   return results;
 }
 
-function getJourneyWithEvents(journeyId) {
-  const events = getEventsByJourneyId(journeyId);
-  const journey = reconstructJourney(journeyId);
+async function getJourneyWithEvents(journeyId) {
+  const events = await getEventsByJourneyId(journeyId);
+  const journey = await reconstructJourney(journeyId);
 
   if (!journey) return null;
 

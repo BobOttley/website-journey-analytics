@@ -149,7 +149,7 @@ ${siteStructure.conversionGoals
 
 async function runAnalysis(startDate, endDate) {
   // Get journeys in date range
-  const journeys = getJourneysInDateRange(startDate, endDate);
+  const journeys = await getJourneysInDateRange(startDate, endDate);
 
   if (journeys.length === 0) {
     return {
@@ -256,7 +256,7 @@ Respond with ONLY the JSON object, no additional text.`;
       analysis_result: analysisResult
     };
 
-    insertInsight(insight);
+    await insertInsight(insight);
 
     return {
       success: true,

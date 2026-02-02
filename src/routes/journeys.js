@@ -4,15 +4,15 @@ const { getAllJourneys, getJourneyById, getJourneyCount, getJourneyStats } = req
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
 
 // GET /journeys - Journey list view
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
 
-    const journeys = getAllJourneys(limit, offset);
-    const totalCount = getJourneyCount();
-    const stats = getJourneyStats();
+    const journeys = await getAllJourneys(limit, offset);
+    const totalCount = await getJourneyCount();
+    const stats = await getJourneyStats();
     const totalPages = Math.ceil(totalCount / limit);
 
     // Parse page_sequence JSON for each journey
@@ -40,9 +40,9 @@ router.get('/', (req, res) => {
 });
 
 // POST /journeys/rebuild - Rebuild all journeys from events
-router.post('/rebuild', (req, res) => {
+router.post('/rebuild', async (req, res) => {
   try {
-    const results = reconstructAllJourneys();
+    const results = await reconstructAllJourneys();
     res.redirect('/journeys?rebuilt=' + results.updated);
   } catch (error) {
     console.error('Error rebuilding journeys:', error);
@@ -51,10 +51,10 @@ router.post('/rebuild', (req, res) => {
 });
 
 // GET /journeys/:id - Journey detail view
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const journeyId = req.params.id;
-    const journey = getJourneyWithEvents(journeyId);
+    const journey = await getJourneyWithEvents(journeyId);
 
     if (!journey) {
       return res.status(404).render('error', { error: 'Journey not found' });
@@ -68,9 +68,9 @@ router.get('/:id', (req, res) => {
 });
 
 // API endpoint for journey data
-router.get('/api/stats', (req, res) => {
+router.get('/api/stats', async (req, res) => {
   try {
-    const stats = getJourneyStats();
+    const stats = await getJourneyStats();
     res.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);

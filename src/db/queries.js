@@ -1,122 +1,131 @@
 const { getDb } = require('./database');
 
 // Event queries
-function insertEvent(event) {
+async function insertEvent(event) {
   const db = getDb();
-  const stmt = db.prepare(`
-    INSERT INTO journey_events (journey_id, event_type, page_url, referrer, intent_type, cta_label, device_type, occurred_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  return stmt.run(
-    event.journey_id,
-    event.event_type,
-    event.page_url || null,
-    event.referrer || null,
-    event.intent_type || null,
-    event.cta_label || null,
-    event.device_type || null,
-    event.occurred_at || new Date().toISOString()
+  const result = await db.query(
+    `INSERT INTO journey_events (journey_id, event_type, page_url, referrer, intent_type, cta_label, device_type, occurred_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id`,
+    [
+      event.journey_id,
+      event.event_type,
+      event.page_url || null,
+      event.referrer || null,
+      event.intent_type || null,
+      event.cta_label || null,
+      event.device_type || null,
+      event.occurred_at || new Date().toISOString()
+    ]
   );
+  return { lastInsertRowid: result.rows[0].id };
 }
 
-function getEventsByJourneyId(journeyId) {
+async function getEventsByJourneyId(journeyId) {
   const db = getDb();
-  const stmt = db.prepare(`
-    SELECT * FROM journey_events
-    WHERE journey_id = ?
-    ORDER BY occurred_at ASC
-  `);
-  return stmt.all(journeyId);
+  const result = await db.query(
+    `SELECT * FROM journey_events WHERE journey_id = $1 ORDER BY occurred_at ASC`,
+    [journeyId]
+  );
+  return result.rows;
 }
 
-function getUniqueJourneyIds(since = null) {
+async function getUniqueJourneyIds(since = null) {
   const db = getDb();
-  let query = 'SELECT DISTINCT journey_id FROM journey_events';
+  let result;
   if (since) {
-    query += ' WHERE occurred_at >= ?';
-    return db.prepare(query).all(since).map(r => r.journey_id);
+    result = await db.query(
+      'SELECT DISTINCT journey_id FROM journey_events WHERE occurred_at >= $1',
+      [since]
+    );
+  } else {
+    result = await db.query('SELECT DISTINCT journey_id FROM journey_events');
   }
-  return db.prepare(query).all().map(r => r.journey_id);
+  return result.rows.map(r => r.journey_id);
 }
 
-function getEventsInDateRange(startDate, endDate) {
+async function getEventsInDateRange(startDate, endDate) {
   const db = getDb();
-  const stmt = db.prepare(`
-    SELECT * FROM journey_events
-    WHERE occurred_at >= ? AND occurred_at <= ?
-    ORDER BY journey_id, occurred_at ASC
-  `);
-  return stmt.all(startDate, endDate);
+  const result = await db.query(
+    `SELECT * FROM journey_events
+     WHERE occurred_at >= $1 AND occurred_at <= $2
+     ORDER BY journey_id, occurred_at ASC`,
+    [startDate, endDate]
+  );
+  return result.rows;
 }
 
 // Journey queries
-function upsertJourney(journey) {
+async function upsertJourney(journey) {
   const db = getDb();
-  const stmt = db.prepare(`
-    INSERT INTO journeys (journey_id, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(journey_id) DO UPDATE SET
-      last_seen = excluded.last_seen,
-      page_sequence = excluded.page_sequence,
-      event_count = excluded.event_count,
-      outcome = excluded.outcome,
-      time_to_action = excluded.time_to_action,
-      updated_at = CURRENT_TIMESTAMP
-  `);
-
-  return stmt.run(
-    journey.journey_id,
-    journey.first_seen,
-    journey.last_seen,
-    journey.entry_page,
-    journey.entry_referrer,
-    journey.initial_intent,
-    JSON.stringify(journey.page_sequence),
-    journey.event_count,
-    journey.outcome,
-    journey.time_to_action
+  const result = await db.query(
+    `INSERT INTO journeys (journey_id, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+     ON CONFLICT(journey_id) DO UPDATE SET
+       last_seen = EXCLUDED.last_seen,
+       page_sequence = EXCLUDED.page_sequence,
+       event_count = EXCLUDED.event_count,
+       outcome = EXCLUDED.outcome,
+       time_to_action = EXCLUDED.time_to_action,
+       updated_at = CURRENT_TIMESTAMP
+     RETURNING journey_id`,
+    [
+      journey.journey_id,
+      journey.first_seen,
+      journey.last_seen,
+      journey.entry_page,
+      journey.entry_referrer,
+      journey.initial_intent,
+      JSON.stringify(journey.page_sequence),
+      journey.event_count,
+      journey.outcome,
+      journey.time_to_action
+    ]
   );
+  return result;
 }
 
-function getAllJourneys(limit = 100, offset = 0) {
+async function getAllJourneys(limit = 100, offset = 0) {
   const db = getDb();
-  const stmt = db.prepare(`
-    SELECT * FROM journeys
-    ORDER BY last_seen DESC
-    LIMIT ? OFFSET ?
-  `);
-  return stmt.all(limit, offset);
+  const result = await db.query(
+    `SELECT * FROM journeys ORDER BY last_seen DESC LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+  return result.rows;
 }
 
-function getJourneyById(journeyId) {
+async function getJourneyById(journeyId) {
   const db = getDb();
-  const stmt = db.prepare('SELECT * FROM journeys WHERE journey_id = ?');
-  return stmt.get(journeyId);
+  const result = await db.query(
+    'SELECT * FROM journeys WHERE journey_id = $1',
+    [journeyId]
+  );
+  return result.rows[0];
 }
 
-function getJourneyCount() {
+async function getJourneyCount() {
   const db = getDb();
-  const result = db.prepare('SELECT COUNT(*) as count FROM journeys').get();
-  return result.count;
+  const result = await db.query('SELECT COUNT(*) as count FROM journeys');
+  return parseInt(result.rows[0].count);
 }
 
-function getJourneysInDateRange(startDate, endDate) {
+async function getJourneysInDateRange(startDate, endDate) {
   const db = getDb();
   // Add time component to ensure full day coverage
   const startDateTime = startDate.includes('T') ? startDate : startDate + 'T00:00:00.000Z';
   const endDateTime = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
-  const stmt = db.prepare(`
-    SELECT * FROM journeys
-    WHERE first_seen >= ? AND first_seen <= ?
-    ORDER BY first_seen DESC
-  `);
-  return stmt.all(startDateTime, endDateTime);
+  const result = await db.query(
+    `SELECT * FROM journeys
+     WHERE first_seen >= $1 AND first_seen <= $2
+     ORDER BY first_seen DESC`,
+    [startDateTime, endDateTime]
+  );
+  return result.rows;
 }
 
-function getJourneyStats() {
+async function getJourneyStats() {
   const db = getDb();
-  const stats = db.prepare(`
+  const result = await db.query(`
     SELECT
       COUNT(*) as total_journeys,
       COUNT(CASE WHEN outcome = 'enquiry_submitted' THEN 1 END) as enquiries,
@@ -125,45 +134,43 @@ function getJourneyStats() {
       AVG(event_count) as avg_events,
       AVG(time_to_action) as avg_time_to_action
     FROM journeys
-  `).get();
-  return stats;
+  `);
+  return result.rows[0];
 }
 
 // Insight queries
-function insertInsight(insight) {
+async function insertInsight(insight) {
   const db = getDb();
-  const stmt = db.prepare(`
-    INSERT INTO insights (period_start, period_end, total_journeys, conversion_rate, analysis_result)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-
-  return stmt.run(
-    insight.period_start,
-    insight.period_end,
-    insight.total_journeys,
-    insight.conversion_rate,
-    JSON.stringify(insight.analysis_result)
+  const result = await db.query(
+    `INSERT INTO insights (period_start, period_end, total_journeys, conversion_rate, analysis_result)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [
+      insight.period_start,
+      insight.period_end,
+      insight.total_journeys,
+      insight.conversion_rate,
+      JSON.stringify(insight.analysis_result)
+    ]
   );
+  return result;
 }
 
-function getLatestInsight() {
+async function getLatestInsight() {
   const db = getDb();
-  const stmt = db.prepare(`
-    SELECT * FROM insights
-    ORDER BY created_at DESC
-    LIMIT 1
-  `);
-  return stmt.get();
+  const result = await db.query(
+    `SELECT * FROM insights ORDER BY created_at DESC LIMIT 1`
+  );
+  return result.rows[0];
 }
 
-function getAllInsights(limit = 10) {
+async function getAllInsights(limit = 10) {
   const db = getDb();
-  const stmt = db.prepare(`
-    SELECT * FROM insights
-    ORDER BY created_at DESC
-    LIMIT ?
-  `);
-  return stmt.all(limit);
+  const result = await db.query(
+    `SELECT * FROM insights ORDER BY created_at DESC LIMIT $1`,
+    [limit]
+  );
+  return result.rows;
 }
 
 module.exports = {

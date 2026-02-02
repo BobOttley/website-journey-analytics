@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initializeSchema } = require('./db/database');
+const { initializeSchema, getDb } = require('./db/database');
 
 // Import routes
 const eventsRouter = require('./routes/events');
@@ -13,9 +13,6 @@ const insightsRouter = require('./routes/insights');
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Initialize database
-initializeSchema();
 
 // Middleware
 app.use(cors());
@@ -72,17 +69,20 @@ app.get('/health', (req, res) => {
 });
 
 // Debug endpoint to check event count
-app.get('/debug', (req, res) => {
-  const { getDb } = require('./db/database');
-  const db = getDb();
-  const eventCount = db.prepare('SELECT COUNT(*) as count FROM journey_events').get();
-  const journeyCount = db.prepare('SELECT COUNT(*) as count FROM journeys').get();
-  const recentEvents = db.prepare('SELECT * FROM journey_events ORDER BY occurred_at DESC LIMIT 5').all();
-  res.json({
-    events: eventCount.count,
-    journeys: journeyCount.count,
-    recentEvents
-  });
+app.get('/debug', async (req, res) => {
+  try {
+    const db = getDb();
+    const eventCount = await db.query('SELECT COUNT(*) as count FROM journey_events');
+    const journeyCount = await db.query('SELECT COUNT(*) as count FROM journeys');
+    const recentEvents = await db.query('SELECT * FROM journey_events ORDER BY occurred_at DESC LIMIT 5');
+    res.json({
+      events: parseInt(eventCount.rows[0].count),
+      journeys: parseInt(journeyCount.rows[0].count),
+      recentEvents: recentEvents.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // API Routes
@@ -109,9 +109,13 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { error: 'Internal server error' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`
+// Initialize database and start server
+async function start() {
+  try {
+    await initializeSchema();
+
+    app.listen(PORT, () => {
+      console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║         Website Journey Analytics Server              ║
 ╠═══════════════════════════════════════════════════════╣
@@ -120,7 +124,14 @@ app.listen(PORT, () => {
 ║  API:        http://localhost:${PORT}/api/event           ║
 ║  Health:     http://localhost:${PORT}/health              ║
 ╚═══════════════════════════════════════════════════════╝
-  `);
-});
+      `);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+start();
 
 module.exports = app;

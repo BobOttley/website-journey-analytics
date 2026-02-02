@@ -1,39 +1,42 @@
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-let db = null;
+let pool = null;
 
 function getDb() {
-  if (db) return db;
+  if (pool) return pool;
 
-  const dbPath = process.env.DATABASE_PATH || './data/analytics.db';
-  const dbDir = path.dirname(dbPath);
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
 
-  // Ensure directory exists
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
-
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-
-  return db;
+  return pool;
 }
 
-function initializeSchema() {
+async function initializeSchema() {
   const database = getDb();
   const schemaPath = path.join(__dirname, 'schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf-8');
 
-  database.exec(schema);
-  console.log('Database schema initialized');
+  try {
+    await database.query(schema);
+    console.log('Database schema initialized');
+  } catch (error) {
+    // Tables likely already exist
+    if (!error.message.includes('already exists')) {
+      console.error('Schema initialization error:', error.message);
+    } else {
+      console.log('Database schema already exists');
+    }
+  }
 }
 
-function closeDb() {
-  if (db) {
-    db.close();
-    db = null;
+async function closeDb() {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
 }
 

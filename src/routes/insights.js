@@ -4,10 +4,10 @@ const { getLatestInsight, getAllInsights } = require('../db/queries');
 const { runAnalysis } = require('../services/aiAnalysis');
 
 // GET /insights - Insights dashboard
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const latestInsight = getLatestInsight();
-    const allInsights = getAllInsights(5);
+    const latestInsight = await getLatestInsight();
+    const allInsights = await getAllInsights(5);
 
     // Parse analysis_result JSON if present
     const parsedInsight = latestInsight ? {
@@ -77,9 +77,9 @@ router.post('/api/analyze', async (req, res) => {
 });
 
 // API endpoint to get latest insight
-router.get('/api/latest', (req, res) => {
+router.get('/api/latest', async (req, res) => {
   try {
-    const latestInsight = getLatestInsight();
+    const latestInsight = await getLatestInsight();
 
     if (!latestInsight) {
       return res.status(404).json({ error: 'No insights found' });

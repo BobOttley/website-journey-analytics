@@ -46,7 +46,7 @@ function validateEvent(body) {
 }
 
 // POST /api/event - Capture a single event
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   console.log('EVENT RECEIVED:', JSON.stringify(req.body));
   console.log('Content-Type:', req.headers['content-type']);
 
@@ -72,7 +72,7 @@ router.post('/', (req, res) => {
       occurred_at: req.body.occurred_at || new Date().toISOString()
     };
 
-    const result = insertEvent(event);
+    const result = await insertEvent(event);
 
     res.status(201).json({
       success: true,
@@ -88,7 +88,7 @@ router.post('/', (req, res) => {
 });
 
 // POST /api/events/batch - Capture multiple events
-router.post('/batch', (req, res) => {
+router.post('/batch', async (req, res) => {
   try {
     if (!Array.isArray(req.body.events)) {
       return res.status(400).json({
@@ -121,7 +121,7 @@ router.post('/batch', (req, res) => {
           occurred_at: eventData.occurred_at || new Date().toISOString()
         };
 
-        const result = insertEvent(event);
+        const result = await insertEvent(event);
         results.push({ index: i, event_id: result.lastInsertRowid });
       } catch (err) {
         errors.push({ index: i, error: err.message });
