@@ -103,12 +103,15 @@ function getJourneyCount() {
 
 function getJourneysInDateRange(startDate, endDate) {
   const db = getDb();
+  // Add time component to ensure full day coverage
+  const startDateTime = startDate.includes('T') ? startDate : startDate + 'T00:00:00.000Z';
+  const endDateTime = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
   const stmt = db.prepare(`
     SELECT * FROM journeys
     WHERE first_seen >= ? AND first_seen <= ?
     ORDER BY first_seen DESC
   `);
-  return stmt.all(startDate, endDate);
+  return stmt.all(startDateTime, endDateTime);
 }
 
 function getJourneyStats() {
