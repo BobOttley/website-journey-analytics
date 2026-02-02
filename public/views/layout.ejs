@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= typeof title !== 'undefined' ? title : 'Journey Analytics' %></title>
   <style>
+    :root {
+      --primary-navy: #091825;
+      --sport-blue: #034674;
+      --gold-primary: #FF9F1C;
+      --gold-light: #FFB84D;
+      --gold-dark: #E88A00;
+      --bg-light: #f8fafc;
+      --border-color: #e5e7eb;
+      --text-muted: #64748b;
+      --text-dark: #1e293b;
+      --white: #ffffff;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -13,8 +26,8 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #f5f7fa;
-      color: #1a1a2e;
+      background: var(--bg-light);
+      color: var(--text-dark);
       line-height: 1.6;
     }
 
@@ -25,10 +38,11 @@
     }
 
     header {
-      background: #1a1a2e;
-      color: white;
+      background: var(--primary-navy);
+      color: var(--white);
       padding: 16px 0;
       margin-bottom: 24px;
+      border-bottom: 3px solid var(--gold-primary);
     }
 
     header .container {
@@ -40,32 +54,75 @@
     header h1 {
       font-size: 1.5rem;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 24px;
+      background: var(--gold-primary);
+      border-radius: 2px;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
     }
 
     nav a {
-      color: #a0aec0;
+      color: #94a3b8;
       text-decoration: none;
-      margin-left: 24px;
       font-size: 0.9rem;
-      transition: color 0.2s;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: all 0.2s;
     }
 
-    nav a:hover, nav a.active {
-      color: white;
+    nav a:hover {
+      color: var(--white);
+      background: rgba(255, 159, 28, 0.1);
+    }
+
+    nav a.active {
+      color: var(--gold-primary);
+      background: rgba(255, 159, 28, 0.15);
+      font-weight: 500;
     }
 
     .card {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      background: var(--white);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
       padding: 24px;
       margin-bottom: 24px;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(9, 24, 37, 0.08);
+      transform: translateY(-1px);
     }
 
     .card h2 {
       font-size: 1.25rem;
       margin-bottom: 16px;
-      color: #2d3748;
+      color: var(--primary-navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: var(--gold-primary);
+      border-radius: 2px;
     }
 
     table {
@@ -74,45 +131,62 @@
     }
 
     th, td {
-      padding: 12px;
+      padding: 12px 16px;
       text-align: left;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border-color);
     }
 
     th {
-      background: #f7fafc;
+      background: var(--primary-navy);
+      color: var(--white);
       font-weight: 600;
       font-size: 0.85rem;
-      color: #4a5568;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
+    th:first-child {
+      border-radius: 8px 0 0 0;
+    }
+
+    th:last-child {
+      border-radius: 0 8px 0 0;
+    }
+
     tr:hover {
-      background: #f7fafc;
+      background: #f8fafc;
+    }
+
+    tbody tr:last-child td:first-child {
+      border-radius: 0 0 0 8px;
+    }
+
+    tbody tr:last-child td:last-child {
+      border-radius: 0 0 8px 0;
     }
 
     .badge {
       display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
     }
 
-    .badge-success { background: #c6f6d5; color: #22543d; }
-    .badge-warning { background: #fefcbf; color: #744210; }
-    .badge-danger { background: #fed7d7; color: #822727; }
-    .badge-info { background: #bee3f8; color: #2a4365; }
-    .badge-neutral { background: #e2e8f0; color: #4a5568; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: var(--sport-blue); }
+    .badge-neutral { background: #f1f5f9; color: var(--text-muted); }
+    .badge-gold { background: #fff7ed; color: #c2410c; }
 
     .btn {
       display: inline-block;
-      padding: 8px 16px;
-      border-radius: 6px;
+      padding: 10px 20px;
+      border-radius: 8px;
       font-size: 0.9rem;
-      font-weight: 500;
+      font-weight: 600;
       text-decoration: none;
       cursor: pointer;
       border: none;
@@ -120,21 +194,37 @@
     }
 
     .btn-primary {
-      background: #4299e1;
-      color: white;
+      background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+      color: var(--white);
+      box-shadow: 0 2px 4px rgba(255, 159, 28, 0.3);
     }
 
     .btn-primary:hover {
-      background: #3182ce;
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold-primary) 100%);
+      box-shadow: 0 4px 8px rgba(255, 159, 28, 0.4);
+      transform: translateY(-1px);
     }
 
     .btn-secondary {
-      background: #e2e8f0;
-      color: #4a5568;
+      background: var(--white);
+      color: var(--primary-navy);
+      border: 2px solid var(--border-color);
     }
 
     .btn-secondary:hover {
-      background: #cbd5e0;
+      border-color: var(--gold-primary);
+      color: var(--gold-dark);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--gold-primary);
+      border: 2px solid var(--gold-primary);
+    }
+
+    .btn-outline:hover {
+      background: var(--gold-primary);
+      color: var(--white);
     }
 
     .stats-grid {
@@ -145,29 +235,57 @@
     }
 
     .stat-card {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      background: var(--white);
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--gold-primary);
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 4px 12px rgba(9, 24, 37, 0.08);
+      transform: translateY(-2px);
     }
 
     .stat-card h3 {
       font-size: 0.85rem;
-      color: #718096;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 8px;
     }
 
     .stat-card .value {
-      font-size: 2rem;
+      font-size: 2.25rem;
       font-weight: 700;
-      color: #2d3748;
+      color: var(--primary-navy);
     }
 
     .stat-card .subtitle {
       font-size: 0.85rem;
-      color: #a0aec0;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .stat-card.highlight::before {
+      background: linear-gradient(180deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+      width: 6px;
+    }
+
+    .stat-card.highlight .value {
+      color: var(--gold-dark);
     }
 
     .pagination {
@@ -178,22 +296,24 @@
     }
 
     .pagination a {
-      padding: 8px 12px;
-      border-radius: 4px;
+      padding: 8px 14px;
+      border-radius: 6px;
       text-decoration: none;
-      color: #4a5568;
-      background: white;
-      border: 1px solid #e2e8f0;
+      color: var(--text-dark);
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
     }
 
     .pagination a:hover {
-      background: #f7fafc;
+      border-color: var(--gold-primary);
+      color: var(--gold-dark);
     }
 
     .pagination a.active {
-      background: #4299e1;
-      color: white;
-      border-color: #4299e1;
+      background: var(--gold-primary);
+      color: var(--white);
+      border-color: var(--gold-primary);
     }
 
     .timeline {
@@ -208,7 +328,7 @@
       top: 0;
       bottom: 0;
       width: 2px;
-      background: #e2e8f0;
+      background: var(--border-color);
     }
 
     .timeline-item {
@@ -224,18 +344,35 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #4299e1;
-      border: 2px solid white;
+      background: var(--sport-blue);
+      border: 2px solid var(--white);
+      box-shadow: 0 0 0 2px var(--sport-blue);
     }
 
-    .timeline-item.page_view::before { background: #4299e1; }
-    .timeline-item.cta_click::before { background: #48bb78; }
-    .timeline-item.form_start::before { background: #ed8936; }
-    .timeline-item.form_submit::before { background: #9f7aea; }
+    .timeline-item.page_view::before {
+      background: var(--sport-blue);
+      box-shadow: 0 0 0 2px var(--sport-blue);
+    }
+    .timeline-item.cta_click::before {
+      background: var(--gold-primary);
+      box-shadow: 0 0 0 2px var(--gold-primary);
+    }
+    .timeline-item.form_start::before {
+      background: #f59e0b;
+      box-shadow: 0 0 0 2px #f59e0b;
+    }
+    .timeline-item.form_submit::before {
+      background: #10b981;
+      box-shadow: 0 0 0 2px #10b981;
+    }
+    .timeline-item.heartbeat::before {
+      background: #94a3b8;
+      box-shadow: 0 0 0 2px #94a3b8;
+    }
 
     .timeline-time {
       font-size: 0.75rem;
-      color: #a0aec0;
+      color: var(--text-muted);
     }
 
     .timeline-content {
@@ -243,29 +380,46 @@
     }
 
     .alert {
-      padding: 12px 16px;
-      border-radius: 6px;
+      padding: 14px 18px;
+      border-radius: 8px;
       margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .alert-info {
-      background: #ebf8ff;
-      border: 1px solid #bee3f8;
-      color: #2b6cb0;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: var(--sport-blue);
     }
 
     .alert-success {
-      background: #f0fff4;
-      border: 1px solid #c6f6d5;
-      color: #276749;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .alert-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
     }
 
     .text-muted {
-      color: #a0aec0;
+      color: var(--text-muted);
     }
 
     .text-small {
       font-size: 0.85rem;
+    }
+
+    .text-gold {
+      color: var(--gold-primary);
+    }
+
+    .text-navy {
+      color: var(--primary-navy);
     }
 
     .mb-4 { margin-bottom: 1rem; }
@@ -286,6 +440,86 @@
     .gap-2 {
       gap: 0.5rem;
     }
+
+    .gap-4 {
+      gap: 1rem;
+    }
+
+    /* Live pulse animation for real-time */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+      color: var(--primary-navy);
+      margin-bottom: 8px;
+    }
+
+    /* Links */
+    a {
+      color: var(--sport-blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--gold-primary);
+    }
+
+    /* Form inputs */
+    input, select {
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 0 3px rgba(255, 159, 28, 0.1);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-light);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
   </style>
 </head>
 <body>
@@ -294,6 +528,7 @@
       <h1>Journey Analytics</h1>
       <nav>
         <a href="/journeys" class="<%= typeof currentPage !== 'undefined' && currentPage === 'journeys' ? 'active' : '' %>">Journeys</a>
+        <a href="/realtime" class="<%= typeof currentPage !== 'undefined' && currentPage === 'realtime' ? 'active' : '' %>">Real-time</a>
         <a href="/insights" class="<%= typeof currentPage !== 'undefined' && currentPage === 'insights' ? 'active' : '' %>">Insights</a>
       </nav>
     </div>

@@ -8,7 +8,8 @@ const VALID_EVENT_TYPES = [
   'form_start',
   'form_submit',
   'scroll_depth',
-  'time_on_page'
+  'time_on_page',
+  'heartbeat'
 ];
 
 const VALID_INTENT_TYPES = [

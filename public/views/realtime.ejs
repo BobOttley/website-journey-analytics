@@ -1,0 +1,290 @@
+<div class="flex justify-between items-center mb-4">
+  <h2 style="font-size: 1.5rem; color: var(--primary-navy); display: flex; align-items: center; gap: 10px;">
+    <span class="live-dot"></span>
+    Real-time Visitors
+  </h2>
+  <div class="flex gap-2 items-center">
+    <span class="text-muted text-small" id="last-updated">Updated just now</span>
+    <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
+  </div>
+</div>
+
+<% if (!emailConfigured) { %>
+<div class="alert alert-warning">
+  <strong>Email notifications disabled.</strong> Configure Microsoft Graph credentials (AZURE_CLIENT_ID, etc.) to receive notifications for new visitors.
+</div>
+<% } %>
+
+<div class="stats-grid">
+  <div class="stat-card highlight">
+    <h3>Active Now</h3>
+    <div class="value" id="visitor-count"><%= visitorCount %></div>
+    <div class="subtitle">Visitors in last 60 seconds</div>
+  </div>
+  <div class="stat-card">
+    <h3>Polling Status</h3>
+    <div class="value" style="font-size: 1.5rem;" id="poll-status">
+      <span class="live-dot"></span> Live
+    </div>
+    <div class="subtitle">Refreshing every 10 seconds</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Active Sessions</h2>
+
+  <% if (visitors.length === 0) { %>
+  <div class="empty-state">
+    <h3>No active visitors</h3>
+    <p>Visitors will appear here when they're browsing your website.</p>
+  </div>
+  <% } else { %>
+  <div style="overflow-x: auto;">
+    <table id="visitors-table">
+      <thead>
+        <tr>
+          <th>Current Page</th>
+          <th>Referrer</th>
+          <th>Device</th>
+          <th>Session Started</th>
+          <th>Last Activity</th>
+          <th>Journey</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% visitors.forEach(visitor => { %>
+        <tr data-journey="<%= visitor.journey_id %>">
+          <td>
+            <a href="<%= visitor.page_url %>" target="_blank" title="<%= visitor.page_url %>">
+              <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 50) : 'Unknown' %>
+            </a>
+          </td>
+          <td>
+            <% if (visitor.referrer) { %>
+            <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 30) %></span>
+            <% } else { %>
+            <span class="text-muted">Direct</span>
+            <% } %>
+          </td>
+          <td>
+            <span class="badge badge-<%= visitor.device_type === 'mobile' ? 'warning' : visitor.device_type === 'tablet' ? 'info' : 'neutral' %>">
+              <%= visitor.device_type || 'Unknown' %>
+            </span>
+          </td>
+          <td><%= new Date(visitor.first_seen).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
+          <td class="last-activity"><%= new Date(visitor.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
+          <td>
+            <a href="/journeys/<%= visitor.journey_id %>" class="text-small">
+              <%= visitor.journey_id.substring(0, 8) %>...
+            </a>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<style>
+  #visitors-table tbody tr {
+    transition: background-color 0.3s;
+  }
+
+  #visitors-table tbody tr.new-visitor {
+    background-color: #f0fdf4;
+  }
+
+  #visitors-table tbody tr.fading {
+    background-color: #fef3c7;
+  }
+
+  .visitor-count-change {
+    animation: countPulse 0.5s ease-out;
+  }
+
+  @keyframes countPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+</style>
+
+<script>
+  let pollInterval = null;
+  let lastPollTime = Date.now();
+  let previousJourneyIds = new Set(<%= JSON.stringify(visitors.map(v => v.journey_id)) %>);
+
+  function formatTime(date) {
+    return new Date(date).toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  function truncateUrl(url, maxLength = 50) {
+    if (!url) return 'Unknown';
+    const path = url.replace(/^https?:\/\/[^\/]+/, '');
+    return path.length > maxLength ? path.substring(0, maxLength) + '...' : path;
+  }
+
+  function truncateDomain(url, maxLength = 30) {
+    if (!url) return '';
+    const match = url.match(/^https?:\/\/([^\/]+)/);
+    const domain = match ? match[1] : url;
+    return domain.length > maxLength ? domain.substring(0, maxLength) + '...' : domain;
+  }
+
+  function updateLastUpdated() {
+    const seconds = Math.round((Date.now() - lastPollTime) / 1000);
+    const text = seconds < 5 ? 'Updated just now' : `Updated ${seconds}s ago`;
+    document.getElementById('last-updated').textContent = text;
+  }
+
+  async function refreshData() {
+    try {
+      const response = await fetch('/realtime/api/visitors?seconds=60');
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('Failed to fetch visitors:', data.error);
+        return;
+      }
+
+      lastPollTime = Date.now();
+      updateLastUpdated();
+
+      // Update visitor count with animation
+      const countEl = document.getElementById('visitor-count');
+      const oldCount = parseInt(countEl.textContent);
+      if (oldCount !== data.count) {
+        countEl.textContent = data.count;
+        countEl.classList.add('visitor-count-change');
+        setTimeout(() => countEl.classList.remove('visitor-count-change'), 500);
+      }
+
+      // Update table
+      const tbody = document.querySelector('#visitors-table tbody');
+      const card = document.querySelector('.card');
+
+      if (data.visitors.length === 0) {
+        // Show empty state
+        if (tbody) {
+          card.innerHTML = `
+            <h2><span style="display: inline-block; width: 4px; height: 20px; background: var(--gold-primary); border-radius: 2px; margin-right: 8px;"></span>Active Sessions</h2>
+            <div class="empty-state">
+              <h3>No active visitors</h3>
+              <p>Visitors will appear here when they're browsing your website.</p>
+            </div>
+          `;
+        }
+        previousJourneyIds.clear();
+        return;
+      }
+
+      // Ensure table exists
+      if (!tbody) {
+        card.innerHTML = `
+          <h2><span style="display: inline-block; width: 4px; height: 20px; background: var(--gold-primary); border-radius: 2px; margin-right: 8px;"></span>Active Sessions</h2>
+          <div style="overflow-x: auto;">
+            <table id="visitors-table">
+              <thead>
+                <tr>
+                  <th>Current Page</th>
+                  <th>Referrer</th>
+                  <th>Device</th>
+                  <th>Session Started</th>
+                  <th>Last Activity</th>
+                  <th>Journey</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      const tableBody = document.querySelector('#visitors-table tbody');
+      const currentJourneyIds = new Set(data.visitors.map(v => v.journey_id));
+      const newJourneyIds = new Set();
+
+      // Find new visitors
+      currentJourneyIds.forEach(id => {
+        if (!previousJourneyIds.has(id)) {
+          newJourneyIds.add(id);
+        }
+      });
+
+      // Rebuild table
+      tableBody.innerHTML = data.visitors.map(v => {
+        const isNew = newJourneyIds.has(v.journey_id);
+        const deviceBadge = v.device_type === 'mobile' ? 'warning' : v.device_type === 'tablet' ? 'info' : 'neutral';
+        const referrerHtml = v.referrer
+          ? `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`
+          : '<span class="text-muted">Direct</span>';
+
+        return `
+          <tr data-journey="${v.journey_id}" class="${isNew ? 'new-visitor' : ''}">
+            <td>
+              <a href="${v.page_url}" target="_blank" title="${v.page_url}">
+                ${truncateUrl(v.page_url)}
+              </a>
+            </td>
+            <td>${referrerHtml}</td>
+            <td>
+              <span class="badge badge-${deviceBadge}">
+                ${v.device_type || 'Unknown'}
+              </span>
+            </td>
+            <td>${formatTime(v.first_seen)}</td>
+            <td class="last-activity">${formatTime(v.last_activity)}</td>
+            <td>
+              <a href="/journeys/${v.journey_id}" class="text-small">
+                ${v.journey_id.substring(0, 8)}...
+              </a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Remove new-visitor class after animation
+      setTimeout(() => {
+        document.querySelectorAll('.new-visitor').forEach(el => {
+          el.classList.remove('new-visitor');
+        });
+      }, 2000);
+
+      previousJourneyIds = currentJourneyIds;
+
+      // Also check for new journeys (to trigger email notifications)
+      fetch('/realtime/api/new-journeys?seconds=60').catch(console.error);
+
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }
+
+  // Start polling
+  function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(refreshData, 10000); // Every 10 seconds
+    setInterval(updateLastUpdated, 1000); // Update timestamp every second
+  }
+
+  // Stop polling when page is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    } else {
+      refreshData();
+      startPolling();
+    }
+  });
+
+  // Initial start
+  startPolling();
+</script>

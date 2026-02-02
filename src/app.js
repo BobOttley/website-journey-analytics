@@ -9,6 +9,7 @@ const { initializeSchema, getDb } = require('./db/database');
 const eventsRouter = require('./routes/events');
 const journeysRouter = require('./routes/journeys');
 const insightsRouter = require('./routes/insights');
+const realtimeRouter = require('./routes/realtime');
 
 // Initialize Express app
 const app = express();
@@ -91,6 +92,7 @@ app.use('/api/events', eventsRouter);
 
 // Web Routes
 app.use('/journeys', journeysRouter);
+app.use('/realtime', realtimeRouter);
 app.use('/insights', insightsRouter);
 
 // Root redirect
@@ -120,6 +122,7 @@ async function start() {
 ║         Website Journey Analytics Server              ║
 ╠═══════════════════════════════════════════════════════╣
 ║  Dashboard:  http://localhost:${PORT}/journeys            ║
+║  Real-time:  http://localhost:${PORT}/realtime            ║
 ║  Insights:   http://localhost:${PORT}/insights            ║
 ║  API:        http://localhost:${PORT}/api/event           ║
 ║  Health:     http://localhost:${PORT}/health              ║

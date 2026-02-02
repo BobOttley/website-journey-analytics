@@ -173,6 +173,67 @@ async function getAllInsights(limit = 10) {
   return result.rows;
 }
 
+// Real-time queries
+async function getActiveVisitors(withinSeconds = 60) {
+  const db = getDb();
+  const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
+
+  // Get unique journey_ids that have had activity in the last N seconds
+  // Use heartbeat or page_view events to determine activity
+  const result = await db.query(
+    `SELECT DISTINCT ON (je.journey_id)
+       je.journey_id,
+       je.page_url,
+       je.device_type,
+       je.occurred_at as last_activity,
+       (SELECT MIN(je2.occurred_at) FROM journey_events je2 WHERE je2.journey_id = je.journey_id) as first_seen,
+       (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer
+     FROM journey_events je
+     WHERE je.occurred_at >= $1
+       AND je.event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')
+     ORDER BY je.journey_id, je.occurred_at DESC`,
+    [cutoffTime]
+  );
+  return result.rows;
+}
+
+async function getRecentNewJourneys(sinceSeconds = 60) {
+  const db = getDb();
+  const cutoffTime = new Date(Date.now() - (sinceSeconds * 1000)).toISOString();
+
+  // Find journeys where first page_view happened within the window
+  // This indicates a new visitor/session
+  const result = await db.query(
+    `SELECT
+       je.journey_id,
+       MIN(je.occurred_at) as first_seen,
+       (SELECT je2.page_url FROM journey_events je2 WHERE je2.journey_id = je.journey_id ORDER BY je2.occurred_at ASC LIMIT 1) as entry_page,
+       (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer,
+       (SELECT je4.device_type FROM journey_events je4 WHERE je4.journey_id = je.journey_id ORDER BY je4.occurred_at ASC LIMIT 1) as device_type
+     FROM journey_events je
+     WHERE je.event_type = 'page_view'
+     GROUP BY je.journey_id
+     HAVING MIN(je.occurred_at) >= $1
+     ORDER BY MIN(je.occurred_at) DESC`,
+    [cutoffTime]
+  );
+  return result.rows;
+}
+
+async function getActiveVisitorCount(withinSeconds = 60) {
+  const db = getDb();
+  const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
+
+  const result = await db.query(
+    `SELECT COUNT(DISTINCT journey_id) as count
+     FROM journey_events
+     WHERE occurred_at >= $1
+       AND event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')`,
+    [cutoffTime]
+  );
+  return parseInt(result.rows[0].count);
+}
+
 module.exports = {
   // Events
   insertEvent,
@@ -189,5 +250,9 @@ module.exports = {
   // Insights
   insertInsight,
   getLatestInsight,
-  getAllInsights
+  getAllInsights,
+  // Real-time
+  getActiveVisitors,
+  getRecentNewJourneys,
+  getActiveVisitorCount
 };

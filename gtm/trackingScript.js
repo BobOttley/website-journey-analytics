@@ -12,6 +12,7 @@
   const ANALYTICS_ENDPOINT = 'http://localhost:3000/api/event';
   const JOURNEY_ID_KEY = 'wja_journey_id';
   const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+  const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 
   // CTA selectors to track (customize for your site)
   const CTA_SELECTORS = {
@@ -29,6 +30,9 @@
     apply: 'form[data-form="apply"], #application-form, .application-form',
     contact: 'form[data-form="contact"], #contact-form, .contact-form'
   };
+
+  // Heartbeat timer reference
+  let heartbeatTimer = null;
 
   // Utility functions
   function generateUUID() {
@@ -102,6 +106,41 @@
     });
   }
 
+  // Heartbeat - sends every 30 seconds to track active visitors
+  function startHeartbeat() {
+    // Clear any existing heartbeat
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+    }
+
+    // Send heartbeat immediately on page load (after page_view)
+    // Then continue every HEARTBEAT_INTERVAL
+    heartbeatTimer = setInterval(function() {
+      // Only send heartbeat if page is visible
+      if (document.visibilityState === 'visible') {
+        sendEvent({
+          event_type: 'heartbeat',
+          page_url: window.location.href
+        });
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    // Stop heartbeat when page is hidden, resume when visible
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
+      } else {
+        // Page became visible again, restart heartbeat
+        if (!heartbeatTimer) {
+          startHeartbeat();
+        }
+      }
+    });
+  }
+
   // Track CTA clicks
   function setupCtaTracking() {
     Object.entries(CTA_SELECTORS).forEach(function([intentType, selector]) {
@@ -157,6 +196,9 @@
   function init() {
     // Track initial page view
     trackPageView();
+
+    // Start heartbeat for real-time tracking
+    startHeartbeat();
 
     // Setup click and form tracking
     setupCtaTracking();
