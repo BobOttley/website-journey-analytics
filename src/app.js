@@ -1,0 +1,98 @@
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const { initializeSchema } = require('./db/database');
+
+// Import routes
+const eventsRouter = require('./routes/events');
+const journeysRouter = require('./routes/journeys');
+const insightsRouter = require('./routes/insights');
+
+// Initialize Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Initialize database
+initializeSchema();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, '../public')));
+
+// EJS setup with express-ejs-layouts style
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../public/views'));
+
+// Simple layout middleware
+app.use((req, res, next) => {
+  const originalRender = res.render.bind(res);
+  res.render = function(view, options = {}) {
+    // Parse query params for alerts
+    options.rebuilt = req.query.rebuilt;
+    options.analyzed = req.query.analyzed;
+    options.error = req.query.error;
+    options.currentPage = options.currentPage || view;
+
+    // Render the view first, then inject into layout
+    app.render(view, { ...options, layout: false }, (err, body) => {
+      if (err) {
+        return next(err);
+      }
+      originalRender('layout', { ...options, body });
+    });
+  };
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+// API Routes
+app.use('/api/event', eventsRouter);
+app.use('/api/events', eventsRouter);
+
+// Web Routes
+app.use('/journeys', journeysRouter);
+app.use('/insights', insightsRouter);
+
+// Root redirect
+app.get('/', (req, res) => {
+  res.redirect('/journeys');
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).render('error', { error: 'Page not found' });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).render('error', { error: 'Internal server error' });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`
+╔═══════════════════════════════════════════════════════╗
+║         Website Journey Analytics Server              ║
+╠═══════════════════════════════════════════════════════╣
+║  Dashboard:  http://localhost:${PORT}/journeys            ║
+║  Insights:   http://localhost:${PORT}/insights            ║
+║  API:        http://localhost:${PORT}/api/event           ║
+║  Health:     http://localhost:${PORT}/health              ║
+╚═══════════════════════════════════════════════════════╝
+  `);
+});
+
+module.exports = app;

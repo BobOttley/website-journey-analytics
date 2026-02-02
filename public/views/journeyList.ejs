@@ -1,0 +1,123 @@
+<% layout('layout') -%>
+
+<% if (typeof rebuilt !== 'undefined') { %>
+<div class="alert alert-success">
+  Successfully rebuilt <%= rebuilt %> journeys from events.
+</div>
+<% } %>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <h3>Total Journeys</h3>
+    <div class="value"><%= stats.total_journeys || 0 %></div>
+  </div>
+  <div class="stat-card">
+    <h3>Enquiries</h3>
+    <div class="value"><%= stats.enquiries || 0 %></div>
+    <div class="subtitle">
+      <% if (stats.total_journeys > 0) { %>
+        <%= ((stats.enquiries / stats.total_journeys) * 100).toFixed(1) %>% conversion
+      <% } %>
+    </div>
+  </div>
+  <div class="stat-card">
+    <h3>Visits Booked</h3>
+    <div class="value"><%= stats.visits_booked || 0 %></div>
+    <div class="subtitle">
+      <% if (stats.total_journeys > 0) { %>
+        <%= ((stats.visits_booked / stats.total_journeys) * 100).toFixed(1) %>% conversion
+      <% } %>
+    </div>
+  </div>
+  <div class="stat-card">
+    <h3>Avg Events</h3>
+    <div class="value"><%= stats.avg_events ? stats.avg_events.toFixed(1) : '0' %></div>
+    <div class="subtitle">per journey</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="flex justify-between items-center mb-4">
+    <h2>All Journeys</h2>
+    <form action="/journeys/rebuild" method="POST" style="display: inline;">
+      <button type="submit" class="btn btn-secondary">Rebuild Journeys</button>
+    </form>
+  </div>
+
+  <% if (journeys.length === 0) { %>
+    <div class="alert alert-info">
+      No journeys recorded yet. Events will appear here once the tracking script captures visitor behavior.
+    </div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Journey ID</th>
+          <th>First Seen</th>
+          <th>Entry Page</th>
+          <th>Pages</th>
+          <th>Events</th>
+          <th>Outcome</th>
+          <th>Time to Action</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% journeys.forEach(journey => { %>
+          <tr>
+            <td class="text-small text-muted"><%= journey.journey_id.substring(0, 8) %>...</td>
+            <td class="text-small"><%= new Date(journey.first_seen).toLocaleString() %></td>
+            <td class="text-small">
+              <% if (journey.entry_page) { %>
+                <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '') %>
+              <% } else { %>
+                <span class="text-muted">-</span>
+              <% } %>
+            </td>
+            <td><%= journey.page_sequence?.length || 0 %></td>
+            <td><%= journey.event_count %></td>
+            <td>
+              <% if (journey.outcome === 'enquiry_submitted') { %>
+                <span class="badge badge-success">Enquiry</span>
+              <% } else if (journey.outcome === 'visit_booked') { %>
+                <span class="badge badge-success">Visit Booked</span>
+              <% } else if (journey.outcome === 'engaged') { %>
+                <span class="badge badge-info">Engaged</span>
+              <% } else if (journey.outcome === 'form_abandoned') { %>
+                <span class="badge badge-warning">Form Abandoned</span>
+              <% } else { %>
+                <span class="badge badge-neutral">No Action</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (journey.time_to_action) { %>
+                <%= Math.floor(journey.time_to_action / 60) %>m <%= journey.time_to_action % 60 %>s
+              <% } else { %>
+                <span class="text-muted">-</span>
+              <% } %>
+            </td>
+            <td>
+              <a href="/journeys/<%= journey.journey_id %>" class="btn btn-secondary">View</a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <% if (pagination.totalPages > 1) { %>
+      <div class="pagination">
+        <% if (pagination.hasPrev) { %>
+          <a href="/journeys?page=<%= pagination.page - 1 %>">Previous</a>
+        <% } %>
+
+        <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+          <a href="/journeys?page=<%= i %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+        <% } %>
+
+        <% if (pagination.hasNext) { %>
+          <a href="/journeys?page=<%= pagination.page + 1 %>">Next</a>
+        <% } %>
+      </div>
+    <% } %>
+  <% } %>
+</div>

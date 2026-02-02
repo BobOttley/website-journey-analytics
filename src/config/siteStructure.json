@@ -1,0 +1,201 @@
+{
+  "siteName": "More House School",
+  "siteUrl": "https://www.morehouseschool.co.uk",
+  "pages": {
+    "/": {
+      "name": "Homepage",
+      "role": "landing",
+      "stage": "awareness",
+      "description": "Main entry point showcasing school overview"
+    },
+    "/admissions": {
+      "name": "Admissions Overview",
+      "role": "information",
+      "stage": "consideration",
+      "description": "General admissions information and process"
+    },
+    "/admissions/apply": {
+      "name": "Apply Now",
+      "role": "conversion",
+      "stage": "decision",
+      "description": "Application form and registration"
+    },
+    "/admissions/fees": {
+      "name": "Fees",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Fee structure and payment information"
+    },
+    "/admissions/scholarships": {
+      "name": "Scholarships",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Scholarship and bursary opportunities"
+    },
+    "/visit-us": {
+      "name": "Visit Us",
+      "role": "conversion",
+      "stage": "consideration",
+      "description": "Book a school visit or open day"
+    },
+    "/open-days": {
+      "name": "Open Days",
+      "role": "conversion",
+      "stage": "consideration",
+      "description": "Open day schedule and registration"
+    },
+    "/about": {
+      "name": "About Us",
+      "role": "information",
+      "stage": "awareness",
+      "description": "School history, ethos, and values"
+    },
+    "/about/head": {
+      "name": "Head's Welcome",
+      "role": "information",
+      "stage": "awareness",
+      "description": "Message from the Headmaster"
+    },
+    "/academics": {
+      "name": "Academics",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Curriculum and academic programmes"
+    },
+    "/academics/results": {
+      "name": "Exam Results",
+      "role": "information",
+      "stage": "consideration",
+      "description": "GCSE and A-Level results"
+    },
+    "/sixth-form": {
+      "name": "Sixth Form",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Sixth form overview and offerings"
+    },
+    "/boarding": {
+      "name": "Boarding",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Boarding house and facilities"
+    },
+    "/co-curricular": {
+      "name": "Co-Curricular",
+      "role": "information",
+      "stage": "awareness",
+      "description": "Sports, clubs, and activities"
+    },
+    "/pastoral": {
+      "name": "Pastoral Care",
+      "role": "information",
+      "stage": "consideration",
+      "description": "Student wellbeing and support"
+    },
+    "/prospectus": {
+      "name": "Prospectus",
+      "role": "conversion",
+      "stage": "consideration",
+      "description": "Download or request prospectus"
+    },
+    "/contact": {
+      "name": "Contact Us",
+      "role": "conversion",
+      "stage": "decision",
+      "description": "General enquiry form"
+    },
+    "/news": {
+      "name": "News",
+      "role": "engagement",
+      "stage": "awareness",
+      "description": "School news and updates"
+    },
+    "/gallery": {
+      "name": "Gallery",
+      "role": "engagement",
+      "stage": "awareness",
+      "description": "Photo and video gallery"
+    }
+  },
+  "ctas": {
+    "enquire": {
+      "label": "Enquire Now",
+      "intent": "enquire",
+      "commitment": "high",
+      "description": "Submit an enquiry form"
+    },
+    "book_visit": {
+      "label": "Book a Visit",
+      "intent": "book_visit",
+      "commitment": "high",
+      "description": "Schedule a school tour"
+    },
+    "open_day": {
+      "label": "Register for Open Day",
+      "intent": "book_visit",
+      "commitment": "medium",
+      "description": "Sign up for an open day event"
+    },
+    "prospectus": {
+      "label": "Download Prospectus",
+      "intent": "prospectus",
+      "commitment": "low",
+      "description": "Get the school prospectus"
+    },
+    "apply": {
+      "label": "Apply Now",
+      "intent": "apply",
+      "commitment": "high",
+      "description": "Start an application"
+    },
+    "contact": {
+      "label": "Contact Us",
+      "intent": "contact",
+      "commitment": "medium",
+      "description": "General enquiry"
+    }
+  },
+  "journeyStages": {
+    "awareness": {
+      "order": 1,
+      "description": "Discovering the school exists",
+      "typicalPages": ["/", "/about", "/news", "/gallery"]
+    },
+    "consideration": {
+      "order": 2,
+      "description": "Evaluating if school is a good fit",
+      "typicalPages": ["/admissions", "/academics", "/fees", "/visit-us"]
+    },
+    "decision": {
+      "order": 3,
+      "description": "Ready to take action",
+      "typicalPages": ["/admissions/apply", "/contact", "/open-days"]
+    }
+  },
+  "conversionGoals": [
+    {
+      "name": "Enquiry Submitted",
+      "event": "form_submit",
+      "intent": "enquire",
+      "value": "high"
+    },
+    {
+      "name": "Visit Booked",
+      "event": "form_submit",
+      "intent": "book_visit",
+      "value": "high"
+    },
+    {
+      "name": "Application Started",
+      "event": "form_start",
+      "intent": "apply",
+      "value": "medium"
+    },
+    {
+      "name": "Prospectus Downloaded",
+      "event": "cta_click",
+      "intent": "prospectus",
+      "value": "low"
+    }
+  ]
+}

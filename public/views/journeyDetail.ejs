@@ -1,0 +1,163 @@
+<% layout('layout') -%>
+
+<div class="flex justify-between items-center mb-4">
+  <div>
+    <a href="/journeys" class="text-muted text-small">&larr; Back to Journeys</a>
+    <h2 class="mt-4">Journey: <%= journey.journey_id.substring(0, 8) %>...</h2>
+  </div>
+  <div>
+    <% if (journey.outcome === 'enquiry_submitted') { %>
+      <span class="badge badge-success">Enquiry Submitted</span>
+    <% } else if (journey.outcome === 'visit_booked') { %>
+      <span class="badge badge-success">Visit Booked</span>
+    <% } else if (journey.outcome === 'engaged') { %>
+      <span class="badge badge-info">Engaged</span>
+    <% } else if (journey.outcome === 'form_abandoned') { %>
+      <span class="badge badge-warning">Form Abandoned</span>
+    <% } else { %>
+      <span class="badge badge-neutral">No Action</span>
+    <% } %>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <h3>First Seen</h3>
+    <div class="value text-small"><%= new Date(journey.first_seen).toLocaleString() %></div>
+  </div>
+  <div class="stat-card">
+    <h3>Last Seen</h3>
+    <div class="value text-small"><%= new Date(journey.last_seen).toLocaleString() %></div>
+  </div>
+  <div class="stat-card">
+    <h3>Total Events</h3>
+    <div class="value"><%= journey.event_count %></div>
+  </div>
+  <div class="stat-card">
+    <h3>Time to Action</h3>
+    <div class="value">
+      <% if (journey.time_to_action) { %>
+        <%= Math.floor(journey.time_to_action / 60) %>m <%= journey.time_to_action % 60 %>s
+      <% } else { %>
+        -
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Journey Overview</h2>
+  <table>
+    <tr>
+      <th style="width: 200px;">Entry Page</th>
+      <td><%= journey.entry_page || 'Unknown' %></td>
+    </tr>
+    <tr>
+      <th>Referrer</th>
+      <td><%= journey.entry_referrer || 'Direct' %></td>
+    </tr>
+    <tr>
+      <th>Initial Intent</th>
+      <td><%= journey.initial_intent || 'Browsing' %></td>
+    </tr>
+    <tr>
+      <th>Pages Viewed</th>
+      <td><%= journey.page_sequence?.length || 0 %></td>
+    </tr>
+    <% if (journey.loops && journey.loops.length > 0) { %>
+    <tr>
+      <th>Loops Detected</th>
+      <td>
+        <% journey.loops.forEach(loop => { %>
+          <span class="badge badge-warning"><%= loop.url.replace(/https?:\/\/[^\/]+/, '') %> (x<%= loop.visits %>)</span>
+        <% }) %>
+      </td>
+    </tr>
+    <% } %>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Event Timeline</h2>
+
+  <% if (!journey.events || journey.events.length === 0) { %>
+    <p class="text-muted">No events recorded for this journey.</p>
+  <% } else { %>
+    <div class="timeline">
+      <% journey.events.forEach((event, index) => { %>
+        <div class="timeline-item <%= event.event_type %>">
+          <div class="timeline-time">
+            <%= new Date(event.occurred_at).toLocaleTimeString() %>
+            <% if (index > 0) { %>
+              <% const prevTime = new Date(journey.events[index-1].occurred_at).getTime(); %>
+              <% const currTime = new Date(event.occurred_at).getTime(); %>
+              <% const diff = Math.round((currTime - prevTime) / 1000); %>
+              <span class="text-muted">(+<%= diff %>s)</span>
+            <% } %>
+          </div>
+          <div class="timeline-content">
+            <strong>
+              <% if (event.event_type === 'page_view') { %>
+                Page View
+              <% } else if (event.event_type === 'cta_click') { %>
+                CTA Click
+              <% } else if (event.event_type === 'form_start') { %>
+                Form Started
+              <% } else if (event.event_type === 'form_submit') { %>
+                Form Submitted
+              <% } else if (event.event_type === 'time_on_page') { %>
+                Time on Page
+              <% } else { %>
+                <%= event.event_type %>
+              <% } %>
+            </strong>
+
+            <% if (event.page_url) { %>
+              <div class="text-small text-muted">
+                <%= event.page_url.replace(/https?:\/\/[^\/]+/, '') %>
+              </div>
+            <% } %>
+
+            <% if (event.cta_label) { %>
+              <div class="text-small">
+                <% if (event.event_type === 'time_on_page') { %>
+                  Duration: <%= event.cta_label %>s
+                <% } else { %>
+                  "<%= event.cta_label %>"
+                <% } %>
+              </div>
+            <% } %>
+
+            <% if (event.intent_type) { %>
+              <span class="badge badge-info"><%= event.intent_type %></span>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<% if (journey.page_sequence && journey.page_sequence.length > 0) { %>
+<div class="card">
+  <h2>Page Sequence</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Page</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% journey.page_sequence.forEach((page, index) => { %>
+        <tr>
+          <td><%= index + 1 %></td>
+          <td><%= page.url?.replace(/https?:\/\/[^\/]+/, '') || 'Unknown' %></td>
+          <td class="text-small text-muted"><%= new Date(page.timestamp).toLocaleTimeString() %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
