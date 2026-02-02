@@ -19,6 +19,20 @@ initializeSchema();
 
 // Middleware
 app.use(cors());
+
+// Handle text/plain as JSON (sendBeacon sends text/plain)
+app.use(express.text({ type: 'text/plain' }));
+app.use((req, res, next) => {
+  if (req.headers['content-type'] === 'text/plain' && typeof req.body === 'string') {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch (e) {
+      // Leave as string if not valid JSON
+    }
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));

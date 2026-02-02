@@ -17,7 +17,10 @@ const VALID_INTENT_TYPES = [
   'book_visit',
   'apply',
   'contact',
-  'general'
+  'general',
+  'demo',
+  'calculate',
+  'explore'
 ];
 
 function validateEvent(body) {
