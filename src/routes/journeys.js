@@ -12,8 +12,18 @@ router.get('/', async (req, res) => {
 
     const journeys = await getAllJourneys(limit, offset);
     const totalCount = await getJourneyCount();
-    const stats = await getJourneyStats();
+    const rawStats = await getJourneyStats();
     const totalPages = Math.ceil(totalCount / limit);
+
+    // Convert PostgreSQL string values to numbers
+    const stats = {
+      total_journeys: parseInt(rawStats.total_journeys) || 0,
+      enquiries: parseInt(rawStats.enquiries) || 0,
+      visits_booked: parseInt(rawStats.visits_booked) || 0,
+      no_action: parseInt(rawStats.no_action) || 0,
+      avg_events: parseFloat(rawStats.avg_events) || 0,
+      avg_time_to_action: parseFloat(rawStats.avg_time_to_action) || 0
+    };
 
     // Parse page_sequence JSON for each journey
     const parsedJourneys = journeys.map(j => ({
