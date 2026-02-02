@@ -71,6 +71,20 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug endpoint to check event count
+app.get('/debug', (req, res) => {
+  const { getDb } = require('./db/database');
+  const db = getDb();
+  const eventCount = db.prepare('SELECT COUNT(*) as count FROM journey_events').get();
+  const journeyCount = db.prepare('SELECT COUNT(*) as count FROM journeys').get();
+  const recentEvents = db.prepare('SELECT * FROM journey_events ORDER BY occurred_at DESC LIMIT 5').all();
+  res.json({
+    events: eventCount.count,
+    journeys: journeyCount.count,
+    recentEvents
+  });
+});
+
 // API Routes
 app.use('/api/event', eventsRouter);
 app.use('/api/events', eventsRouter);
