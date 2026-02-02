@@ -1,200 +1,158 @@
 {
-  "siteName": "More House School",
-  "siteUrl": "https://www.morehouseschool.co.uk",
+  "siteName": "bSMART AI",
+  "siteUrl": "https://www.bsmart-ai.com",
   "pages": {
     "/": {
       "name": "Homepage",
       "role": "landing",
       "stage": "awareness",
-      "description": "Main entry point showcasing school overview"
+      "description": "Main landing page introducing the SMART AI ecosystem"
     },
-    "/admissions": {
-      "name": "Admissions Overview",
-      "role": "information",
+    "/index.html": {
+      "name": "Homepage",
+      "role": "landing",
+      "stage": "awareness",
+      "description": "Main landing page introducing the SMART AI ecosystem"
+    },
+    "/prospectus.html": {
+      "name": "SMART Prospectus",
+      "role": "product",
       "stage": "consideration",
-      "description": "General admissions information and process"
+      "description": "Interactive digital prospectus product page"
     },
-    "/admissions/apply": {
-      "name": "Apply Now",
+    "/crm.html": {
+      "name": "SMART CRM",
+      "role": "product",
+      "stage": "consideration",
+      "description": "Admissions CRM product page"
+    },
+    "/chatbot.html": {
+      "name": "SMART Chat",
+      "role": "product",
+      "stage": "consideration",
+      "description": "AI chatbot product page"
+    },
+    "/voice.html": {
+      "name": "SMART Voice",
+      "role": "product",
+      "stage": "consideration",
+      "description": "Voice AI and audio tours product page"
+    },
+    "/booking.html": {
+      "name": "SMART Booking",
+      "role": "product",
+      "stage": "consideration",
+      "description": "Visit management product page"
+    },
+    "/email.html": {
+      "name": "SMART Email",
+      "role": "product",
+      "stage": "consideration",
+      "description": "AI email personalisation product page"
+    },
+    "/contact.html": {
+      "name": "Contact",
       "role": "conversion",
       "stage": "decision",
-      "description": "Application form and registration"
+      "description": "Contact form and enquiry page"
     },
-    "/admissions/fees": {
-      "name": "Fees",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Fee structure and payment information"
-    },
-    "/admissions/scholarships": {
-      "name": "Scholarships",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Scholarship and bursary opportunities"
-    },
-    "/visit-us": {
-      "name": "Visit Us",
+    "/smart-benefits-calculator.html": {
+      "name": "ROI Calculator",
       "role": "conversion",
       "stage": "consideration",
-      "description": "Book a school visit or open day"
+      "description": "Interactive benefits calculator"
     },
-    "/open-days": {
-      "name": "Open Days",
-      "role": "conversion",
-      "stage": "consideration",
-      "description": "Open day schedule and registration"
-    },
-    "/about": {
-      "name": "About Us",
-      "role": "information",
+    "/privacy.html": {
+      "name": "Privacy Policy",
+      "role": "legal",
       "stage": "awareness",
-      "description": "School history, ethos, and values"
-    },
-    "/about/head": {
-      "name": "Head's Welcome",
-      "role": "information",
-      "stage": "awareness",
-      "description": "Message from the Headmaster"
-    },
-    "/academics": {
-      "name": "Academics",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Curriculum and academic programmes"
-    },
-    "/academics/results": {
-      "name": "Exam Results",
-      "role": "information",
-      "stage": "consideration",
-      "description": "GCSE and A-Level results"
-    },
-    "/sixth-form": {
-      "name": "Sixth Form",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Sixth form overview and offerings"
-    },
-    "/boarding": {
-      "name": "Boarding",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Boarding house and facilities"
-    },
-    "/co-curricular": {
-      "name": "Co-Curricular",
-      "role": "information",
-      "stage": "awareness",
-      "description": "Sports, clubs, and activities"
-    },
-    "/pastoral": {
-      "name": "Pastoral Care",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Student wellbeing and support"
-    },
-    "/prospectus": {
-      "name": "Prospectus",
-      "role": "conversion",
-      "stage": "consideration",
-      "description": "Download or request prospectus"
-    },
-    "/contact": {
-      "name": "Contact Us",
-      "role": "conversion",
-      "stage": "decision",
-      "description": "General enquiry form"
-    },
-    "/news": {
-      "name": "News",
-      "role": "engagement",
-      "stage": "awareness",
-      "description": "School news and updates"
-    },
-    "/gallery": {
-      "name": "Gallery",
-      "role": "engagement",
-      "stage": "awareness",
-      "description": "Photo and video gallery"
+      "description": "Privacy policy page"
     }
   },
   "ctas": {
-    "enquire": {
-      "label": "Enquire Now",
+    "book_demo": {
+      "label": "Book a Demo",
+      "intent": "demo",
+      "commitment": "high",
+      "description": "Request a product demonstration"
+    },
+    "book_enterprise_demo": {
+      "label": "Book Enterprise Demo",
+      "intent": "demo",
+      "commitment": "high",
+      "description": "Request enterprise demo"
+    },
+    "discuss_options": {
+      "label": "Discuss Options",
       "intent": "enquire",
-      "commitment": "high",
-      "description": "Submit an enquiry form"
-    },
-    "book_visit": {
-      "label": "Book a Visit",
-      "intent": "book_visit",
-      "commitment": "high",
-      "description": "Schedule a school tour"
-    },
-    "open_day": {
-      "label": "Register for Open Day",
-      "intent": "book_visit",
       "commitment": "medium",
-      "description": "Sign up for an open day event"
+      "description": "Talk about deployment options"
     },
-    "prospectus": {
-      "label": "Download Prospectus",
-      "intent": "prospectus",
+    "calculate_roi": {
+      "label": "Calculate Your ROI",
+      "intent": "calculate",
       "commitment": "low",
-      "description": "Get the school prospectus"
+      "description": "Use the benefits calculator"
     },
-    "apply": {
-      "label": "Apply Now",
-      "intent": "apply",
-      "commitment": "high",
-      "description": "Start an application"
+    "see_how_it_works": {
+      "label": "See How It Works",
+      "intent": "explore",
+      "commitment": "low",
+      "description": "Scroll to ecosystem section"
     },
-    "contact": {
-      "label": "Contact Us",
-      "intent": "contact",
+    "learn_more": {
+      "label": "Learn more",
+      "intent": "explore",
+      "commitment": "low",
+      "description": "Navigate to product page"
+    },
+    "see_emily": {
+      "label": "See Emily in Action",
+      "intent": "demo",
       "commitment": "medium",
-      "description": "General enquiry"
+      "description": "View Emily AI demo"
     }
   },
   "journeyStages": {
     "awareness": {
       "order": 1,
-      "description": "Discovering the school exists",
-      "typicalPages": ["/", "/about", "/news", "/gallery"]
+      "description": "Discovering bSMART AI exists",
+      "typicalPages": ["/", "/index.html", "/privacy.html"]
     },
     "consideration": {
       "order": 2,
-      "description": "Evaluating if school is a good fit",
-      "typicalPages": ["/admissions", "/academics", "/fees", "/visit-us"]
+      "description": "Evaluating products and features",
+      "typicalPages": ["/prospectus.html", "/crm.html", "/chatbot.html", "/voice.html", "/booking.html", "/email.html", "/smart-benefits-calculator.html"]
     },
     "decision": {
       "order": 3,
-      "description": "Ready to take action",
-      "typicalPages": ["/admissions/apply", "/contact", "/open-days"]
+      "description": "Ready to book demo or contact",
+      "typicalPages": ["/contact.html"]
     }
   },
   "conversionGoals": [
     {
-      "name": "Enquiry Submitted",
-      "event": "form_submit",
-      "intent": "enquire",
+      "name": "Demo Booked",
+      "event": "cta_click",
+      "intent": "demo",
       "value": "high"
     },
     {
-      "name": "Visit Booked",
+      "name": "Contact Form Submitted",
       "event": "form_submit",
-      "intent": "book_visit",
+      "intent": "contact",
       "value": "high"
     },
     {
-      "name": "Application Started",
-      "event": "form_start",
-      "intent": "apply",
+      "name": "ROI Calculator Used",
+      "event": "form_submit",
+      "intent": "calculate",
       "value": "medium"
     },
     {
-      "name": "Prospectus Downloaded",
-      "event": "cta_click",
-      "intent": "prospectus",
+      "name": "Product Page Visited",
+      "event": "page_view",
+      "intent": "explore",
       "value": "low"
     }
   ]
