@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
-const { insertEvent, getEventsByJourneyId, upsertJourney } = require('../db/queries');
+const { insertEvent, getEventsByJourneyId } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 const emailService = require('../services/emailService');
-const { reconstructJourney } = require('../services/journeyBuilder');
 
 /**
  * Track which journeys we’ve already emailed about
@@ -160,13 +159,6 @@ router.post('/', async (req, res) => {
 
     const result = await insertEvent(event);
 
-    // Rebuild journey in background (keeps journeys table up to date for Recent Sessions)
-    reconstructJourney(event.journey_id).then(journey => {
-      if (journey) return upsertJourney(journey);
-    }).catch(err => {
-      console.error('Journey rebuild failed:', err.message);
-    });
-
     /**
      * New-visitor email logic
      * Only fire once per journey, on first page_view
@@ -263,16 +255,6 @@ router.post('/batch', async (req, res) => {
         errors.push({ index: i, error: err.message });
       }
     }
-
-    // Rebuild affected journeys in background
-    const journeyIds = [...new Set(req.body.events.map(e => e.journey_id))];
-    journeyIds.forEach(id => {
-      reconstructJourney(id).then(journey => {
-        if (journey) return upsertJourney(journey);
-      }).catch(err => {
-        console.error('Journey rebuild failed:', err.message);
-      });
-    });
 
     res.json({
       success: errors.length === 0,

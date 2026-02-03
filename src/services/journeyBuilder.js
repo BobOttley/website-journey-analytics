@@ -424,6 +424,7 @@ async function reconstructJourney(journeyId) {
 
   return {
     journey_id: journeyId,
+    visitor_id: firstEvent.visitor_id || null,
     first_seen: firstEvent.occurred_at,
     last_seen: lastEvent.occurred_at,
     entry_page: pageSequence[0]?.url || null,
