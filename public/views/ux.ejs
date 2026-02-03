@@ -1,4 +1,23 @@
 <style>
+  .ux-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .ux-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .ux-header .period {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* KPI Grid */
   .ux-kpi-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -14,57 +33,42 @@
     .ux-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
-  .ux-kpi-card {
+  .kpi-card {
     background: var(--bg-card);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 1.25rem;
     border: 1px solid var(--card-border);
     text-align: center;
-    position: relative;
-    overflow: hidden;
   }
 
-  .ux-kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--border-grey);
-  }
-
-  .ux-kpi-card.good::before { background: var(--success); }
-  .ux-kpi-card.warning::before { background: var(--warning); }
-  .ux-kpi-card.bad::before { background: var(--danger); }
-  .ux-kpi-card.info::before { background: var(--info); }
-
-  .ux-kpi-card .label {
+  .kpi-card .label {
     font-size: 0.7rem;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.5px;
     color: var(--text-muted);
     margin-bottom: 0.5rem;
   }
 
-  .ux-kpi-card .value {
-    font-size: 2rem;
-    font-weight: 900;
-    line-height: 1;
-    margin-bottom: 0.25rem;
+  .kpi-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-primary);
   }
 
-  .ux-kpi-card.good .value { color: var(--success); }
-  .ux-kpi-card.warning .value { color: var(--warning); }
-  .ux-kpi-card.bad .value { color: var(--danger); }
-  .ux-kpi-card.info .value { color: var(--info); }
+  .kpi-card .value.good { color: #10B981; }
+  .kpi-card .value.warning { color: #F59E0B; }
+  .kpi-card .value.bad { color: #EF4444; }
+  .kpi-card .value.neutral { color: var(--text-primary); }
 
-  .ux-kpi-card .subtitle {
+  .kpi-card .subtitle {
     font-size: 0.75rem;
     color: var(--text-muted);
+    margin-top: 0.25rem;
   }
 
+  /* Section Grid */
   .section-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -76,357 +80,416 @@
     .section-grid { grid-template-columns: 1fr; }
   }
 
-  .insight-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255, 159, 28, 0.1);
-    border: 1px solid rgba(255, 159, 28, 0.3);
+  .section-card {
+    background: var(--bg-card);
     border-radius: 8px;
-    font-size: 0.75rem;
-    color: var(--award-gold);
-    margin-top: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--card-border);
   }
 
-  .truncate-text {
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .section-card h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--card-border);
   }
 
-  .page-path {
-    font-size: 0.75rem;
+  .section-card.full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* Tables */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .data-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     color: var(--text-muted);
-    max-width: 150px;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .data-table td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+    color: var(--text-primary);
+  }
+
+  .data-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .data-table .number {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table .truncate {
+    max-width: 180px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .empty-section {
-    padding: 2rem;
+  .data-table code {
+    background: var(--bg-subtle);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  /* Rate badge */
+  .rate-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .rate-badge.low { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+  .rate-badge.medium { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+  .rate-badge.high { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
+
+  /* Empty state */
+  .empty-state {
+    padding: 2.5rem 1rem;
     text-align: center;
     color: var(--text-muted);
   }
 
-  .empty-section .icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-    opacity: 0.5;
+  .empty-state .icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    opacity: 0.4;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  /* Chart container */
+  .chart-wrap {
+    height: 220px;
+    margin-top: 0.5rem;
+  }
+
+  .chart-wrap.tall {
+    height: 300px;
   }
 </style>
 
-<div class="flex justify-between items-center mb-4">
-  <h2 style="font-size: 1.5rem;">UX Analytics</h2>
-  <span class="text-small text-muted">Last 7 days (trends: 30 days)</span>
+<div class="ux-header">
+  <h2>UX Analytics</h2>
+  <span class="period">Last 7 days</span>
 </div>
 
 <!-- KPI Cards -->
 <div class="ux-kpi-grid">
-  <!-- Friction Score -->
-  <div class="ux-kpi-card <%= overview.frictionScore <= 30 ? 'good' : overview.frictionScore <= 60 ? 'warning' : 'bad' %>">
+  <div class="kpi-card">
     <div class="label">Friction Score</div>
-    <div class="value"><%= overview.frictionScore %></div>
-    <div class="subtitle"><%= overview.frictionScore <= 30 ? 'Good' : overview.frictionScore <= 60 ? 'Moderate' : 'High friction' %></div>
+    <div class="value <%= overview.frictionScore <= 20 ? 'good' : overview.frictionScore <= 50 ? 'warning' : 'bad' %>">
+      <%= overview.frictionScore %>
+    </div>
+    <div class="subtitle"><%= overview.frictionScore <= 20 ? 'Low friction' : overview.frictionScore <= 50 ? 'Moderate' : 'High friction' %></div>
   </div>
 
-  <!-- Dead Clicks -->
-  <div class="ux-kpi-card <%= overview.deadClicks === 0 ? 'good' : overview.deadClicks <= 50 ? 'warning' : 'bad' %>">
+  <div class="kpi-card">
     <div class="label">Dead Clicks</div>
-    <div class="value"><%= overview.deadClicks %></div>
+    <div class="value <%= overview.deadClicks === 0 ? 'good' : overview.deadClicks <= 20 ? 'warning' : 'bad' %>">
+      <%= overview.deadClicks %>
+    </div>
     <div class="subtitle">7-day total</div>
   </div>
 
-  <!-- CTA Hesitation Rate -->
-  <div class="ux-kpi-card <%= overview.hesitationRate <= 20 ? 'good' : overview.hesitationRate <= 40 ? 'warning' : 'bad' %>">
+  <div class="kpi-card">
     <div class="label">CTA Hesitation</div>
-    <div class="value"><%= overview.hesitationRate %>%</div>
+    <div class="value <%= overview.hesitationRate <= 30 ? 'good' : overview.hesitationRate <= 60 ? 'warning' : 'bad' %>">
+      <%= overview.hesitationRate %>%
+    </div>
     <div class="subtitle">Hover without click</div>
   </div>
 
-  <!-- Quick Backs -->
-  <div class="ux-kpi-card <%= overview.quickBacks === 0 ? 'good' : overview.quickBacks <= 20 ? 'warning' : 'bad' %>">
+  <div class="kpi-card">
     <div class="label">Quick Backs</div>
-    <div class="value"><%= overview.quickBacks %></div>
+    <div class="value <%= overview.quickBacks === 0 ? 'good' : overview.quickBacks <= 10 ? 'warning' : 'bad' %>">
+      <%= overview.quickBacks %>
+    </div>
     <div class="subtitle">Back within 5s</div>
   </div>
 
-  <!-- Scroll Behaviour -->
-  <div class="ux-kpi-card <%= overview.scrollBehaviour === 'reading' ? 'good' : overview.scrollBehaviour === 'scanning' ? 'info' : 'warning' %>">
-    <div class="label">Scroll Behaviour</div>
-    <div class="value" style="font-size: 1.1rem; text-transform: capitalize;"><%= overview.scrollBehaviour %></div>
-    <div class="subtitle">Dominant pattern</div>
+  <div class="kpi-card">
+    <div class="label">Scroll Pattern</div>
+    <div class="value neutral" style="font-size: 1.1rem; text-transform: capitalize;">
+      <%= overview.scrollBehaviour || 'No data' %>
+    </div>
+    <div class="subtitle">Dominant behaviour</div>
   </div>
 
-  <!-- Search Queries -->
-  <div class="ux-kpi-card info">
+  <div class="kpi-card">
     <div class="label">Site Searches</div>
-    <div class="value"><%= overview.searches %></div>
+    <div class="value neutral"><%= overview.searches %></div>
     <div class="subtitle">7-day total</div>
   </div>
 </div>
 
-<!-- Friction Hotspots Section -->
+<!-- Row 1: Dead Clicks + CTA Hesitations -->
 <div class="section-grid">
-  <!-- Dead Clicks Table -->
-  <div class="card">
-    <h2>Dead Click Hotspots</h2>
+  <div class="section-card">
+    <h3>Dead Click Hotspots</h3>
     <% if (deadClicks && deadClicks.length > 0) { %>
-      <div class="insight-badge">
-        These elements look clickable but aren't
-      </div>
-      <div style="overflow-x: auto; margin-top: 1rem;">
-        <table>
-          <thead>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Element</th>
+            <th>Text</th>
+            <th>Clicks</th>
+            <th>Visitors</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% deadClicks.slice(0, 8).forEach(item => { %>
             <tr>
-              <th>Element</th>
-              <th>Text</th>
-              <th>Clicks</th>
-              <th>Visitors</th>
+              <td><code><%= item.element %></code></td>
+              <td class="truncate" title="<%= item.text_clicked %>"><%= item.text_clicked || '-' %></td>
+              <td class="number"><%= item.click_count %></td>
+              <td class="number"><%= item.unique_visitors %></td>
             </tr>
-          </thead>
-          <tbody>
-            <% deadClicks.slice(0, 10).forEach(item => { %>
-              <tr>
-                <td><code><%= item.element %></code></td>
-                <td class="truncate-text" title="<%= item.text_clicked %>"><%= item.text_clicked || '-' %></td>
-                <td><strong><%= item.click_count %></strong></td>
-                <td><%= item.unique_visitors %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+          <% }) %>
+        </tbody>
+      </table>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128077;</div>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <p>No dead clicks detected</p>
       </div>
     <% } %>
   </div>
 
-  <!-- CTA Hesitations Table -->
-  <div class="card">
-    <h2>CTA Hesitations</h2>
+  <div class="section-card">
+    <h3>CTA Hesitations</h3>
     <% if (hesitations && hesitations.length > 0) { %>
-      <div class="insight-badge">
-        Users are uncertain about these CTAs
-      </div>
-      <div style="overflow-x: auto; margin-top: 1rem;">
-        <table>
-          <thead>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>CTA</th>
+            <th>Avg Hover</th>
+            <th>Count</th>
+            <th>Click Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% hesitations.slice(0, 8).forEach(item => { %>
             <tr>
-              <th>CTA</th>
-              <th>Avg Hover</th>
-              <th>Hesitations</th>
-              <th>Click Rate</th>
+              <td class="truncate" title="<%= item.cta_label %>"><%= item.cta_label %></td>
+              <td><%= item.avg_hover_time %>s</td>
+              <td class="number"><%= item.hesitation_count %></td>
+              <td>
+                <span class="rate-badge <%= item.click_rate >= 50 ? 'low' : item.click_rate >= 25 ? 'medium' : 'high' %>">
+                  <%= item.click_rate %>%
+                </span>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            <% hesitations.slice(0, 10).forEach(item => { %>
-              <tr>
-                <td class="truncate-text" title="<%= item.cta_label %>"><%= item.cta_label %></td>
-                <td><%= item.avg_hover_time %>s</td>
-                <td><strong><%= item.hesitation_count %></strong></td>
-                <td>
-                  <span class="badge <%= item.click_rate >= 50 ? 'badge-success' : item.click_rate >= 25 ? 'badge-warning' : 'badge-danger' %>">
-                    <%= item.click_rate %>%
-                  </span>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+          <% }) %>
+        </tbody>
+      </table>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128077;</div>
-        <p>No CTA hesitations detected</p>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p>No hesitations detected</p>
       </div>
     <% } %>
   </div>
 </div>
 
-<!-- Content Engagement Section -->
+<!-- Row 2: Scroll Behaviour + Section View Times -->
 <div class="section-grid">
-  <!-- Scroll Behaviour Chart -->
-  <div class="card">
-    <h2>Scroll Behaviour</h2>
+  <div class="section-card">
+    <h3>Scroll Behaviour</h3>
     <% if (scrollBehaviour && scrollBehaviour.length > 0) { %>
-      <div class="insight-badge">
-        High skimming = content not engaging
-      </div>
-      <div class="chart-container small" style="margin-top: 1rem;">
+      <div class="chart-wrap">
         <canvas id="scrollChart"></canvas>
       </div>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128220;</div>
-        <p>No scroll behaviour data yet</p>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p>No scroll data yet</p>
       </div>
     <% } %>
   </div>
 
-  <!-- Section Visibility -->
-  <div class="card">
-    <h2>Section View Times</h2>
+  <div class="section-card">
+    <h3>Section View Times</h3>
     <% if (sectionVisibility && sectionVisibility.length > 0) { %>
-      <div class="insight-badge">
-        Which content gets attention vs skipped
-      </div>
-      <div class="chart-container small" style="margin-top: 1rem;">
+      <div class="chart-wrap">
         <canvas id="visibilityChart"></canvas>
       </div>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128065;</div>
-        <p>No section visibility data yet</p>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+        </svg>
+        <p>No visibility data yet</p>
       </div>
     <% } %>
   </div>
 </div>
 
-<!-- Navigation Issues Section -->
+<!-- Row 3: Quick Backs + Site Searches -->
 <div class="section-grid">
-  <!-- Quick Backs Table -->
-  <div class="card">
-    <h2>Quick Back Analysis</h2>
+  <div class="section-card">
+    <h3>Quick Back Analysis</h3>
     <% if (quickBacks && quickBacks.length > 0) { %>
-      <div class="insight-badge">
-        Page didn't match user expectations
-      </div>
-      <div style="overflow-x: auto; margin-top: 1rem;">
-        <table>
-          <thead>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Page</th>
+            <th>Quick Backs</th>
+            <th>Avg Time</th>
+            <th>Visitors</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% quickBacks.slice(0, 8).forEach(item => { %>
             <tr>
-              <th>Page</th>
-              <th>Quick Backs</th>
-              <th>Avg Time</th>
-              <th>Visitors</th>
+              <td class="truncate" title="<%= item.page_url %>">
+                <%= item.page_url ? new URL(item.page_url).pathname : '-' %>
+              </td>
+              <td class="number"><%= item.quick_back_count %></td>
+              <td><%= item.avg_time_before_back || '-' %>s</td>
+              <td class="number"><%= item.unique_visitors %></td>
             </tr>
-          </thead>
-          <tbody>
-            <% quickBacks.slice(0, 10).forEach(item => { %>
-              <tr>
-                <td class="page-path" title="<%= item.page_url %>"><%= item.page_url ? new URL(item.page_url).pathname : '-' %></td>
-                <td><strong><%= item.quick_back_count %></strong></td>
-                <td><%= item.avg_time_before_back || '-' %>s</td>
-                <td><%= item.unique_visitors %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+          <% }) %>
+        </tbody>
+      </table>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128077;</div>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <p>No quick backs detected</p>
       </div>
     <% } %>
   </div>
 
-  <!-- Search Queries Table -->
-  <div class="card">
-    <h2>Site Search Queries</h2>
+  <div class="section-card">
+    <h3>Site Search Queries</h3>
     <% if (searches && searches.length > 0) { %>
-      <div class="insight-badge">
-        Content gaps - what should be more prominent
-      </div>
-      <div style="overflow-x: auto; margin-top: 1rem;">
-        <table>
-          <thead>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Query</th>
+            <th>Searches</th>
+            <th>Users</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% searches.slice(0, 8).forEach(item => { %>
             <tr>
-              <th>Query</th>
-              <th>Searches</th>
-              <th>Searchers</th>
+              <td class="truncate" title="<%= item.search_query %>"><%= item.search_query %></td>
+              <td class="number"><%= item.search_count %></td>
+              <td class="number"><%= item.unique_searchers %></td>
             </tr>
-          </thead>
-          <tbody>
-            <% searches.slice(0, 10).forEach(item => { %>
-              <tr>
-                <td class="truncate-text" title="<%= item.search_query %>"><%= item.search_query %></td>
-                <td><strong><%= item.search_count %></strong></td>
-                <td><%= item.unique_searchers %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+          <% }) %>
+        </tbody>
+      </table>
     <% } else { %>
-      <div class="empty-section">
-        <div class="icon">&#128269;</div>
-        <p>No site searches recorded</p>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <p>No searches recorded</p>
       </div>
     <% } %>
   </div>
 </div>
 
-<!-- Text Selection Analysis -->
-<div class="card">
-  <h2>Text Selection Analysis</h2>
-  <% if (selections && selections.length > 0) { %>
-    <div class="insight-badge">
-      High-value content or confusing content needing clarification
-    </div>
-    <div style="overflow-x: auto; margin-top: 1rem;">
-      <table>
+<!-- Row 4: Text Selections (full width) -->
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>Text Selection Analysis</h3>
+    <% if (selections && selections.length > 0) { %>
+      <table class="data-table">
         <thead>
           <tr>
-            <th>Selected Text</th>
+            <th style="width: 50%;">Selected Text</th>
             <th>Page</th>
             <th>Selections</th>
             <th>Users</th>
           </tr>
         </thead>
         <tbody>
-          <% selections.slice(0, 15).forEach(item => { %>
+          <% selections.slice(0, 10).forEach(item => { %>
             <tr>
-              <td style="max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= item.selected_text %>">
+              <td class="truncate" style="max-width: 400px;" title="<%= item.selected_text %>">
                 "<%= item.selected_text %>"
               </td>
-              <td class="page-path" title="<%= item.page_url %>"><%= item.page_url ? new URL(item.page_url).pathname : '-' %></td>
-              <td><strong><%= item.selection_count %></strong></td>
-              <td><%= item.unique_selectors %></td>
+              <td class="truncate" title="<%= item.page_url %>">
+                <%= item.page_url ? new URL(item.page_url).pathname : '-' %>
+              </td>
+              <td class="number"><%= item.selection_count %></td>
+              <td class="number"><%= item.unique_selectors %></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
-    </div>
-  <% } else { %>
-    <div class="empty-section">
-      <div class="icon">&#128221;</div>
-      <p>No text selections recorded</p>
-    </div>
-  <% } %>
+    <% } else { %>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p>No text selections recorded</p>
+      </div>
+    <% } %>
+  </div>
 </div>
 
-<!-- 30-Day Trend Chart -->
-<div class="card">
-  <h2>30-Day UX Trend</h2>
-  <% if (trend && trend.length > 0) { %>
-    <div class="insight-badge">
-      Are UX changes improving metrics?
-    </div>
-    <div class="chart-container" style="margin-top: 1rem;">
-      <canvas id="trendChart"></canvas>
-    </div>
-  <% } else { %>
-    <div class="empty-section">
-      <div class="icon">&#128200;</div>
-      <p>Not enough data for trends yet</p>
-    </div>
-  <% } %>
+<!-- Row 5: 30-Day Trend (full width) -->
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>30-Day UX Trend</h3>
+    <% if (trend && trend.length > 0) { %>
+      <div class="chart-wrap tall">
+        <canvas id="trendChart"></canvas>
+      </div>
+    <% } else { %>
+      <div class="empty-state">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+        </svg>
+        <p>Not enough data for trends yet</p>
+      </div>
+    <% } %>
+  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#ffffff' : '#2C3E50';
-  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
-  // Scroll Behaviour Doughnut Chart
+  // Scroll Behaviour Doughnut
   <% if (scrollBehaviour && scrollBehaviour.length > 0) { %>
   const scrollData = <%- JSON.stringify(scrollBehaviour) %>;
   const scrollCtx = document.getElementById('scrollChart');
@@ -437,22 +500,18 @@ document.addEventListener('DOMContentLoaded', function() {
         labels: scrollData.map(d => d.behaviour.charAt(0).toUpperCase() + d.behaviour.slice(1)),
         datasets: [{
           data: scrollData.map(d => parseInt(d.count)),
-          backgroundColor: [
-            '#10B981', // reading - green
-            '#3B82F6', // scanning - blue
-            '#F59E0B', // skimming - amber
-            '#EF4444'  // rapid - red
-          ],
+          backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
           borderWidth: 0
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '60%',
         plugins: {
           legend: {
             position: 'right',
-            labels: { color: textColor, padding: 15 }
+            labels: { color: textColor, padding: 12, usePointStyle: true, pointStyle: 'circle' }
           }
         }
       }
@@ -460,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   <% } %>
 
-  // Section Visibility Bar Chart
+  // Section Visibility Bar
   <% if (sectionVisibility && sectionVisibility.length > 0) { %>
   const visibilityData = <%- JSON.stringify(sectionVisibility) %>;
   const visCtx = document.getElementById('visibilityChart');
@@ -468,11 +527,11 @@ document.addEventListener('DOMContentLoaded', function() {
     new Chart(visCtx, {
       type: 'bar',
       data: {
-        labels: visibilityData.slice(0, 8).map(d => d.section.substring(0, 20)),
+        labels: visibilityData.slice(0, 6).map(d => d.section.substring(0, 18)),
         datasets: [{
           label: 'Avg View Time (s)',
-          data: visibilityData.slice(0, 8).map(d => parseFloat(d.avg_view_time)),
-          backgroundColor: 'rgba(255, 159, 28, 0.7)',
+          data: visibilityData.slice(0, 6).map(d => parseFloat(d.avg_view_time)),
+          backgroundColor: '#3B82F6',
           borderRadius: 4
         }]
       },
@@ -480,25 +539,17 @@ document.addEventListener('DOMContentLoaded', function() {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
-        },
+        plugins: { legend: { display: false } },
         scales: {
-          x: {
-            grid: { color: gridColor },
-            ticks: { color: textColor }
-          },
-          y: {
-            grid: { display: false },
-            ticks: { color: textColor }
-          }
+          x: { grid: { color: gridColor }, ticks: { color: textColor } },
+          y: { grid: { display: false }, ticks: { color: textColor } }
         }
       }
     });
   }
   <% } %>
 
-  // 30-Day Trend Line Chart
+  // 30-Day Trend Line
   <% if (trend && trend.length > 0) { %>
   const trendData = <%- JSON.stringify(trend) %>;
   const trendCtx = document.getElementById('trendChart');
@@ -515,51 +566,47 @@ document.addEventListener('DOMContentLoaded', function() {
             label: 'Dead Clicks',
             data: trendData.map(d => parseInt(d.dead_clicks)),
             borderColor: '#EF4444',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            backgroundColor: 'transparent',
             tension: 0.3,
-            fill: false
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4
           },
           {
             label: 'Quick Backs',
             data: trendData.map(d => parseInt(d.quick_backs)),
             borderColor: '#F59E0B',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            backgroundColor: 'transparent',
             tension: 0.3,
-            fill: false
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4
           },
           {
             label: 'Hesitations',
             data: trendData.map(d => parseInt(d.hesitations)),
             borderColor: '#3B82F6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            backgroundColor: 'transparent',
             tension: 0.3,
-            fill: false
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false
-        },
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: textColor, usePointStyle: true }
+            labels: { color: textColor, usePointStyle: true, pointStyle: 'line', padding: 20 }
           }
         },
         scales: {
-          x: {
-            grid: { color: gridColor },
-            ticks: { color: textColor, maxTicksLimit: 10 }
-          },
-          y: {
-            grid: { color: gridColor },
-            ticks: { color: textColor },
-            beginAtZero: true
-          }
+          x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 8 } },
+          y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
         }
       }
     });

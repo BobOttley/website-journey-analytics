@@ -834,7 +834,9 @@ async function getUXOverview(siteId = null) {
   const deadClicks = parseInt(deadClicksResult.rows[0]?.count || 0);
   const hovers = parseInt(hesitationsResult.rows[0]?.hovers || 0);
   const clicks = parseInt(hesitationsResult.rows[0]?.clicks || 0);
-  const hesitationRate = hovers > 0 ? Math.round(((hovers - clicks) / hovers) * 100) : 0;
+  // Hesitation rate: % of hovers that didn't result in a click (clamped 0-100)
+  const rawHesitationRate = hovers > 0 ? Math.round(((hovers - clicks) / hovers) * 100) : 0;
+  const hesitationRate = Math.max(0, Math.min(100, rawHesitationRate));
   const quickBacks = parseInt(quickBacksResult.rows[0]?.count || 0);
   const searches = parseInt(searchResult.rows[0]?.count || 0);
 
@@ -853,11 +855,11 @@ async function getUXOverview(siteId = null) {
 
   // Calculate friction score (0-100, lower is better)
   // Weight: dead clicks heavily, hesitations medium, quick backs medium
-  const frictionScore = Math.min(100, Math.round(
+  const frictionScore = Math.max(0, Math.min(100, Math.round(
     (deadClicks * 2) +
     (hesitationRate * 0.5) +
     (quickBacks * 1.5)
-  ));
+  )));
 
   return {
     frictionScore,
