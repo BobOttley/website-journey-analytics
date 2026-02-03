@@ -139,7 +139,7 @@ async function sendNewVisitorNotification(visitor) {
         <p style="margin: 0;"><strong>Journey ID:</strong> <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${visitor.journey_id}</code></p>
       </div>
       <div style="padding: 16px; background: white; border: 1px solid #e5e7eb; border-top: none; text-align: center;">
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/realtime" style="display: inline-block; background: linear-gradient(135deg, #FF9F1C 0%, #E88A00 100%); color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Real-time Dashboard</a>
+        <a href="${process.env.APP_URL || 'https://website-journey-analytics.onrender.com'}/realtime" style="display: inline-block; background: linear-gradient(135deg, #FF9F1C 0%, #E88A00 100%); color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Real-time Dashboard</a>
       </div>
     </div>
   `;
@@ -161,7 +161,7 @@ ${locationPlainText}Device: ${visitor.device_type || 'Unknown'}
 Time: ${new Date(visitor.first_seen).toLocaleString('en-GB')}
 Journey ID: ${visitor.journey_id}
 
-View dashboard: ${process.env.APP_URL || 'http://localhost:3000'}/realtime
+View dashboard: ${process.env.APP_URL || 'https://website-journey-analytics.onrender.com'}/realtime
   `;
 
   return sendEmail(subject, htmlBody, textBody);
