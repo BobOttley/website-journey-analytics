@@ -39,6 +39,7 @@
     formFields: new Map(),
     activeHovers: new Map(),
     botIndicatorsSent: false,  // Track if we've sent bot indicators
+    scrollBehaviour: 'unknown',  // reading, scanning, skimming
   };
 
   // ============ BOT DETECTION ============
@@ -354,8 +355,10 @@
           if (percent >= threshold && !state.scrollDepthReached.has(threshold)) {
             state.scrollDepthReached.add(threshold);
             sendEvent('scroll_depth', {
+              cta_label: threshold.toString(),
               depth_percent: threshold,
               actual_percent: percent,
+              scroll_behaviour: state.scrollBehaviour || 'unknown',
             });
           }
         });
@@ -842,11 +845,11 @@
     }, true);
   }
 
-  // ============ ELEMENT VISIBILITY TIME ============
-  function trackElementVisibilityTime() {
+  // ============ SECTION VISIBILITY TIME ============
+  function trackSectionVisibilityTime() {
     if (!('IntersectionObserver' in window)) return;
 
-    const elementsToTrack = document.querySelectorAll('section, [data-track-time], .hero, .pricing, .features, .testimonials, .cta-section, article, .card');
+    const elementsToTrack = document.querySelectorAll('section, [data-track-time], .hero, .pricing, .features, .testimonials, .cta-section, article, .card, main > div');
     const visibilityTimers = new Map();
 
     const observer = new IntersectionObserver((entries) => {
@@ -888,10 +891,11 @@
         }
 
         if (totalTime > 1000) { // Only report if viewed for more than 1 second
-          sendEvent('element_visibility_time', {
-            element_id: id,
-            element_text: getElementText(timer.element.querySelector('h1, h2, h3, h4')),
-            total_time_ms: totalTime,
+          sendEvent('section_visibility', {
+            cta_label: id,
+            section: id,
+            visibility_time: Math.round(totalTime / 1000 * 10) / 10, // seconds
+            section_text: getElementText(timer.element.querySelector('h1, h2, h3, h4')),
             tag_name: timer.element.tagName.toLowerCase(),
           });
         }
@@ -899,7 +903,7 @@
     });
   }
 
-  // ============ SEARCH QUERIES ============
+  // ============ SITE SEARCH ============
   function trackSearchQueries() {
     // Track search form submissions
     document.addEventListener('submit', function(e) {
@@ -907,7 +911,8 @@
       const searchInput = form.querySelector('input[type="search"], input[name="q"], input[name="s"], input[name="search"], input[name="query"]');
 
       if (searchInput && searchInput.value.trim()) {
-        sendEvent('search_query', {
+        sendEvent('site_search', {
+          cta_label: searchInput.value.trim().substring(0, 100),
           query: searchInput.value.trim().substring(0, 100),
           form_id: form.id || form.name || getElementSelector(form),
         });
@@ -920,7 +925,8 @@
         const input = e.target;
         if (input.type === 'search' || input.name === 'q' || input.name === 's' || input.name === 'search') {
           if (input.value.trim()) {
-            sendEvent('search_query', {
+            sendEvent('site_search', {
+              cta_label: input.value.trim().substring(0, 100),
               query: input.value.trim().substring(0, 100),
               triggered_by: 'enter_key',
             });
@@ -952,6 +958,18 @@
           scrollSamples.shift();
         }
 
+        // Update scroll behaviour in real-time for scroll_depth events
+        if (scrollSamples.length > 3) {
+          const recentAvg = scrollSamples.slice(-5).reduce((a, b) => a + b, 0) / Math.min(scrollSamples.length, 5);
+          if (recentAvg > 2000) {
+            state.scrollBehaviour = 'skimming';
+          } else if (recentAvg > 1000) {
+            state.scrollBehaviour = 'scanning';
+          } else {
+            state.scrollBehaviour = 'reading';
+          }
+        }
+
         lastScrollTop = currentScrollTop;
         lastScrollTime = currentTime;
       }
@@ -964,17 +982,17 @@
         const maxVelocity = Math.max(...scrollSamples);
 
         // Classify scroll behavior
-        let scrollBehavior = 'reading'; // slow, deliberate scrolling
+        let scrollBehaviour = 'reading'; // slow, deliberate scrolling
         if (avgVelocity > 2000) {
-          scrollBehavior = 'skimming'; // fast scrolling
+          scrollBehaviour = 'skimming'; // fast scrolling
         } else if (avgVelocity > 1000) {
-          scrollBehavior = 'scanning'; // medium speed
+          scrollBehaviour = 'scanning'; // medium speed
         }
 
-        sendEvent('scroll_velocity', {
+        sendEvent('scroll_depth', {
           avg_velocity: Math.round(avgVelocity),
           max_velocity: Math.round(maxVelocity),
-          scroll_behavior: scrollBehavior,
+          scroll_behaviour: scrollBehaviour,
           samples: scrollSamples.length,
         });
       }
@@ -984,6 +1002,7 @@
   // ============ TEXT SELECTION ============
   function trackTextSelection() {
     let selectionTimeout;
+    let lastSelection = '';
 
     document.addEventListener('selectionchange', function() {
       clearTimeout(selectionTimeout);
@@ -992,7 +1011,10 @@
         const selection = window.getSelection();
         const selectedText = selection.toString().trim();
 
-        if (selectedText.length > 10) { // Only track meaningful selections
+        // Only track meaningful selections and avoid duplicates
+        if (selectedText.length > 10 && selectedText !== lastSelection) {
+          lastSelection = selectedText;
+
           // Find what element contains the selection
           let container = null;
           if (selection.rangeCount > 0) {
@@ -1003,8 +1025,9 @@
           }
 
           sendEvent('text_selection', {
+            cta_label: selectedText.substring(0, 100),
+            text: selectedText.substring(0, 100),
             text_length: selectedText.length,
-            text_preview: selectedText.substring(0, 100),
             container_element: container ? getElementSelector(container) : null,
           });
         }
@@ -1012,60 +1035,75 @@
     });
   }
 
-  // ============ CURSOR HESITATION (hover without click) ============
-  function trackCursorHesitation() {
-    const hesitationThreshold = 2000; // 2 seconds
-    const trackedHesitations = new Set();
+  // ============ CTA HOVER HESITATION ============
+  function trackCTAHesitation() {
+    const hesitationThreshold = 1500; // 1.5 seconds
+    const ctaHoverData = new Map();
 
     document.addEventListener('mouseenter', function(e) {
-      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"], a[href]');
       if (!el) return;
 
-      const id = el.id || getElementSelector(el);
-      if (trackedHesitations.has(id)) return; // Only track once per element per session
+      const text = getElementText(el);
+      if (!text) return; // Skip elements without text
 
-      el._hesitationTimer = setTimeout(function() {
-        // They hovered for 2+ seconds without clicking
-        trackedHesitations.add(id);
-        sendEvent('cursor_hesitation', {
-          element: id,
-          text: getElementText(el),
-          hover_duration_ms: hesitationThreshold,
-        });
-      }, hesitationThreshold);
+      ctaHoverData.set(el, {
+        startTime: Date.now(),
+        text: text,
+        element: getElementSelector(el)
+      });
     }, true);
 
     document.addEventListener('mouseleave', function(e) {
-      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
-      if (el && el._hesitationTimer) {
-        clearTimeout(el._hesitationTimer);
-        el._hesitationTimer = null;
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"], a[href]');
+      if (!el) return;
+
+      const data = ctaHoverData.get(el);
+      if (data) {
+        const hoverDuration = Date.now() - data.startTime;
+        if (hoverDuration >= hesitationThreshold) {
+          // They hovered without clicking - this is hesitation
+          sendEvent('cta_hover', {
+            cta_label: data.text,
+            element: data.element,
+            hover_duration: Math.round(hoverDuration / 1000 * 10) / 10, // seconds with 1 decimal
+          });
+        }
+        ctaHoverData.delete(el);
       }
     }, true);
 
     document.addEventListener('click', function(e) {
-      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
-      if (el && el._hesitationTimer) {
-        clearTimeout(el._hesitationTimer);
-        el._hesitationTimer = null;
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"], a[href]');
+      if (el) {
+        ctaHoverData.delete(el); // Don't track as hesitation if they clicked
       }
     }, true);
   }
 
-  // ============ BACK BUTTON USAGE ============
+  // ============ BACK BUTTON / QUICK BACK ============
   function trackBackButton() {
     let lastUrl = window.location.href;
     let pageLoadTime = Date.now();
 
     window.addEventListener('popstate', function(e) {
       const timeOnPage = Date.now() - pageLoadTime;
+      const isQuickBack = timeOnPage < 5000; // Left within 5 seconds
 
+      // Always send back_button event
       sendEvent('back_button', {
         from_url: lastUrl,
         to_url: window.location.href,
         time_on_page_ms: timeOnPage,
-        quick_back: timeOnPage < 5000, // Left within 5 seconds = quick back
+        quick_back: isQuickBack,
       });
+
+      // Send separate quick_back event for UX dashboard
+      if (isQuickBack) {
+        sendEvent('quick_back', {
+          time_on_page: Math.round(timeOnPage / 1000 * 10) / 10, // seconds
+        });
+      }
 
       lastUrl = window.location.href;
       pageLoadTime = Date.now();
@@ -1102,11 +1140,11 @@
 
     // NEW: Advanced UX tracking
     trackDeadClicks();
-    trackElementVisibilityTime();
+    trackSectionVisibilityTime();
     trackSearchQueries();
     trackScrollVelocity();
     trackTextSelection();
-    trackCursorHesitation();
+    trackCTAHesitation();
     trackBackButton();
   }
 
