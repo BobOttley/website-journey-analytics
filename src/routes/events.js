@@ -4,8 +4,12 @@ const { insertEvent, getEventsByJourneyId } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 const emailService = require('../services/emailService');
 
-// Track journeys we've already notified about (persists until server restart)
+// Track journeys we've already notified about (in-memory cache)
 const notifiedJourneys = new Set();
+
+// Cooldown: Don't send more than 1 email per visitor within this many seconds
+const NOTIFICATION_COOLDOWN_SECONDS = 300; // 5 minutes
+const recentNotifications = new Map(); // visitor_id/ip -> timestamp
 
 const VALID_EVENT_TYPES = [
   // Core events
@@ -153,39 +157,58 @@ router.post('/', async (req, res) => {
     const result = await insertEvent(event);
 
     // Send email notification for NEW visitors (first page_view of a journey)
+    // But prevent spam by checking cooldown per visitor/IP
     if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
       // Check if this is actually the first event for this journey
       const existingEvents = await getEventsByJourneyId(event.journey_id);
       if (existingEvents.length <= 1) {
-        // This is a new journey - send notification
-        notifiedJourneys.add(event.journey_id);
+        // Use visitor_id or IP for cooldown check
+        const notificationKey = event.visitor_id || metadata?.ip_address || event.journey_id;
+        const lastNotification = recentNotifications.get(notificationKey);
+        const now = Date.now();
 
-        // Clean up old entries (keep last 5000)
-        if (notifiedJourneys.size > 5000) {
-          const entries = Array.from(notifiedJourneys);
-          entries.slice(0, 2500).forEach(id => notifiedJourneys.delete(id));
-        }
+        // Check cooldown - don't spam same visitor
+        if (lastNotification && (now - lastNotification) < (NOTIFICATION_COOLDOWN_SECONDS * 1000)) {
+          console.log(`Email skipped - cooldown active for: ${notificationKey}`);
+          notifiedJourneys.add(event.journey_id);
+        } else {
+          // This is a new journey - send notification
+          notifiedJourneys.add(event.journey_id);
+          recentNotifications.set(notificationKey, now);
 
-        // Send email asynchronously (don't block response)
-        // Extract location from metadata if available
-        const location = metadata?.location || null;
-
-        emailService.sendNewVisitorNotification({
-          journey_id: event.journey_id,
-          entry_page: event.page_url,
-          referrer: event.referrer,
-          device_type: event.device_type,
-          first_seen: event.occurred_at,
-          location: location
-        }).then(emailResult => {
-          if (emailResult.success) {
-            console.log(`Email sent for new visitor: ${event.journey_id}`);
-          } else {
-            console.log(`Email skipped: ${emailResult.reason}`);
+          // Clean up old entries (keep last 5000)
+          if (notifiedJourneys.size > 5000) {
+            const entries = Array.from(notifiedJourneys);
+            entries.slice(0, 2500).forEach(id => notifiedJourneys.delete(id));
           }
-        }).catch(err => {
-          console.error('Email notification error:', err.message);
-        });
+
+          // Clean up old notification timestamps (older than cooldown)
+          for (const [key, timestamp] of recentNotifications.entries()) {
+            if (now - timestamp > NOTIFICATION_COOLDOWN_SECONDS * 1000) {
+              recentNotifications.delete(key);
+            }
+          }
+
+          // Send email asynchronously (don't block response)
+          const location = metadata?.location || null;
+
+          emailService.sendNewVisitorNotification({
+            journey_id: event.journey_id,
+            entry_page: event.page_url,
+            referrer: event.referrer,
+            device_type: event.device_type,
+            first_seen: event.occurred_at,
+            location: location
+          }).then(emailResult => {
+            if (emailResult.success) {
+              console.log(`Email sent for new visitor: ${event.journey_id}`);
+            } else {
+              console.log(`Email skipped: ${emailResult.reason}`);
+            }
+          }).catch(err => {
+            console.error('Email notification error:', err.message);
+          });
+        }
       }
     }
 
