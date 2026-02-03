@@ -1,40 +1,165 @@
 <div class="flex justify-between items-center mb-4">
-  <h2 style="font-size: 1.5rem; color: var(--primary-navy); display: flex; align-items: center; gap: 10px;">
+  <h2 style="font-size: 1.5rem; display: flex; align-items: center; gap: 12px;">
     <span class="live-dot"></span>
     Real-time Visitors
   </h2>
-  <div class="flex gap-2 items-center">
+  <div class="flex gap-4 items-center">
     <span class="text-muted text-small" id="last-updated">Updated just now</span>
-    <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
+    <button class="btn btn-secondary btn-sm" onclick="refreshData()">
+      🔄 Refresh
+    </button>
   </div>
 </div>
 
 <% if (!emailConfigured) { %>
 <div class="alert alert-warning">
-  <strong>Email notifications disabled.</strong> Configure Microsoft Graph credentials (AZURE_CLIENT_ID, etc.) to receive notifications for new visitors.
+  <span>⚠️</span>
+  <span><strong>Email notifications disabled.</strong> Configure Microsoft Graph credentials to receive alerts for new visitors.</span>
 </div>
 <% } %>
 
+<!-- Active Visitors Stats -->
 <div class="stats-grid">
   <div class="stat-card highlight">
+    <div class="icon pulse" style="background: linear-gradient(135deg, var(--success) 0%, #34D399 100%); color: white;">👥</div>
     <h3>Active Now</h3>
     <div class="value" id="visitor-count"><%= visitorCount %></div>
     <div class="subtitle">Visitors in last 60 seconds</div>
   </div>
   <div class="stat-card">
-    <h3>Polling Status</h3>
-    <div class="value" style="font-size: 1.5rem;" id="poll-status">
-      <span class="live-dot"></span> Live
+    <div class="icon">📡</div>
+    <h3>Status</h3>
+    <div class="value" style="font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
+      <span class="live-dot"></span>
+      <span id="poll-status">Live</span>
     </div>
     <div class="subtitle">Refreshing every 10 seconds</div>
   </div>
+  <div class="stat-card" id="locations-card">
+    <div class="icon">🌍</div>
+    <h3>Locations</h3>
+    <div class="value" id="locations-count">-</div>
+    <div class="subtitle" id="locations-countries">Loading...</div>
+  </div>
+  <div class="stat-card">
+    <div class="icon">↩️</div>
+    <h3>Return Rate</h3>
+    <div class="value" id="return-rate">
+      <%
+        const returnVisitors = visitors.filter(v => v.visit_number && v.visit_number > 1).length;
+        const returnRate = visitors.length > 0 ? ((returnVisitors / visitors.length) * 100).toFixed(0) : 0;
+      %>
+      <%= returnRate %>%
+    </div>
+    <div class="subtitle"><%= returnVisitors %> return visitors</div>
+  </div>
 </div>
 
+<!-- Live Activity Feed & Visitors Table -->
+<div class="grid-2 mb-6">
+  <!-- Live Activity Feed -->
+  <div class="card" style="max-height: 400px; overflow: hidden;">
+    <h2>Live Activity Feed</h2>
+    <div id="activity-feed" style="max-height: 300px; overflow-y: auto;">
+      <% if (visitors.length === 0) { %>
+        <div class="empty-state" style="padding: 40px 20px;">
+          <div class="icon">📭</div>
+          <h3>No activity yet</h3>
+          <p class="text-small">Waiting for visitors...</p>
+        </div>
+      <% } else { %>
+        <div id="feed-items">
+          <% visitors.slice(0, 10).forEach((visitor, index) => { %>
+            <div class="activity-item slide-in" style="animation-delay: <%= index * 0.1 %>s; display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border-color);">
+              <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center;">
+                <% if (visitor.location && visitor.location.flag) { %>
+                  <span style="font-size: 20px;"><%= visitor.location.flag %></span>
+                <% } else { %>
+                  <span style="font-size: 16px;">👤</span>
+                <% } %>
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  <% if (visitor.page_url) { %>
+                    <%= visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 35) %><%= visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').length > 35 ? '...' : '' %>
+                  <% } else { %>
+                    Unknown page
+                  <% } %>
+                </div>
+                <div class="text-small text-muted">
+                  <% if (visitor.location && visitor.location.city) { %>
+                    <%= visitor.location.city %>, <%= visitor.location.countryCode %>
+                  <% } else { %>
+                    Location unknown
+                  <% } %>
+                </div>
+              </div>
+              <div class="text-small text-muted">
+                <%= new Date(visitor.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Location Summary -->
+  <div class="card" style="max-height: 400px; overflow: hidden;">
+    <h2>Visitor Locations</h2>
+    <div id="locations-list" style="max-height: 300px; overflow-y: auto;">
+      <%
+        const locationMap = {};
+        visitors.forEach(v => {
+          if (v.location && v.location.countryCode) {
+            const code = v.location.countryCode;
+            if (!locationMap[code]) {
+              locationMap[code] = {
+                country: v.location.country,
+                countryCode: code,
+                flag: v.location.flag,
+                count: 0,
+                cities: new Set()
+              };
+            }
+            locationMap[code].count++;
+            if (v.location.city) locationMap[code].cities.add(v.location.city);
+          }
+        });
+        const locations = Object.values(locationMap).sort((a, b) => b.count - a.count);
+      %>
+      <% if (locations.length === 0) { %>
+        <div class="empty-state" style="padding: 40px 20px;">
+          <div class="icon">🗺️</div>
+          <h3>No location data</h3>
+          <p class="text-small">Location tracking requires public IP addresses</p>
+        </div>
+      <% } else { %>
+        <% locations.forEach(loc => { %>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border-color);">
+            <span style="font-size: 24px;"><%= loc.flag %></span>
+            <div style="flex: 1;">
+              <div style="font-weight: 500;"><%= loc.country %></div>
+              <div class="text-small text-muted">
+                <% const cities = Array.from(loc.cities); %>
+                <%= cities.slice(0, 3).join(', ') %><%= cities.length > 3 ? ' +' + (cities.length - 3) + ' more' : '' %>
+              </div>
+            </div>
+            <div class="badge badge-gold"><%= loc.count %></div>
+          </div>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Active Sessions Table -->
 <div class="card">
   <h2>Active Sessions</h2>
 
   <% if (visitors.length === 0) { %>
   <div class="empty-state">
+    <div class="icon">👀</div>
     <h3>No active visitors</h3>
     <p>Visitors will appear here when they're browsing your website.</p>
   </div>
@@ -43,9 +168,11 @@
     <table id="visitors-table">
       <thead>
         <tr>
+          <th>Location</th>
           <th>Current Page</th>
           <th>Referrer</th>
           <th>Device</th>
+          <th>Visitor</th>
           <th>Session Started</th>
           <th>Last Activity</th>
           <th>Journey</th>
@@ -55,13 +182,21 @@
         <% visitors.forEach(visitor => { %>
         <tr data-journey="<%= visitor.journey_id %>">
           <td>
+            <% if (visitor.location && visitor.location.flag) { %>
+              <span class="country-flag"><%= visitor.location.flag %></span>
+              <span class="text-small"><%= visitor.location.city || visitor.location.country || '-' %></span>
+            <% } else { %>
+              <span class="text-muted">🌍 Unknown</span>
+            <% } %>
+          </td>
+          <td>
             <a href="<%= visitor.page_url %>" target="_blank" title="<%= visitor.page_url %>">
-              <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 50) : 'Unknown' %>
+              <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40) : 'Unknown' %><%= visitor.page_url && visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').length > 40 ? '...' : '' %>
             </a>
           </td>
           <td>
             <% if (visitor.referrer) { %>
-            <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 30) %></span>
+            <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 25) %></span>
             <% } else { %>
             <span class="text-muted">Direct</span>
             <% } %>
@@ -71,11 +206,18 @@
               <%= visitor.device_type || 'Unknown' %>
             </span>
           </td>
+          <td>
+            <% if (visitor.visit_number && visitor.visit_number > 1) { %>
+              <span class="badge badge-return">↩ Return</span>
+            <% } else { %>
+              <span class="badge badge-neutral">New</span>
+            <% } %>
+          </td>
           <td><%= new Date(visitor.first_seen).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
           <td class="last-activity"><%= new Date(visitor.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
           <td>
-            <a href="/journeys/<%= visitor.journey_id %>" class="text-small">
-              <%= visitor.journey_id.substring(0, 8) %>...
+            <a href="/journeys/<%= visitor.journey_id %>" class="btn btn-outline btn-sm">
+              View →
             </a>
           </td>
         </tr>
@@ -92,11 +234,17 @@
   }
 
   #visitors-table tbody tr.new-visitor {
-    background-color: #f0fdf4;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 100%);
+    animation: newVisitorGlow 1s ease-out;
+  }
+
+  @keyframes newVisitorGlow {
+    0% { box-shadow: inset 0 0 0 2px var(--success); }
+    100% { box-shadow: inset 0 0 0 0 transparent; }
   }
 
   #visitors-table tbody tr.fading {
-    background-color: #fef3c7;
+    background-color: rgba(245, 158, 11, 0.1);
   }
 
   .visitor-count-change {
@@ -105,8 +253,25 @@
 
   @keyframes countPulse {
     0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    50% { transform: scale(1.15); }
     100% { transform: scale(1); }
+  }
+
+  .activity-item {
+    transition: background-color 0.2s;
+  }
+
+  .activity-item:hover {
+    background: var(--bg-secondary);
+  }
+
+  .activity-item.new {
+    animation: slideIn 0.3s ease-out, newItemGlow 1s ease-out;
+  }
+
+  @keyframes newItemGlow {
+    0% { background: rgba(16, 185, 129, 0.2); }
+    100% { background: transparent; }
   }
 </style>
 
@@ -123,13 +288,13 @@
     });
   }
 
-  function truncateUrl(url, maxLength = 50) {
+  function truncateUrl(url, maxLength = 40) {
     if (!url) return 'Unknown';
     const path = url.replace(/^https?:\/\/[^\/]+/, '');
     return path.length > maxLength ? path.substring(0, maxLength) + '...' : path;
   }
 
-  function truncateDomain(url, maxLength = 30) {
+  function truncateDomain(url, maxLength = 25) {
     if (!url) return '';
     const match = url.match(/^https?:\/\/([^\/]+)/);
     const domain = match ? match[1] : url;
@@ -164,98 +329,94 @@
         setTimeout(() => countEl.classList.remove('visitor-count-change'), 500);
       }
 
+      // Calculate return rate
+      const returnVisitors = data.visitors.filter(v => v.visit_number && v.visit_number > 1).length;
+      const returnRate = data.visitors.length > 0 ? ((returnVisitors / data.visitors.length) * 100).toFixed(0) : 0;
+      document.getElementById('return-rate').textContent = returnRate + '%';
+
+      // Update locations
+      const locationMap = {};
+      data.visitors.forEach(v => {
+        if (v.location && v.location.countryCode) {
+          const code = v.location.countryCode;
+          if (!locationMap[code]) {
+            locationMap[code] = { country: v.location.country, flag: v.location.flag, count: 0 };
+          }
+          locationMap[code].count++;
+        }
+      });
+      const locations = Object.values(locationMap).sort((a, b) => b.count - a.count);
+      const uniqueCountries = locations.length;
+      document.getElementById('locations-count').textContent = uniqueCountries;
+      document.getElementById('locations-countries').textContent = locations.slice(0, 3).map(l => l.flag).join(' ') || 'No data';
+
       // Update table
       const tbody = document.querySelector('#visitors-table tbody');
-      const card = document.querySelector('.card');
+      const card = document.querySelector('.card:last-child');
 
       if (data.visitors.length === 0) {
-        // Show empty state
         if (tbody) {
-          card.innerHTML = `
-            <h2><span style="display: inline-block; width: 4px; height: 20px; background: var(--gold-primary); border-radius: 2px; margin-right: 8px;"></span>Active Sessions</h2>
-            <div class="empty-state">
-              <h3>No active visitors</h3>
-              <p>Visitors will appear here when they're browsing your website.</p>
-            </div>
-          `;
+          const tableContainer = document.querySelector('#visitors-table').closest('div[style*="overflow"]');
+          if (tableContainer) {
+            tableContainer.innerHTML = `
+              <div class="empty-state">
+                <div class="icon">👀</div>
+                <h3>No active visitors</h3>
+                <p>Visitors will appear here when they're browsing your website.</p>
+              </div>
+            `;
+          }
         }
         previousJourneyIds.clear();
         return;
       }
 
-      // Ensure table exists
-      if (!tbody) {
-        card.innerHTML = `
-          <h2><span style="display: inline-block; width: 4px; height: 20px; background: var(--gold-primary); border-radius: 2px; margin-right: 8px;"></span>Active Sessions</h2>
-          <div style="overflow-x: auto;">
-            <table id="visitors-table">
-              <thead>
-                <tr>
-                  <th>Current Page</th>
-                  <th>Referrer</th>
-                  <th>Device</th>
-                  <th>Session Started</th>
-                  <th>Last Activity</th>
-                  <th>Journey</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        `;
-      }
+      if (tbody) {
+        const currentJourneyIds = new Set(data.visitors.map(v => v.journey_id));
+        const newJourneyIds = new Set();
 
-      const tableBody = document.querySelector('#visitors-table tbody');
-      const currentJourneyIds = new Set(data.visitors.map(v => v.journey_id));
-      const newJourneyIds = new Set();
-
-      // Find new visitors
-      currentJourneyIds.forEach(id => {
-        if (!previousJourneyIds.has(id)) {
-          newJourneyIds.add(id);
-        }
-      });
-
-      // Rebuild table
-      tableBody.innerHTML = data.visitors.map(v => {
-        const isNew = newJourneyIds.has(v.journey_id);
-        const deviceBadge = v.device_type === 'mobile' ? 'warning' : v.device_type === 'tablet' ? 'info' : 'neutral';
-        const referrerHtml = v.referrer
-          ? `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`
-          : '<span class="text-muted">Direct</span>';
-
-        return `
-          <tr data-journey="${v.journey_id}" class="${isNew ? 'new-visitor' : ''}">
-            <td>
-              <a href="${v.page_url}" target="_blank" title="${v.page_url}">
-                ${truncateUrl(v.page_url)}
-              </a>
-            </td>
-            <td>${referrerHtml}</td>
-            <td>
-              <span class="badge badge-${deviceBadge}">
-                ${v.device_type || 'Unknown'}
-              </span>
-            </td>
-            <td>${formatTime(v.first_seen)}</td>
-            <td class="last-activity">${formatTime(v.last_activity)}</td>
-            <td>
-              <a href="/journeys/${v.journey_id}" class="text-small">
-                ${v.journey_id.substring(0, 8)}...
-              </a>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      // Remove new-visitor class after animation
-      setTimeout(() => {
-        document.querySelectorAll('.new-visitor').forEach(el => {
-          el.classList.remove('new-visitor');
+        currentJourneyIds.forEach(id => {
+          if (!previousJourneyIds.has(id)) {
+            newJourneyIds.add(id);
+          }
         });
-      }, 2000);
 
-      previousJourneyIds = currentJourneyIds;
+        tbody.innerHTML = data.visitors.map(v => {
+          const isNew = newJourneyIds.has(v.journey_id);
+          const deviceBadge = v.device_type === 'mobile' ? 'warning' : v.device_type === 'tablet' ? 'info' : 'neutral';
+          const referrerHtml = v.referrer
+            ? `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`
+            : '<span class="text-muted">Direct</span>';
+          const locationHtml = v.location && v.location.flag
+            ? `<span class="country-flag">${v.location.flag}</span><span class="text-small">${v.location.city || v.location.country || '-'}</span>`
+            : '<span class="text-muted">🌍 Unknown</span>';
+          const visitorBadge = v.visit_number && v.visit_number > 1
+            ? '<span class="badge badge-return">↩ Return</span>'
+            : '<span class="badge badge-neutral">New</span>';
+
+          return `
+            <tr data-journey="${v.journey_id}" class="${isNew ? 'new-visitor' : ''}">
+              <td>${locationHtml}</td>
+              <td><a href="${v.page_url}" target="_blank" title="${v.page_url}">${truncateUrl(v.page_url)}</a></td>
+              <td>${referrerHtml}</td>
+              <td><span class="badge badge-${deviceBadge}">${v.device_type || 'Unknown'}</span></td>
+              <td>${visitorBadge}</td>
+              <td>${formatTime(v.first_seen)}</td>
+              <td class="last-activity">${formatTime(v.last_activity)}</td>
+              <td><a href="/journeys/${v.journey_id}" class="btn btn-outline btn-sm">View →</a></td>
+            </tr>
+          `;
+        }).join('');
+
+        // Remove new-visitor class after animation
+        setTimeout(() => {
+          document.querySelectorAll('.new-visitor').forEach(el => {
+            el.classList.remove('new-visitor');
+          });
+        }, 2000);
+
+        previousJourneyIds = currentJourneyIds;
+      }
 
       // Also check for new journeys (to trigger email notifications)
       fetch('/realtime/api/new-journeys?seconds=60').catch(console.error);
@@ -268,8 +429,8 @@
   // Start polling
   function startPolling() {
     if (pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(refreshData, 10000); // Every 10 seconds
-    setInterval(updateLastUpdated, 1000); // Update timestamp every second
+    pollInterval = setInterval(refreshData, 10000);
+    setInterval(updateLastUpdated, 1000);
   }
 
   // Stop polling when page is hidden

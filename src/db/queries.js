@@ -142,6 +142,255 @@ async function getJourneyStats() {
   return result.rows[0];
 }
 
+// ============================================
+// NEW CHART DATA QUERIES
+// ============================================
+
+/**
+ * Get top pages by view count
+ */
+async function getTopPages(limit = 10) {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      page_url,
+      COUNT(*) as views,
+      COUNT(DISTINCT journey_id) as unique_visitors
+    FROM journey_events
+    WHERE event_type = 'page_view' AND page_url IS NOT NULL
+    GROUP BY page_url
+    ORDER BY views DESC
+    LIMIT $1
+  `, [limit]);
+  return result.rows;
+}
+
+/**
+ * Get device type breakdown
+ */
+async function getDeviceBreakdown() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      COALESCE(device_type, 'unknown') as device_type,
+      COUNT(DISTINCT journey_id) as count
+    FROM journey_events
+    WHERE event_type = 'page_view'
+    GROUP BY device_type
+    ORDER BY count DESC
+  `);
+  return result.rows;
+}
+
+/**
+ * Get traffic sources breakdown from referrers
+ */
+async function getTrafficSources() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      CASE
+        WHEN entry_referrer IS NULL OR entry_referrer = '' THEN 'Direct'
+        WHEN entry_referrer LIKE '%google%' THEN 'Google'
+        WHEN entry_referrer LIKE '%bing%' THEN 'Bing'
+        WHEN entry_referrer LIKE '%facebook%' OR entry_referrer LIKE '%fb.%' THEN 'Facebook'
+        WHEN entry_referrer LIKE '%instagram%' THEN 'Instagram'
+        WHEN entry_referrer LIKE '%twitter%' OR entry_referrer LIKE '%x.com%' THEN 'Twitter/X'
+        WHEN entry_referrer LIKE '%linkedin%' THEN 'LinkedIn'
+        WHEN entry_referrer LIKE '%youtube%' THEN 'YouTube'
+        ELSE 'Other'
+      END as source,
+      COUNT(*) as count
+    FROM journeys
+    GROUP BY source
+    ORDER BY count DESC
+  `);
+  return result.rows;
+}
+
+/**
+ * Get daily journey and conversion trend
+ */
+async function getDailyJourneyTrend(days = 30) {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      DATE(first_seen) as date,
+      COUNT(*) as journeys,
+      COUNT(CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN 1 END) as conversions
+    FROM journeys
+    WHERE first_seen >= NOW() - INTERVAL '${days} days'
+    GROUP BY DATE(first_seen)
+    ORDER BY date ASC
+  `);
+  return result.rows;
+}
+
+/**
+ * Get scroll depth distribution
+ */
+async function getScrollDepthDistribution() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      CASE
+        WHEN CAST(cta_label AS INTEGER) <= 25 THEN '0-25%'
+        WHEN CAST(cta_label AS INTEGER) <= 50 THEN '26-50%'
+        WHEN CAST(cta_label AS INTEGER) <= 75 THEN '51-75%'
+        ELSE '76-100%'
+      END as depth_range,
+      COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'scroll_depth'
+      AND cta_label ~ '^[0-9]+$'
+    GROUP BY depth_range
+    ORDER BY depth_range
+  `);
+  return result.rows;
+}
+
+/**
+ * Get visitor locations from recent events
+ */
+async function getVisitorLocations(withinSeconds = 300) {
+  const db = getDb();
+  const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
+
+  const result = await db.query(`
+    SELECT DISTINCT ON (je.journey_id)
+      je.journey_id,
+      je.metadata
+    FROM journey_events je
+    WHERE je.occurred_at >= $1
+      AND je.event_type = 'page_view'
+      AND je.metadata IS NOT NULL
+    ORDER BY je.journey_id, je.occurred_at DESC
+  `, [cutoffTime]);
+
+  // Parse metadata and extract location
+  const locations = result.rows
+    .map(row => {
+      try {
+        const metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
+        if (metadata?.location) {
+          return {
+            journey_id: row.journey_id,
+            ...metadata.location
+          };
+        }
+      } catch (e) {}
+      return null;
+    })
+    .filter(Boolean);
+
+  return locations;
+}
+
+/**
+ * Get outcome distribution for funnel chart
+ */
+async function getOutcomeDistribution() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      COALESCE(outcome, 'no_action') as outcome,
+      COUNT(*) as count
+    FROM journeys
+    GROUP BY outcome
+    ORDER BY
+      CASE outcome
+        WHEN 'enquiry_submitted' THEN 1
+        WHEN 'visit_booked' THEN 2
+        WHEN 'engaged' THEN 3
+        WHEN 'form_abandoned' THEN 4
+        ELSE 5
+      END
+  `);
+  return result.rows;
+}
+
+/**
+ * Get conversion funnel stages
+ */
+async function getConversionFunnel() {
+  const db = getDb();
+
+  // Get total journeys
+  const totalResult = await db.query('SELECT COUNT(DISTINCT journey_id) as count FROM journeys');
+  const total = parseInt(totalResult.rows[0].count);
+
+  // Get journeys with multiple page views (engaged)
+  const engagedResult = await db.query(`
+    SELECT COUNT(DISTINCT journey_id) as count
+    FROM journeys
+    WHERE event_count > 1
+  `);
+  const engaged = parseInt(engagedResult.rows[0].count);
+
+  // Get journeys with CTA clicks
+  const ctaResult = await db.query(`
+    SELECT COUNT(DISTINCT journey_id) as count
+    FROM journey_events
+    WHERE event_type = 'cta_click'
+  `);
+  const ctaClicks = parseInt(ctaResult.rows[0].count);
+
+  // Get journeys with form starts
+  const formStartResult = await db.query(`
+    SELECT COUNT(DISTINCT journey_id) as count
+    FROM journey_events
+    WHERE event_type = 'form_start'
+  `);
+  const formStarts = parseInt(formStartResult.rows[0].count);
+
+  // Get conversions
+  const conversionResult = await db.query(`
+    SELECT COUNT(*) as count
+    FROM journeys
+    WHERE outcome IN ('enquiry_submitted', 'visit_booked')
+  `);
+  const conversions = parseInt(conversionResult.rows[0].count);
+
+  return [
+    { stage: 'Visitors', count: total },
+    { stage: 'Engaged', count: engaged },
+    { stage: 'CTA Clicked', count: ctaClicks },
+    { stage: 'Form Started', count: formStarts },
+    { stage: 'Converted', count: conversions }
+  ];
+}
+
+/**
+ * Get return visitor stats
+ */
+async function getReturnVisitorStats() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      COUNT(CASE WHEN visit_number = 1 THEN 1 END) as new_visitors,
+      COUNT(CASE WHEN visit_number > 1 THEN 1 END) as return_visitors
+    FROM journeys
+  `);
+  return result.rows[0];
+}
+
+/**
+ * Get hourly activity pattern
+ */
+async function getHourlyActivity() {
+  const db = getDb();
+  const result = await db.query(`
+    SELECT
+      EXTRACT(HOUR FROM occurred_at) as hour,
+      COUNT(*) as events
+    FROM journey_events
+    WHERE occurred_at >= NOW() - INTERVAL '7 days'
+    GROUP BY hour
+    ORDER BY hour
+  `);
+  return result.rows;
+}
+
 // Insight queries
 async function insertInsight(insight) {
   const db = getDb();
@@ -190,8 +439,11 @@ async function getActiveVisitors(withinSeconds = 60) {
        je.page_url,
        je.device_type,
        je.occurred_at as last_activity,
+       je.metadata,
        (SELECT MIN(je2.occurred_at) FROM journey_events je2 WHERE je2.journey_id = je.journey_id) as first_seen,
-       (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer
+       (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer,
+       (SELECT j.visitor_id FROM journeys j WHERE j.journey_id = je.journey_id) as visitor_id,
+       (SELECT j.visit_number FROM journeys j WHERE j.journey_id = je.journey_id) as visit_number
      FROM journey_events je
      WHERE je.occurred_at >= $1
        AND je.event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')
@@ -251,6 +503,17 @@ module.exports = {
   getJourneyCount,
   getJourneysInDateRange,
   getJourneyStats,
+  // Chart Data
+  getTopPages,
+  getDeviceBreakdown,
+  getTrafficSources,
+  getDailyJourneyTrend,
+  getScrollDepthDistribution,
+  getVisitorLocations,
+  getOutcomeDistribution,
+  getConversionFunnel,
+  getReturnVisitorStats,
+  getHourlyActivity,
   // Insights
   insertInsight,
   getLatestInsight,

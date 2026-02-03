@@ -1,121 +1,469 @@
 <% if (typeof rebuilt !== 'undefined') { %>
-<div class="alert alert-success">
-  Successfully rebuilt <%= rebuilt %> journeys from events.
+<div class="alert alert-success slide-in">
+  <span>✓</span> Successfully rebuilt <%= rebuilt %> journeys from events.
 </div>
 <% } %>
 
+<!-- Hero KPI Cards -->
 <div class="stats-grid">
-  <div class="stat-card">
+  <div class="stat-card highlight">
+    <div class="icon">👥</div>
     <h3>Total Journeys</h3>
     <div class="value"><%= stats.total_journeys || 0 %></div>
+    <div class="subtitle">All-time visitors tracked</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card success">
+    <div class="icon">📬</div>
     <h3>Enquiries</h3>
     <div class="value"><%= stats.enquiries || 0 %></div>
     <div class="subtitle">
       <% if (stats.total_journeys > 0) { %>
-        <%= ((stats.enquiries / stats.total_journeys) * 100).toFixed(1) %>% conversion
+        <%= ((stats.enquiries / stats.total_journeys) * 100).toFixed(1) %>% conversion rate
+      <% } else { %>
+        No data yet
       <% } %>
     </div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card info">
+    <div class="icon">📅</div>
     <h3>Visits Booked</h3>
     <div class="value"><%= stats.visits_booked || 0 %></div>
     <div class="subtitle">
       <% if (stats.total_journeys > 0) { %>
-        <%= ((stats.visits_booked / stats.total_journeys) * 100).toFixed(1) %>% conversion
+        <%= ((stats.visits_booked / stats.total_journeys) * 100).toFixed(1) %>% booking rate
+      <% } else { %>
+        No data yet
       <% } %>
     </div>
   </div>
   <div class="stat-card">
+    <div class="icon">📊</div>
     <h3>Avg Events</h3>
     <div class="value"><%= stats.avg_events ? stats.avg_events.toFixed(1) : '0' %></div>
-    <div class="subtitle">per journey</div>
+    <div class="subtitle">Events per journey</div>
   </div>
 </div>
 
+<!-- Charts Section -->
+<div class="grid-2 mb-6">
+  <!-- Conversion Funnel -->
+  <div class="card">
+    <h2>Conversion Funnel</h2>
+    <div class="chart-container">
+      <canvas id="funnelChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top Pages -->
+  <div class="card">
+    <h2>Page Popularity</h2>
+    <div class="chart-container">
+      <canvas id="pagesChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 mb-6">
+  <!-- Device Breakdown -->
+  <div class="card">
+    <h2>Device Breakdown</h2>
+    <div class="chart-container small" style="max-width: 300px; margin: 0 auto;">
+      <canvas id="deviceChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Traffic Sources -->
+  <div class="card">
+    <h2>Traffic Sources</h2>
+    <div class="chart-container small" style="max-width: 300px; margin: 0 auto;">
+      <canvas id="sourcesChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Trend -->
+<div class="card mb-6">
+  <h2>Journey Trend (Last 30 Days)</h2>
+  <div class="chart-container">
+    <canvas id="trendChart"></canvas>
+  </div>
+</div>
+
+<!-- Journey Table -->
 <div class="card">
   <div class="flex justify-between items-center mb-4">
-    <h2>All Journeys</h2>
+    <h2 style="margin-bottom: 0;">All Journeys</h2>
     <form action="/journeys/rebuild" method="POST" style="display: inline;">
-      <button type="submit" class="btn btn-secondary">Rebuild Journeys</button>
+      <button type="submit" class="btn btn-secondary btn-sm">
+        🔄 Rebuild Journeys
+      </button>
     </form>
   </div>
 
   <% if (journeys.length === 0) { %>
-    <div class="alert alert-info">
-      No journeys recorded yet. Events will appear here once the tracking script captures visitor behavior.
+    <div class="empty-state">
+      <div class="icon">📊</div>
+      <h3>No journeys recorded yet</h3>
+      <p>Events will appear here once the tracking script captures visitor behaviour.</p>
     </div>
   <% } else { %>
-    <table>
-      <thead>
-        <tr>
-          <th>Journey ID</th>
-          <th>First Seen</th>
-          <th>Entry Page</th>
-          <th>Pages</th>
-          <th>Events</th>
-          <th>Outcome</th>
-          <th>Time to Action</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% journeys.forEach(journey => { %>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
           <tr>
-            <td class="text-small text-muted"><%= journey.journey_id.substring(0, 8) %>...</td>
-            <td class="text-small"><%= new Date(journey.first_seen).toLocaleString() %></td>
-            <td class="text-small">
-              <% if (journey.entry_page) { %>
-                <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '') %>
-              <% } else { %>
-                <span class="text-muted">-</span>
-              <% } %>
-            </td>
-            <td><%= journey.page_sequence?.length || 0 %></td>
-            <td><%= journey.event_count %></td>
-            <td>
-              <% if (journey.outcome === 'enquiry_submitted') { %>
-                <span class="badge badge-success">Enquiry</span>
-              <% } else if (journey.outcome === 'visit_booked') { %>
-                <span class="badge badge-success">Visit Booked</span>
-              <% } else if (journey.outcome === 'engaged') { %>
-                <span class="badge badge-info">Engaged</span>
-              <% } else if (journey.outcome === 'form_abandoned') { %>
-                <span class="badge badge-warning">Form Abandoned</span>
-              <% } else { %>
-                <span class="badge badge-neutral">No Action</span>
-              <% } %>
-            </td>
-            <td>
-              <% if (journey.time_to_action) { %>
-                <%= Math.floor(journey.time_to_action / 60) %>m <%= journey.time_to_action % 60 %>s
-              <% } else { %>
-                <span class="text-muted">-</span>
-              <% } %>
-            </td>
-            <td>
-              <a href="/journeys/<%= journey.journey_id %>" class="btn btn-secondary">View</a>
-            </td>
+            <th>Journey ID</th>
+            <th>First Seen</th>
+            <th>Entry Page</th>
+            <th>Pages</th>
+            <th>Events</th>
+            <th>Visitor</th>
+            <th>Outcome</th>
+            <th>Time to Action</th>
+            <th></th>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% journeys.forEach(journey => { %>
+            <tr>
+              <td>
+                <code style="font-size: 0.8rem; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px;">
+                  <%= journey.journey_id.substring(0, 8) %>...
+                </code>
+              </td>
+              <td class="text-small"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) %></td>
+              <td class="text-small">
+                <% if (journey.entry_page) { %>
+                  <span title="<%= journey.entry_page %>">
+                    <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '').substring(0, 30) %><%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '').length > 30 ? '...' : '' %>
+                  </span>
+                <% } else { %>
+                  <span class="text-muted">-</span>
+                <% } %>
+              </td>
+              <td><%= journey.page_sequence?.length || 0 %></td>
+              <td><%= journey.event_count %></td>
+              <td>
+                <% if (journey.visit_number && journey.visit_number > 1) { %>
+                  <span class="badge badge-return" title="Visit #<%= journey.visit_number %>">
+                    ↩ Return
+                  </span>
+                <% } else { %>
+                  <span class="badge badge-neutral">New</span>
+                <% } %>
+              </td>
+              <td>
+                <% if (journey.outcome === 'enquiry_submitted') { %>
+                  <span class="badge badge-success">📬 Enquiry</span>
+                <% } else if (journey.outcome === 'visit_booked') { %>
+                  <span class="badge badge-success">📅 Visit Booked</span>
+                <% } else if (journey.outcome === 'engaged') { %>
+                  <span class="badge badge-info">👀 Engaged</span>
+                <% } else if (journey.outcome === 'form_abandoned') { %>
+                  <span class="badge badge-warning">⚠️ Form Abandoned</span>
+                <% } else { %>
+                  <span class="badge badge-neutral">No Action</span>
+                <% } %>
+              </td>
+              <td>
+                <% if (journey.time_to_action) { %>
+                  <span class="text-small">
+                    <%= Math.floor(journey.time_to_action / 60) %>m <%= journey.time_to_action % 60 %>s
+                  </span>
+                <% } else { %>
+                  <span class="text-muted">-</span>
+                <% } %>
+              </td>
+              <td>
+                <a href="/journeys/<%= journey.journey_id %>" class="btn btn-outline btn-sm">View →</a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
 
     <% if (pagination.totalPages > 1) { %>
       <div class="pagination">
         <% if (pagination.hasPrev) { %>
-          <a href="/journeys?page=<%= pagination.page - 1 %>">Previous</a>
+          <a href="/journeys?page=<%= pagination.page - 1 %>">← Previous</a>
         <% } %>
 
-        <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+        <%
+          let startPage = Math.max(1, pagination.page - 2);
+          let endPage = Math.min(pagination.totalPages, pagination.page + 2);
+        %>
+
+        <% if (startPage > 1) { %>
+          <a href="/journeys?page=1">1</a>
+          <% if (startPage > 2) { %><span style="padding: 10px;">...</span><% } %>
+        <% } %>
+
+        <% for (let i = startPage; i <= endPage; i++) { %>
           <a href="/journeys?page=<%= i %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
         <% } %>
 
+        <% if (endPage < pagination.totalPages) { %>
+          <% if (endPage < pagination.totalPages - 1) { %><span style="padding: 10px;">...</span><% } %>
+          <a href="/journeys?page=<%= pagination.totalPages %>"><%= pagination.totalPages %></a>
+        <% } %>
+
         <% if (pagination.hasNext) { %>
-          <a href="/journeys?page=<%= pagination.page + 1 %>">Next</a>
+          <a href="/journeys?page=<%= pagination.page + 1 %>">Next →</a>
         <% } %>
       </div>
     <% } %>
   <% } %>
 </div>
+
+<script>
+  // Chart.js Configuration
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#f1f5f9' : '#1e293b';
+  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+  const brandColors = {
+    gold: '#FF9F1C',
+    goldLight: '#FFB84D',
+    navy: '#091825',
+    blue: '#034674',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    info: '#3B82F6'
+  };
+
+  // Fetch chart data
+  async function loadCharts() {
+    try {
+      const response = await fetch('/journeys/api/charts');
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('Failed to load chart data');
+        return;
+      }
+
+      const data = result.data;
+
+      // Conversion Funnel (Horizontal Bar)
+      if (data.conversionFunnel && data.conversionFunnel.length > 0) {
+        const funnelCtx = document.getElementById('funnelChart').getContext('2d');
+        new Chart(funnelCtx, {
+          type: 'bar',
+          data: {
+            labels: data.conversionFunnel.map(f => f.stage),
+            datasets: [{
+              data: data.conversionFunnel.map(f => f.count),
+              backgroundColor: [
+                brandColors.blue,
+                brandColors.info,
+                brandColors.gold,
+                brandColors.warning,
+                brandColors.success
+              ],
+              borderRadius: 6,
+              barThickness: 30
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                grid: { color: gridColor },
+                ticks: { color: textColor }
+              },
+              y: {
+                grid: { display: false },
+                ticks: { color: textColor, font: { weight: 500 } }
+              }
+            }
+          }
+        });
+      }
+
+      // Top Pages (Vertical Bar)
+      if (data.topPages && data.topPages.length > 0) {
+        const pagesCtx = document.getElementById('pagesChart').getContext('2d');
+        const pageLabels = data.topPages.map(p => {
+          const path = p.page_url ? p.page_url.replace(/https?:\/\/[^\/]+/, '') : '/';
+          return path.length > 25 ? path.substring(0, 25) + '...' : path;
+        });
+
+        new Chart(pagesCtx, {
+          type: 'bar',
+          data: {
+            labels: pageLabels,
+            datasets: [{
+              label: 'Views',
+              data: data.topPages.map(p => parseInt(p.views)),
+              backgroundColor: brandColors.gold,
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor, maxRotation: 45 }
+              },
+              y: {
+                grid: { color: gridColor },
+                ticks: { color: textColor }
+              }
+            }
+          }
+        });
+      }
+
+      // Device Breakdown (Doughnut)
+      if (data.deviceBreakdown && data.deviceBreakdown.length > 0) {
+        const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+        const deviceColors = {
+          'desktop': brandColors.blue,
+          'mobile': brandColors.gold,
+          'tablet': brandColors.success,
+          'unknown': '#94a3b8'
+        };
+
+        new Chart(deviceCtx, {
+          type: 'doughnut',
+          data: {
+            labels: data.deviceBreakdown.map(d => d.device_type.charAt(0).toUpperCase() + d.device_type.slice(1)),
+            datasets: [{
+              data: data.deviceBreakdown.map(d => parseInt(d.count)),
+              backgroundColor: data.deviceBreakdown.map(d => deviceColors[d.device_type] || '#94a3b8'),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: textColor, padding: 16, usePointStyle: true }
+              }
+            }
+          }
+        });
+      }
+
+      // Traffic Sources (Doughnut)
+      if (data.trafficSources && data.trafficSources.length > 0) {
+        const sourcesCtx = document.getElementById('sourcesChart').getContext('2d');
+        const sourceColors = [
+          brandColors.gold,
+          brandColors.blue,
+          brandColors.success,
+          brandColors.warning,
+          brandColors.info,
+          '#8B5CF6',
+          '#EC4899',
+          '#94a3b8'
+        ];
+
+        new Chart(sourcesCtx, {
+          type: 'doughnut',
+          data: {
+            labels: data.trafficSources.map(s => s.source),
+            datasets: [{
+              data: data.trafficSources.map(s => parseInt(s.count)),
+              backgroundColor: sourceColors.slice(0, data.trafficSources.length),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: textColor, padding: 16, usePointStyle: true }
+              }
+            }
+          }
+        });
+      }
+
+      // Daily Trend (Line Chart)
+      if (data.dailyTrend && data.dailyTrend.length > 0) {
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+
+        new Chart(trendCtx, {
+          type: 'line',
+          data: {
+            labels: data.dailyTrend.map(d => {
+              const date = new Date(d.date);
+              return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            }),
+            datasets: [
+              {
+                label: 'Journeys',
+                data: data.dailyTrend.map(d => parseInt(d.journeys)),
+                borderColor: brandColors.blue,
+                backgroundColor: 'rgba(3, 70, 116, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: brandColors.blue
+              },
+              {
+                label: 'Conversions',
+                data: data.dailyTrend.map(d => parseInt(d.conversions)),
+                borderColor: brandColors.success,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: brandColors.success
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { color: textColor, usePointStyle: true, padding: 20 }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: gridColor },
+                ticks: { color: textColor }
+              },
+              y: {
+                grid: { color: gridColor },
+                ticks: { color: textColor },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('Error loading charts:', error);
+    }
+  }
+
+  // Load charts on page load
+  document.addEventListener('DOMContentLoaded', loadCharts);
+</script>

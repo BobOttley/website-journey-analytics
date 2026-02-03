@@ -137,7 +137,8 @@ async function start() {
     app.listen(PORT, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════╗
-║         Website Journey Analytics Server              ║
+║              SMART Journey Analytics                  ║
+║              Website Visitor Tracking                 ║
 ╠═══════════════════════════════════════════════════════╣
 ║  Dashboard:  http://localhost:${PORT}/journeys            ║
 ║  Real-time:  http://localhost:${PORT}/realtime            ║

@@ -1,6 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { getAllJourneys, getJourneyById, getJourneyCount, getJourneyStats } = require('../db/queries');
+const {
+  getAllJourneys,
+  getJourneyById,
+  getJourneyCount,
+  getJourneyStats,
+  getTopPages,
+  getDeviceBreakdown,
+  getTrafficSources,
+  getDailyJourneyTrend,
+  getScrollDepthDistribution,
+  getConversionFunnel,
+  getReturnVisitorStats,
+  getHourlyActivity
+} = require('../db/queries');
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
 
 // GET /journeys - Journey list view
@@ -41,7 +54,9 @@ router.get('/', async (req, res) => {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      currentPage: 'journeys',
+      title: 'Journeys - SMART Journey'
     });
   } catch (error) {
     console.error('Error fetching journeys:', error);
@@ -60,6 +75,51 @@ router.post('/rebuild', async (req, res) => {
   }
 });
 
+// GET /journeys/api/charts - Chart data for dashboard
+router.get('/api/charts', async (req, res) => {
+  try {
+    const [
+      topPages,
+      deviceBreakdown,
+      trafficSources,
+      dailyTrend,
+      scrollDepth,
+      conversionFunnel,
+      returnVisitors,
+      hourlyActivity
+    ] = await Promise.all([
+      getTopPages(10),
+      getDeviceBreakdown(),
+      getTrafficSources(),
+      getDailyJourneyTrend(30),
+      getScrollDepthDistribution(),
+      getConversionFunnel(),
+      getReturnVisitorStats(),
+      getHourlyActivity()
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        topPages,
+        deviceBreakdown,
+        trafficSources,
+        dailyTrend,
+        scrollDepth,
+        conversionFunnel,
+        returnVisitors: {
+          new: parseInt(returnVisitors.new_visitors) || 0,
+          returning: parseInt(returnVisitors.return_visitors) || 0
+        },
+        hourlyActivity
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching chart data:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch chart data' });
+  }
+});
+
 // GET /journeys/:id - Journey detail view
 router.get('/:id', async (req, res) => {
   try {
@@ -70,7 +130,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).render('error', { error: 'Journey not found' });
     }
 
-    res.render('journeyDetail', { journey });
+    res.render('journeyDetail', {
+      journey,
+      currentPage: 'journeys',
+      title: `Journey ${journeyId.substring(0, 8)} - SMART Journey`
+    });
   } catch (error) {
     console.error('Error fetching journey:', error);
     res.status(500).render('error', { error: 'Failed to load journey details' });

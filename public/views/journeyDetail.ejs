@@ -1,91 +1,213 @@
 <div class="flex justify-between items-center mb-4">
   <div>
-    <a href="/journeys" class="text-muted text-small">&larr; Back to Journeys</a>
-    <h2 class="mt-4">Journey: <%= journey.journey_id.substring(0, 8) %>...</h2>
+    <a href="/journeys" class="text-muted text-small" style="display: inline-flex; align-items: center; gap: 6px;">
+      ← Back to Journeys
+    </a>
+    <h2 class="mt-4" style="font-size: 1.75rem;">
+      Journey: <code style="font-size: 1.25rem; background: var(--bg-secondary); padding: 4px 10px; border-radius: 6px;"><%= journey.journey_id.substring(0, 12) %>...</code>
+    </h2>
   </div>
-  <div>
+  <div class="flex gap-2 items-center">
+    <% if (journey.visit_number && journey.visit_number > 1) { %>
+      <span class="badge badge-return">↩ Return Visitor (Visit #<%= journey.visit_number %>)</span>
+    <% } %>
     <% if (journey.outcome === 'enquiry_submitted') { %>
-      <span class="badge badge-success">Enquiry Submitted</span>
+      <span class="badge badge-success">📬 Enquiry Submitted</span>
     <% } else if (journey.outcome === 'visit_booked') { %>
-      <span class="badge badge-success">Visit Booked</span>
+      <span class="badge badge-success">📅 Visit Booked</span>
     <% } else if (journey.outcome === 'engaged') { %>
-      <span class="badge badge-info">Engaged</span>
+      <span class="badge badge-info">👀 Engaged</span>
     <% } else if (journey.outcome === 'form_abandoned') { %>
-      <span class="badge badge-warning">Form Abandoned</span>
+      <span class="badge badge-warning">⚠️ Form Abandoned</span>
     <% } else { %>
       <span class="badge badge-neutral">No Action</span>
     <% } %>
   </div>
 </div>
 
+<!-- KPI Cards -->
 <div class="stats-grid">
   <div class="stat-card">
+    <div class="icon">🕐</div>
     <h3>First Seen</h3>
-    <div class="value text-small"><%= new Date(journey.first_seen).toLocaleString() %></div>
+    <div class="value text-small" style="font-size: 1.1rem;"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %></div>
   </div>
   <div class="stat-card">
+    <div class="icon">🕛</div>
     <h3>Last Seen</h3>
-    <div class="value text-small"><%= new Date(journey.last_seen).toLocaleString() %></div>
+    <div class="value text-small" style="font-size: 1.1rem;"><%= new Date(journey.last_seen).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %></div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card highlight">
+    <div class="icon">📊</div>
     <h3>Total Events</h3>
     <div class="value"><%= journey.event_count %></div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card <%= journey.time_to_action ? 'success' : '' %>">
+    <div class="icon">⏱️</div>
     <h3>Time to Action</h3>
     <div class="value">
       <% if (journey.time_to_action) { %>
         <%= Math.floor(journey.time_to_action / 60) %>m <%= journey.time_to_action % 60 %>s
       <% } else { %>
-        -
+        <span class="text-muted">-</span>
       <% } %>
     </div>
   </div>
 </div>
 
-<div class="card">
-  <h2>Journey Overview</h2>
-  <table>
-    <tr>
-      <th style="width: 200px;">Entry Page</th>
-      <td><%= journey.entry_page || 'Unknown' %></td>
-    </tr>
-    <tr>
-      <th>Referrer</th>
-      <td><%= journey.entry_referrer || 'Direct' %></td>
-    </tr>
-    <tr>
-      <th>Initial Intent</th>
-      <td><%= journey.initial_intent || 'Browsing' %></td>
-    </tr>
-    <tr>
-      <th>Pages Viewed</th>
-      <td><%= journey.page_sequence?.length || 0 %></td>
-    </tr>
+<div class="grid-2 mb-6">
+  <!-- Journey Overview -->
+  <div class="card">
+    <h2>Journey Overview</h2>
+    <table>
+      <tr>
+        <th style="width: 140px; background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Entry Page</th>
+        <td>
+          <% if (journey.entry_page) { %>
+            <a href="<%= journey.entry_page %>" target="_blank" title="<%= journey.entry_page %>">
+              <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '') %>
+            </a>
+          <% } else { %>
+            <span class="text-muted">Unknown</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Referrer</th>
+        <td>
+          <% if (journey.entry_referrer) { %>
+            <a href="<%= journey.entry_referrer %>" target="_blank" title="<%= journey.entry_referrer %>">
+              <%= journey.entry_referrer.replace(/^https?:\/\/([^\/]+).*/, '$1') %>
+            </a>
+          <% } else { %>
+            <span class="text-muted">Direct</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Initial Intent</th>
+        <td>
+          <% if (journey.initial_intent) { %>
+            <span class="badge badge-info"><%= journey.initial_intent %></span>
+          <% } else { %>
+            <span class="text-muted">Browsing</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Pages Viewed</th>
+        <td><strong><%= journey.page_sequence?.length || 0 %></strong> pages</td>
+      </tr>
+      <% if (journey.visitor_id) { %>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Visitor ID</th>
+        <td><code style="font-size: 0.8rem;"><%= journey.visitor_id.substring(0, 12) %>...</code></td>
+      </tr>
+      <% } %>
+    </table>
+
     <% if (journey.loops && journey.loops.length > 0) { %>
-    <tr>
-      <th>Loops Detected</th>
-      <td>
+    <div class="mt-4">
+      <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">Loop Detection</h4>
+      <div class="flex flex-wrap gap-2">
         <% journey.loops.forEach(loop => { %>
-          <span class="badge badge-warning"><%= loop.url.replace(/https?:\/\/[^\/]+/, '') %> (x<%= loop.visits %>)</span>
+          <span class="badge badge-warning" title="This page was visited multiple times">
+            🔄 <%= loop.url.replace(/https?:\/\/[^\/]+/, '').substring(0, 30) %> (x<%= loop.visits %>)
+          </span>
         <% }) %>
-      </td>
-    </tr>
+      </div>
+    </div>
     <% } %>
-  </table>
+  </div>
+
+  <!-- Engagement Score -->
+  <div class="card">
+    <h2>Engagement Score</h2>
+    <div style="display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <%
+        // Calculate engagement score based on events and outcome
+        let score = 0;
+        const eventCount = journey.event_count || 0;
+        const pageCount = journey.page_sequence?.length || 0;
+
+        // Base score from pages viewed (max 30 points)
+        score += Math.min(pageCount * 10, 30);
+
+        // Score from events (max 30 points)
+        score += Math.min(eventCount * 2, 30);
+
+        // Score from time on site (max 20 points)
+        if (journey.time_to_action) {
+          score += Math.min(Math.floor(journey.time_to_action / 30), 20);
+        }
+
+        // Outcome bonus (max 20 points)
+        if (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked') {
+          score += 20;
+        } else if (journey.outcome === 'engaged' || journey.outcome === 'form_abandoned') {
+          score += 10;
+        }
+
+        score = Math.min(score, 100);
+
+        // Determine colour
+        let scoreColour = '#EF4444'; // Red
+        if (score >= 70) scoreColour = '#10B981'; // Green
+        else if (score >= 40) scoreColour = '#F59E0B'; // Amber
+      %>
+      <div class="engagement-ring">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <!-- Background circle -->
+          <circle cx="70" cy="70" r="58" fill="none" stroke="var(--border-color)" stroke-width="12" />
+          <!-- Score circle -->
+          <circle cx="70" cy="70" r="58" fill="none" stroke="<%= scoreColour %>" stroke-width="12"
+            stroke-dasharray="<%= (score / 100) * 364 %> 364"
+            stroke-linecap="round" />
+        </svg>
+        <div class="value" style="font-size: 2rem; color: <%= scoreColour %>;">
+          <%= score %>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center;">
+      <p class="text-muted text-small">
+        <% if (score >= 70) { %>
+          🎯 High engagement - likely to convert
+        <% } else if (score >= 40) { %>
+          👍 Moderate engagement - showing interest
+        <% } else { %>
+          👀 Low engagement - brief visit
+        <% } %>
+      </p>
+    </div>
+  </div>
 </div>
 
+<!-- Event Timeline -->
 <div class="card">
-  <h2>Event Timeline</h2>
+  <div class="flex justify-between items-center mb-4">
+    <h2 style="margin-bottom: 0;">Event Timeline</h2>
+    <label class="flex items-center gap-2" style="cursor: pointer;">
+      <span class="text-small text-muted">Hide heartbeats</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="hideHeartbeats" checked onchange="toggleHeartbeats()">
+        <span class="toggle-slider"></span>
+      </label>
+    </label>
+  </div>
 
   <% if (!journey.events || journey.events.length === 0) { %>
-    <p class="text-muted">No events recorded for this journey.</p>
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <h3>No events recorded</h3>
+      <p>No events have been captured for this journey yet.</p>
+    </div>
   <% } else { %>
-    <div class="timeline">
+    <div class="timeline" id="eventTimeline">
       <% journey.events.forEach((event, index) => { %>
-        <div class="timeline-item <%= event.event_type %>">
+        <div class="timeline-item <%= event.event_type %> slide-in" data-event-type="<%= event.event_type %>" style="animation-delay: <%= index * 0.05 %>s;">
           <div class="timeline-time">
-            <%= new Date(event.occurred_at).toLocaleTimeString() %>
+            <%= new Date(event.occurred_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>
             <% if (index > 0) { %>
               <% const prevTime = new Date(journey.events[index-1].occurred_at).getTime(); %>
               <% const currTime = new Date(event.occurred_at).getTime(); %>
@@ -94,32 +216,46 @@
             <% } %>
           </div>
           <div class="timeline-content">
-            <strong>
+            <strong style="display: flex; align-items: center; gap: 6px;">
               <% if (event.event_type === 'page_view') { %>
-                Page View
+                📄 Page View
               <% } else if (event.event_type === 'cta_click') { %>
-                CTA Click
+                🖱️ CTA Click
               <% } else if (event.event_type === 'form_start') { %>
-                Form Started
+                📝 Form Started
               <% } else if (event.event_type === 'form_submit') { %>
-                Form Submitted
+                ✅ Form Submitted
+              <% } else if (event.event_type === 'form_abandon') { %>
+                ⚠️ Form Abandoned
+              <% } else if (event.event_type === 'scroll_depth') { %>
+                📜 Scroll Depth
               <% } else if (event.event_type === 'time_on_page') { %>
-                Time on Page
+                ⏱️ Time on Page
+              <% } else if (event.event_type === 'rage_click') { %>
+                <span style="color: var(--danger);">😤 Rage Click</span>
+              <% } else if (event.event_type === 'exit_intent') { %>
+                🚪 Exit Intent
+              <% } else if (event.event_type === 'heartbeat') { %>
+                💓 Heartbeat
               <% } else { %>
-                <%= event.event_type %>
+                📌 <%= event.event_type %>
               <% } %>
             </strong>
 
             <% if (event.page_url) { %>
-              <div class="text-small text-muted">
-                <%= event.page_url.replace(/https?:\/\/[^\/]+/, '') %>
+              <div class="text-small text-muted" style="margin-top: 4px;">
+                <a href="<%= event.page_url %>" target="_blank" title="<%= event.page_url %>">
+                  <%= event.page_url.replace(/https?:\/\/[^\/]+/, '') %>
+                </a>
               </div>
             <% } %>
 
             <% if (event.cta_label) { %>
-              <div class="text-small">
+              <div class="text-small" style="margin-top: 4px;">
                 <% if (event.event_type === 'time_on_page') { %>
-                  Duration: <%= event.cta_label %>s
+                  Duration: <strong><%= event.cta_label %>s</strong>
+                <% } else if (event.event_type === 'scroll_depth') { %>
+                  Depth: <strong><%= event.cta_label %>%</strong>
                 <% } else { %>
                   "<%= event.cta_label %>"
                 <% } %>
@@ -127,7 +263,13 @@
             <% } %>
 
             <% if (event.intent_type) { %>
-              <span class="badge badge-info"><%= event.intent_type %></span>
+              <span class="badge badge-gold mt-2"><%= event.intent_type %></span>
+            <% } %>
+
+            <% if (event.event_type === 'rage_click') { %>
+              <div class="text-small text-danger mt-2">
+                ⚠️ User showed signs of frustration
+              </div>
             <% } %>
           </div>
         </div>
@@ -137,25 +279,56 @@
 </div>
 
 <% if (journey.page_sequence && journey.page_sequence.length > 0) { %>
+<!-- Page Sequence / Journey Map -->
 <div class="card">
-  <h2>Page Sequence</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Page</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% journey.page_sequence.forEach((page, index) => { %>
-        <tr>
-          <td><%= index + 1 %></td>
-          <td><%= page.url?.replace(/https?:\/\/[^\/]+/, '') || 'Unknown' %></td>
-          <td class="text-small text-muted"><%= new Date(page.timestamp).toLocaleTimeString() %></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+  <h2>Journey Map</h2>
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <% journey.page_sequence.forEach((page, index) => { %>
+      <div class="journey-node <%= index === journey.page_sequence.length - 1 && (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked') ? 'conversion' : '' %>">
+        <div class="node-icon">
+          <% if (index === 0) { %>
+            🚀
+          <% } else if (index === journey.page_sequence.length - 1 && (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked')) { %>
+            🎯
+          <% } else { %>
+            <%= index + 1 %>
+          <% } %>
+        </div>
+        <div style="flex: 1;">
+          <div style="font-weight: 600;">
+            <%= page.url?.replace(/https?:\/\/[^\/]+/, '') || 'Unknown' %>
+          </div>
+          <div class="text-small text-muted">
+            <%= new Date(page.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>
+            <% if (index > 0) { %>
+              <% const prevTime = new Date(journey.page_sequence[index-1].timestamp).getTime(); %>
+              <% const currTime = new Date(page.timestamp).getTime(); %>
+              <% const diff = Math.round((currTime - prevTime) / 1000); %>
+              — <%= diff < 60 ? diff + 's' : Math.floor(diff / 60) + 'm ' + (diff % 60) + 's' %> from previous
+            <% } %>
+          </div>
+        </div>
+        <% if (index < journey.page_sequence.length - 1) { %>
+          <div class="text-muted">→</div>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
 </div>
 <% } %>
+
+<script>
+  function toggleHeartbeats() {
+    const hideHeartbeats = document.getElementById('hideHeartbeats').checked;
+    const heartbeatItems = document.querySelectorAll('[data-event-type="heartbeat"]');
+
+    heartbeatItems.forEach(item => {
+      item.style.display = hideHeartbeats ? 'none' : 'block';
+    });
+  }
+
+  // Hide heartbeats by default on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    toggleHeartbeats();
+  });
+</script>

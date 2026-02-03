@@ -1,7 +1,9 @@
-<div class="card">
-  <h2>Error</h2>
-  <div class="alert alert-info">
-    <%= error %>
+<div class="card" style="max-width: 600px; margin: 60px auto; text-align: center;">
+  <div style="font-size: 64px; margin-bottom: 20px;">⚠️</div>
+  <h2 style="margin-bottom: 16px;">Something went wrong</h2>
+  <p class="text-muted mb-6"><%= error %></p>
+  <div class="flex gap-4 justify-center">
+    <a href="/journeys" class="btn btn-primary">← Back to Journeys</a>
+    <button onclick="window.location.reload()" class="btn btn-secondary">Try Again</button>
   </div>
-  <a href="/journeys" class="btn btn-primary">Back to Journeys</a>
 </div>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { insertEvent } = require('../db/queries');
+const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 
 const VALID_EVENT_TYPES = [
   // Core events
@@ -77,6 +78,39 @@ function validateEvent(body) {
   return errors;
 }
 
+/**
+ * Add geolocation data to event metadata
+ */
+async function enrichWithLocation(req, metadata) {
+  const ip = getClientIP(req);
+
+  // Skip private IPs
+  if (!ip || isPrivateIP(ip)) {
+    return metadata;
+  }
+
+  try {
+    const location = await lookupIP(ip);
+    if (location) {
+      return {
+        ...metadata,
+        location: {
+          country: location.country,
+          countryCode: location.countryCode,
+          city: location.city,
+          region: location.region,
+          flag: location.flag
+        },
+        ip_address: ip
+      };
+    }
+  } catch (error) {
+    console.error('Failed to enrich with location:', error.message);
+  }
+
+  return metadata;
+}
+
 // POST /api/event - Capture a single event
 router.post('/', async (req, res) => {
   console.log('EVENT RECEIVED:', JSON.stringify(req.body));
@@ -93,6 +127,12 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Enrich metadata with location for page_view events
+    let metadata = req.body.metadata || {};
+    if (req.body.event_type === 'page_view') {
+      metadata = await enrichWithLocation(req, metadata);
+    }
+
     const event = {
       journey_id: req.body.journey_id,
       visitor_id: req.body.visitor_id,
@@ -102,7 +142,7 @@ router.post('/', async (req, res) => {
       intent_type: req.body.intent_type,
       cta_label: req.body.cta_label,
       device_type: req.body.device_type,
-      metadata: req.body.metadata,
+      metadata: metadata,
       occurred_at: req.body.occurred_at || new Date().toISOString()
     };
 
@@ -144,6 +184,12 @@ router.post('/batch', async (req, res) => {
       }
 
       try {
+        // Enrich metadata with location for page_view events
+        let metadata = eventData.metadata || {};
+        if (eventData.event_type === 'page_view') {
+          metadata = await enrichWithLocation(req, metadata);
+        }
+
         const event = {
           journey_id: eventData.journey_id,
           visitor_id: eventData.visitor_id,
@@ -153,7 +199,7 @@ router.post('/batch', async (req, res) => {
           intent_type: eventData.intent_type,
           cta_label: eventData.cta_label,
           device_type: eventData.device_type,
-          metadata: eventData.metadata,
+          metadata: metadata,
           occurred_at: eventData.occurred_at || new Date().toISOString()
         };
 

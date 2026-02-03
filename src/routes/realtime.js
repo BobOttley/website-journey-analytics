@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getActiveVisitors, getRecentNewJourneys, getActiveVisitorCount } = require('../db/queries');
+const { getActiveVisitors, getRecentNewJourneys, getActiveVisitorCount, getVisitorLocations } = require('../db/queries');
 const emailService = require('../services/emailService');
 
 // Track which journeys we've already notified about (in-memory, resets on restart)
@@ -12,10 +12,22 @@ router.get('/', async (req, res) => {
     const visitors = await getActiveVisitors(60); // Active in last 60 seconds
     const visitorCount = visitors.length;
 
+    // Parse location from metadata for each visitor
+    const visitorsWithLocation = visitors.map(v => {
+      let location = null;
+      try {
+        if (v.metadata) {
+          const metadata = typeof v.metadata === 'string' ? JSON.parse(v.metadata) : v.metadata;
+          location = metadata.location || null;
+        }
+      } catch (e) {}
+      return { ...v, location };
+    });
+
     res.render('realtime', {
-      title: 'Real-time Visitors',
+      title: 'Real-time - SMART Journey',
       currentPage: 'realtime',
-      visitors,
+      visitors: visitorsWithLocation,
       visitorCount,
       emailConfigured: emailService.isConfigured()
     });
@@ -31,22 +43,78 @@ router.get('/api/visitors', async (req, res) => {
     const withinSeconds = parseInt(req.query.seconds) || 60;
     const visitors = await getActiveVisitors(withinSeconds);
 
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      count: visitors.length,
-      visitors: visitors.map(v => ({
+    // Parse location from metadata for each visitor
+    const visitorsWithLocation = visitors.map(v => {
+      let location = null;
+      try {
+        if (v.metadata) {
+          const metadata = typeof v.metadata === 'string' ? JSON.parse(v.metadata) : v.metadata;
+          location = metadata.location || null;
+        }
+      } catch (e) {}
+      return {
         journey_id: v.journey_id,
         page_url: v.page_url,
         device_type: v.device_type,
         last_activity: v.last_activity,
         first_seen: v.first_seen,
-        referrer: v.referrer
-      }))
+        referrer: v.referrer,
+        visitor_id: v.visitor_id,
+        visit_number: v.visit_number,
+        location
+      };
+    });
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      count: visitors.length,
+      visitors: visitorsWithLocation
     });
   } catch (error) {
     console.error('Error fetching active visitors:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch visitors' });
+  }
+});
+
+// GET /realtime/api/locations - Get visitor locations
+router.get('/api/locations', async (req, res) => {
+  try {
+    const withinSeconds = parseInt(req.query.seconds) || 300;
+    const locations = await getVisitorLocations(withinSeconds);
+
+    // Aggregate by country
+    const byCountry = {};
+    locations.forEach(loc => {
+      const country = loc.countryCode || 'Unknown';
+      if (!byCountry[country]) {
+        byCountry[country] = {
+          country: loc.country,
+          countryCode: loc.countryCode,
+          flag: loc.flag,
+          count: 0,
+          cities: new Set()
+        };
+      }
+      byCountry[country].count++;
+      if (loc.city) byCountry[country].cities.add(loc.city);
+    });
+
+    // Convert to array
+    const aggregated = Object.values(byCountry).map(c => ({
+      ...c,
+      cities: Array.from(c.cities)
+    })).sort((a, b) => b.count - a.count);
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      total: locations.length,
+      locations: aggregated
+    });
+  } catch (error) {
+    console.error('Error fetching visitor locations:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch locations' });
   }
 });
 
