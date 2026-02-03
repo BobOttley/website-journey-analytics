@@ -585,10 +585,33 @@ document.addEventListener('DOMContentLoaded', function() {
   const visibilityData = <%- JSON.stringify(sectionVisibility) %>;
   const visCtx = document.getElementById('visibilityChart');
   if (visCtx) {
+    // Helper to get friendly page name from URL
+    function getPageName(url) {
+      if (!url) return '';
+      try {
+        const pathname = new URL(url).pathname;
+        let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+        if (name === '' || name === 'index') return 'Home';
+        name = name.split('/').pop();
+        name = name.replace(/-/g, ' ');
+        return name.charAt(0).toUpperCase() + name.slice(1);
+      } catch(e) { return ''; }
+    }
+
+    // Helper to format section name
+    function formatSection(section) {
+      return section.replace(/-/g, ' ').replace(/section$/i, '').trim()
+        .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
     new Chart(visCtx, {
       type: 'bar',
       data: {
-        labels: visibilityData.slice(0, 6).map(d => d.section.substring(0, 18)),
+        labels: visibilityData.slice(0, 6).map(d => {
+          const page = getPageName(d.page_url);
+          const section = formatSection(d.section);
+          return page ? `${page}: ${section}` : section;
+        }),
         datasets: [{
           label: 'Avg View Time (s)',
           data: visibilityData.slice(0, 6).map(d => parseFloat(d.avg_view_time)),
@@ -603,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function() {
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { color: gridColor }, ticks: { color: textColor } },
-          y: { grid: { display: false }, ticks: { color: textColor } }
+          y: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } }
         }
       }
     });
