@@ -29,20 +29,6 @@
       '/privacy.html': 'Privacy Policy'
     };
 
-    const PAGE_ICONS = {
-      '/': '🏠',
-      '/index.html': '🏠',
-      '/crm.html': '📊',
-      '/prospectus.html': '📖',
-      '/chatbot.html': '🤖',
-      '/voice.html': '🎙️',
-      '/booking.html': '📅',
-      '/email.html': '✉️',
-      '/contact.html': '📞',
-      '/smart-benefits-calculator.html': '🧮',
-      '/privacy.html': '🔒'
-    };
-
     function getPageName(url) {
       if (!url) return 'Unknown';
       let path = url;
@@ -58,17 +44,7 @@
     }
 
     function getPageIcon(url) {
-      if (!url) return '📄';
-      let path = url;
-      try {
-        if (url.startsWith('http')) {
-          path = new URL(url).pathname;
-        }
-      } catch (e) {
-        path = url.replace(/https?:\/\/[^\/]+/, '');
-      }
-      path = path.split('?')[0];
-      return PAGE_ICONS[path] || '📄';
+      return '';
     }
   </script>
 
@@ -671,12 +647,22 @@
     }
 
     /* ===== TABLE DARK MODE FIX ===== */
-    [data-theme="dark"] td {
-      color: var(--text-primary);
+    [data-theme="dark"] td,
+    [data-theme="dark"] tbody td,
+    [data-theme="dark"] table td,
+    [data-theme="dark"] td.text-muted,
+    [data-theme="dark"] td .text-muted,
+    [data-theme="dark"] td.text-small,
+    [data-theme="dark"] td .text-small {
+      color: #ffffff !important;
     }
 
-    [data-theme="dark"] .text-muted {
-      color: var(--text-muted);
+    [data-theme="dark"] td a {
+      color: var(--award-gold) !important;
+    }
+
+    [data-theme="dark"] .text-muted:not(td):not(td .text-muted) {
+      color: #cbd5e1;
     }
 
     /* ===== INSIGHTS PAGE - METRIC CARDS ===== */
@@ -1011,8 +997,8 @@
           <a href="/insights" class="<%= typeof currentPage !== 'undefined' && currentPage === 'insights' ? 'active' : '' %>">AI Insights</a>
         </nav>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
-          <span class="icon-sun">☀️</span>
-          <span class="icon-moon">🌙</span>
+          <span class="icon-sun">Light</span>
+          <span class="icon-moon">Dark</span>
         </button>
       </div>
     </div>
@@ -1067,7 +1053,7 @@
 
     if (typeof Chart !== 'undefined') {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      Chart.defaults.color = isDark ? '#f1f5f9' : '#2C3E50';
+      Chart.defaults.color = isDark ? '#ffffff' : '#2C3E50';
       Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
     }
   </script>
