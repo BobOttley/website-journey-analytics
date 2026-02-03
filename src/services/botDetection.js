@@ -5,6 +5,11 @@
  * 1. User-Agent Analysis - Known bot patterns
  * 2. Behavioural Analysis - Timing anomalies, no engagement
  * 3. Technical Signals - Automation indicators, datacenter IPs
+ * 4. Fingerprint Analysis - Canvas/WebGL anomalies (ADVANCED)
+ * 5. Mouse Movement Analysis - Straight lines vs natural curves (ADVANCED)
+ * 6. Scroll Behaviour Analysis - Uniform vs burst patterns (ADVANCED)
+ * 7. Honeypot Detection - Invisible link/field interactions (ADVANCED)
+ * 8. JavaScript Challenge - Browser capability verification (ADVANCED)
  *
  * Bot Score: 0-100
  * - 0-30: Likely human
@@ -300,6 +305,281 @@ function analyseClientIndicators(metadata) {
   };
 }
 
+// ============================================
+// ADVANCED DETECTION: FINGERPRINT ANALYSIS
+// ============================================
+
+/**
+ * Analyse browser fingerprint for bot indicators
+ * @param {object} metadata - Event metadata containing fingerprint data
+ * @returns {{ isBot: boolean, confidence: number, signals: string[] }}
+ */
+function analyseFingerprint(metadata) {
+  const fingerprint = metadata?.botIndicators?.fingerprint || metadata?.fingerprint;
+  if (!fingerprint) {
+    return { isBot: false, confidence: 0, signals: [] };
+  }
+
+  const signals = [];
+  let score = 0;
+
+  // Canvas fingerprint issues
+  if (fingerprint.canvasSuspicious) {
+    signals.push('canvas_suspicious');
+    score += 25;
+  }
+  if (fingerprint.canvasError) {
+    signals.push('canvas_error');
+    score += 15;
+  }
+
+  // WebGL issues - headless browsers have distinctive signatures
+  if (fingerprint.webglSuspicious) {
+    signals.push('webgl_suspicious');
+    score += 30;
+  }
+  if (fingerprint.webglMissing) {
+    signals.push('webgl_missing');
+    score += 20;
+  }
+  if (fingerprint.webglError) {
+    signals.push('webgl_error');
+    score += 15;
+  }
+
+  // SwiftShader is a software renderer used by headless Chrome
+  if (fingerprint.webglRenderer?.includes('SwiftShader') ||
+      fingerprint.webglRenderer?.includes('llvmpipe')) {
+    signals.push('software_renderer');
+    score += 35;
+  }
+
+  // No WebGL vendor/renderer at all
+  if (fingerprint.webgl && !fingerprint.webglVendor && !fingerprint.webglRenderer) {
+    signals.push('missing_webgl_info');
+    score += 15;
+  }
+
+  // Screen resolution anomalies (common bot resolutions)
+  const suspiciousResolutions = ['800x600', '1024x768', '0x0', '1x1'];
+  if (suspiciousResolutions.includes(fingerprint.screenRes)) {
+    signals.push('suspicious_resolution');
+    score += 20;
+  }
+
+  // Missing platform info
+  if (!fingerprint.platform || fingerprint.platform === '') {
+    signals.push('missing_platform');
+    score += 15;
+  }
+
+  return {
+    isBot: score >= 40,
+    confidence: Math.min(score, 100),
+    signals
+  };
+}
+
+// ============================================
+// ADVANCED DETECTION: MOUSE MOVEMENT ANALYSIS
+// ============================================
+
+/**
+ * Analyse mouse movement patterns for bot behaviour
+ * @param {object} metadata - Event metadata containing mouse analysis
+ * @returns {{ isBot: boolean, confidence: number, signals: string[] }}
+ */
+function analyseMousePatterns(metadata) {
+  const mouseData = metadata?.botIndicators?.mousePatterns || metadata?.mouseAnalysis;
+  if (!mouseData) {
+    return { isBot: false, confidence: 0, signals: [] };
+  }
+
+  const signals = [];
+  let score = 0;
+
+  // No mouse movement at all (strong bot indicator)
+  if (mouseData.noMovement || mouseData.totalMovements === 0) {
+    signals.push('no_mouse_movement');
+    score += 30;
+  }
+
+  // Movements too straight (bots move in straight lines)
+  if (mouseData.tooStraight || parseFloat(mouseData.straightLineRatio) > 0.9) {
+    signals.push('mouse_too_straight');
+    score += 25;
+  }
+
+  // Uniform timing between movements (humans are variable)
+  if (mouseData.uniformTiming || parseFloat(mouseData.timingVariance) < 10) {
+    // Only flag if there were enough movements to analyse
+    if (mouseData.totalMovements > 5) {
+      signals.push('mouse_uniform_timing');
+      score += 20;
+    }
+  }
+
+  // Impossibly fast mouse speed
+  if (parseFloat(mouseData.maxSpeed) > 50) {
+    signals.push('mouse_too_fast');
+    score += 15;
+  }
+
+  // Zero distance moved but clicks happened (teleporting cursor)
+  if (mouseData.totalDistance === 0 && mouseData.totalClicks > 0) {
+    signals.push('mouse_teleport');
+    score += 35;
+  }
+
+  // Very low movement count with many clicks
+  if (mouseData.totalMovements < 3 && mouseData.totalClicks > 5) {
+    signals.push('clicks_without_movement');
+    score += 25;
+  }
+
+  return {
+    isBot: score >= 40,
+    confidence: Math.min(score, 100),
+    signals
+  };
+}
+
+// ============================================
+// ADVANCED DETECTION: SCROLL BEHAVIOUR ANALYSIS
+// ============================================
+
+/**
+ * Analyse scroll patterns for bot behaviour
+ * @param {object} metadata - Event metadata containing scroll analysis
+ * @returns {{ isBot: boolean, confidence: number, signals: string[] }}
+ */
+function analyseScrollPatterns(metadata) {
+  const scrollData = metadata?.botIndicators?.scrollPatterns || metadata?.scrollAnalysis;
+  if (!scrollData) {
+    return { isBot: false, confidence: 0, signals: [] };
+  }
+
+  const signals = [];
+  let score = 0;
+
+  // No scrolling at all
+  if (scrollData.noScroll || scrollData.totalScrolls === 0) {
+    signals.push('no_scroll');
+    score += 20;
+  }
+
+  // Too uniform scrolling (bots scroll at constant rate)
+  if (scrollData.tooUniform || parseFloat(scrollData.timingVariance) < 5) {
+    if (scrollData.totalScrolls > 5) {
+      signals.push('scroll_too_uniform');
+      score += 25;
+    }
+  }
+
+  // No direction changes (only scrolling down = scraping)
+  if (scrollData.noDirectionChange || scrollData.directionChanges === 0) {
+    if (scrollData.totalScrolls > 5) {
+      signals.push('scroll_one_direction');
+      score += 15;
+    }
+  }
+
+  // Very high scroll speed (programmatic scrolling)
+  if (parseFloat(scrollData.maxSpeed) > 100) {
+    signals.push('scroll_too_fast');
+    score += 20;
+  }
+
+  // High uniform scroll count (automated scrolling)
+  if (scrollData.uniformCount > 10) {
+    signals.push('scroll_programmatic');
+    score += 30;
+  }
+
+  return {
+    isBot: score >= 40,
+    confidence: Math.min(score, 100),
+    signals
+  };
+}
+
+// ============================================
+// ADVANCED DETECTION: HONEYPOT ANALYSIS
+// ============================================
+
+/**
+ * Check if honeypot was triggered (definite bot)
+ * @param {object} metadata - Event metadata
+ * @returns {{ isBot: boolean, confidence: number, signals: string[] }}
+ */
+function analyseHoneypot(metadata) {
+  const indicators = metadata?.botIndicators;
+  if (!indicators) {
+    return { isBot: false, confidence: 0, signals: [] };
+  }
+
+  const signals = [];
+  let score = 0;
+
+  // Honeypot clicked = definite bot (invisible to humans)
+  if (indicators.honeypotClicked === true) {
+    signals.push('honeypot_triggered');
+    score = 100; // Instant bot detection
+  }
+
+  return {
+    isBot: score >= 50,
+    confidence: score,
+    signals
+  };
+}
+
+// ============================================
+// ADVANCED DETECTION: JS CHALLENGE ANALYSIS
+// ============================================
+
+/**
+ * Analyse JavaScript challenge results
+ * @param {object} metadata - Event metadata
+ * @returns {{ isBot: boolean, confidence: number, signals: string[] }}
+ */
+function analyseJsChallenge(metadata) {
+  const indicators = metadata?.botIndicators;
+  if (!indicators) {
+    return { isBot: false, confidence: 0, signals: [] };
+  }
+
+  const signals = [];
+  let score = 0;
+
+  // JS challenge failed
+  if (indicators.jsChallengePassed === false) {
+    signals.push('js_challenge_failed');
+    score += 30;
+
+    // Add specific failures
+    const failures = indicators.jsChallengeFailures || indicators.jsChallenge?.failures || [];
+    failures.forEach(failure => {
+      signals.push(`js_fail:${failure}`);
+    });
+
+    // More failures = more suspicious
+    score += Math.min(failures.length * 10, 40);
+  }
+
+  // Timing anomaly (loop executed too fast/slow)
+  if (indicators.timingAnomaly === true) {
+    signals.push('timing_anomaly');
+    score += 25;
+  }
+
+  return {
+    isBot: score >= 40,
+    confidence: Math.min(score, 100),
+    signals
+  };
+}
+
 /**
  * Analyse journey behaviour for bot patterns
  * @param {object[]} events - Array of journey events
@@ -456,26 +736,76 @@ function detectBotForEvent(params) {
   let totalScore = 0;
   let detectedType = null;
 
-  // 1. User-Agent analysis (weight: 40%)
+  // ============================================
+  // INSTANT BOT DETECTION (honeypot = 100% bot)
+  // ============================================
+  const honeypotResult = analyseHoneypot(metadata);
+  if (honeypotResult.isBot) {
+    return {
+      isBot: true,
+      botScore: 100,
+      botType: 'scraper',
+      signals: honeypotResult.signals
+    };
+  }
+
+  // ============================================
+  // STANDARD DETECTION
+  // ============================================
+
+  // 1. User-Agent analysis (weight: 25%)
   const uaResult = analyseUserAgent(userAgent);
   allSignals.push(...uaResult.signals);
-  totalScore += uaResult.confidence * 0.4;
+  totalScore += uaResult.confidence * 0.25;
   if (uaResult.botType && !detectedType) {
     detectedType = uaResult.botType;
   }
 
-  // 2. IP analysis (weight: 20%)
+  // 2. IP analysis (weight: 10%)
   const ipResult = analyseIP(ipAddress);
   allSignals.push(...ipResult.signals);
   if (ipResult.isDatacenter) {
-    totalScore += 20;
+    totalScore += 10;
   }
 
-  // 3. Client-side indicators (weight: 40%)
+  // 3. Client-side indicators (weight: 15%)
   const clientResult = analyseClientIndicators(metadata);
   allSignals.push(...clientResult.signals);
-  totalScore += clientResult.confidence * 0.4;
+  totalScore += clientResult.confidence * 0.15;
   if (clientResult.isBot && !detectedType) {
+    detectedType = 'automation';
+  }
+
+  // ============================================
+  // ADVANCED DETECTION (weight: 50% total)
+  // ============================================
+
+  // 4. Fingerprint analysis (weight: 15%)
+  const fpResult = analyseFingerprint(metadata);
+  allSignals.push(...fpResult.signals);
+  totalScore += fpResult.confidence * 0.15;
+  if (fpResult.isBot && !detectedType) {
+    detectedType = 'automation';
+  }
+
+  // 5. Mouse movement analysis (weight: 15%)
+  const mouseResult = analyseMousePatterns(metadata);
+  allSignals.push(...mouseResult.signals);
+  totalScore += mouseResult.confidence * 0.15;
+  if (mouseResult.isBot && !detectedType) {
+    detectedType = 'automation';
+  }
+
+  // 6. Scroll behaviour analysis (weight: 10%)
+  const scrollResult = analyseScrollPatterns(metadata);
+  allSignals.push(...scrollResult.signals);
+  totalScore += scrollResult.confidence * 0.10;
+
+  // 7. JavaScript challenge (weight: 10%)
+  const jsResult = analyseJsChallenge(metadata);
+  allSignals.push(...jsResult.signals);
+  totalScore += jsResult.confidence * 0.10;
+  if (jsResult.isBot && !detectedType) {
     detectedType = 'automation';
   }
 
@@ -595,6 +925,7 @@ function getBotTypeLabel(botType) {
 }
 
 module.exports = {
+  // Standard detection
   analyseUserAgent,
   analyseIP,
   analyseClientIndicators,
@@ -603,6 +934,13 @@ module.exports = {
   calculateJourneyBotScore,
   isKnownGoodBot,
   getBotTypeLabel,
+  // Advanced detection
+  analyseFingerprint,
+  analyseMousePatterns,
+  analyseScrollPatterns,
+  analyseHoneypot,
+  analyseJsChallenge,
+  // Constants
   KNOWN_BOTS,
   AUTOMATION_INDICATORS,
 };
