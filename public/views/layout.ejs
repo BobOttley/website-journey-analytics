@@ -39,8 +39,15 @@
       } catch (e) {
         path = url.replace(/https?:\/\/[^\/]+/, '');
       }
-      path = path.split('?')[0];
-      return PAGE_NAMES[path] || path.replace('.html', '').replace(/\//g, '') || 'Home';
+      path = path.split('?')[0].toLowerCase(); // Case insensitive
+      return PAGE_NAMES[path] || PAGE_NAMES[path.replace(/^\//, '')] || formatPageName(path);
+    }
+
+    function formatPageName(path) {
+      // Convert /some-page.html to "Some Page"
+      let name = path.replace(/^\//, '').replace('.html', '').replace(/-/g, ' ');
+      if (!name || name === '/') return 'Home';
+      return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
     function getPageIcon(url) {

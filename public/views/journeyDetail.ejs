@@ -103,10 +103,10 @@
     <% if (journey.loops && journey.loops.length > 0) { %>
     <div class="mt-4">
       <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">Loop Detection</h4>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2" id="loop-badges">
         <% journey.loops.forEach(loop => { %>
-          <span class="badge badge-warning" title="This page was visited multiple times">
-            <%= loop.url.replace(/https?:\/\/[^\/]+/, '').substring(0, 30) %> (x<%= loop.visits %>)
+          <span class="badge badge-warning loop-badge" data-url="<%= loop.url %>" title="This page was visited multiple times">
+            <span class="loop-name"></span> (x<%= loop.visits %>)
           </span>
         <% }) %>
       </div>
@@ -188,16 +188,34 @@
     </div>
   <% } else { %>
     <div class="snake-timeline" id="eventTimeline">
-      <% journey.events.forEach((event, index) => { %>
+      <%
+        let sessionNumber = 1;
+        journey.events.forEach((event, index) => {
+          let isNewSession = false;
+          let gapSeconds = 0;
+          if (index > 0) {
+            const prevTime = new Date(journey.events[index-1].occurred_at).getTime();
+            const currTime = new Date(event.occurred_at).getTime();
+            gapSeconds = Math.round((currTime - prevTime) / 1000);
+            if (gapSeconds > 300) { // 5 minute gap = new session
+              isNewSession = true;
+              sessionNumber++;
+            }
+          }
+      %>
+        <% if (isNewSession) { %>
+          <div class="session-break">
+            <div class="session-break-line"></div>
+            <div class="session-break-label">Session <%= sessionNumber %> - <%= Math.round(gapSeconds / 60) %> min later</div>
+            <div class="session-break-line"></div>
+          </div>
+        <% } %>
         <div class="snake-event <%= event.event_type %>" data-event-type="<%= event.event_type %>">
           <div class="snake-event-card">
             <div class="snake-event-time">
               <%= new Date(event.occurred_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>
-              <% if (index > 0) { %>
-                <% const prevTime = new Date(journey.events[index-1].occurred_at).getTime(); %>
-                <% const currTime = new Date(event.occurred_at).getTime(); %>
-                <% const diff = Math.round((currTime - prevTime) / 1000); %>
-                <span class="snake-event-diff">+<%= diff %>s</span>
+              <% if (index > 0 && gapSeconds <= 300) { %>
+                <span class="snake-event-diff">+<%= gapSeconds %>s</span>
               <% } %>
             </div>
             <div class="snake-event-type">
@@ -237,11 +255,11 @@
               <span class="badge badge-gold snake-event-intent"><%= event.intent_type %></span>
             <% } %>
           </div>
-          <% if (index < journey.events.length - 1) { %>
+          <% if (index < journey.events.length - 1 && gapSeconds <= 300) { %>
             <div class="snake-arrow"></div>
           <% } %>
         </div>
-      <% }) %>
+      <% }); %>
     </div>
   <% } %>
 </div>
@@ -253,6 +271,35 @@
     flex-wrap: wrap;
     gap: 0;
     padding: 20px 0;
+  }
+
+  /* Session Break Styling */
+  .session-break {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+    padding: 0 20px;
+  }
+
+  .session-break-line {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--award-gold), transparent);
+  }
+
+  .session-break-label {
+    color: var(--award-gold);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    padding: 6px 16px;
+    background: rgba(255, 159, 28, 0.15);
+    border-radius: 20px;
+    border: 1px solid var(--award-gold);
   }
 
   .snake-event {
@@ -534,6 +581,15 @@
       const url = el.getAttribute('href');
       if (url) {
         el.textContent = getPageName(url);
+      }
+    });
+
+    // Populate loop detection badges with friendly names
+    document.querySelectorAll('.loop-badge').forEach(el => {
+      const url = el.dataset.url;
+      const nameEl = el.querySelector('.loop-name');
+      if (nameEl && url) {
+        nameEl.textContent = getPageName(url);
       }
     });
   });
