@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { insertEvent } = require('../db/queries');
+const { insertEvent, getEventsByJourneyId } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
+const emailService = require('../services/emailService');
+
+// Track journeys we've already notified about (persists until server restart)
+const notifiedJourneys = new Set();
 
 const VALID_EVENT_TYPES = [
   // Core events
@@ -147,6 +151,39 @@ router.post('/', async (req, res) => {
     };
 
     const result = await insertEvent(event);
+
+    // Send email notification for NEW visitors (first page_view of a journey)
+    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
+      // Check if this is actually the first event for this journey
+      const existingEvents = await getEventsByJourneyId(event.journey_id);
+      if (existingEvents.length <= 1) {
+        // This is a new journey - send notification
+        notifiedJourneys.add(event.journey_id);
+
+        // Clean up old entries (keep last 5000)
+        if (notifiedJourneys.size > 5000) {
+          const entries = Array.from(notifiedJourneys);
+          entries.slice(0, 2500).forEach(id => notifiedJourneys.delete(id));
+        }
+
+        // Send email asynchronously (don't block response)
+        emailService.sendNewVisitorNotification({
+          journey_id: event.journey_id,
+          entry_page: event.page_url,
+          referrer: event.referrer,
+          device_type: event.device_type,
+          first_seen: event.occurred_at
+        }).then(emailResult => {
+          if (emailResult.success) {
+            console.log(`Email sent for new visitor: ${event.journey_id}`);
+          } else {
+            console.log(`Email skipped: ${emailResult.reason}`);
+          }
+        }).catch(err => {
+          console.error('Email notification error:', err.message);
+        });
+      }
+    }
 
     res.status(201).json({
       success: true,
