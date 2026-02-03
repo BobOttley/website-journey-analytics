@@ -311,10 +311,12 @@
           const referrerHtml = v.referrer
             ? `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`
             : '<span class="text-muted">Direct</span>';
-          const locationHtml = v.location && v.location.countryCode
+          const hasLocation = v.location ? v.location.countryCode : false;
+          const locationHtml = hasLocation
             ? `<span class="text-small">${v.location.city || v.location.country || v.location.countryCode}</span>`
             : '<span class="text-muted">Unknown</span>';
-          const visitorBadge = v.visit_number && v.visit_number > 1
+          const isReturnVisitor = v.visit_number ? v.visit_number > 1 : false;
+          const visitorBadge = isReturnVisitor
             ? '<span class="badge badge-gold">Return</span>'
             : '<span class="badge badge-neutral">New</span>';
 
@@ -406,7 +408,8 @@
                   ? `<span title="${s.entry_page}">${getPageNameLocal(s.entry_page)}</span>`
                   : '<span class="text-muted">Unknown</span>';
                 const deviceBadge = s.device_type === 'mobile' ? 'warning' : s.device_type === 'tablet' ? 'info' : 'neutral';
-                const visitorBadge = s.visit_number && s.visit_number > 1
+                const isReturn = s.visit_number ? s.visit_number > 1 : false;
+                const visitorBadge = isReturn
                   ? '<span class="badge badge-gold">Return</span>'
                   : '<span class="badge badge-neutral">New</span>';
                 const outcomeBadge = s.outcome === 'enquiry_submitted' || s.outcome === 'visit_booked'
