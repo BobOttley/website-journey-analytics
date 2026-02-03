@@ -156,7 +156,7 @@
 <script>
   let pollInterval = null;
   let lastPollTime = Date.now();
-  let previousJourneyIds = new Set(<%= JSON.stringify(visitors.map(v => v.journey_id)) %>);
+  let previousJourneyIds = new Set(<%- JSON.stringify(visitors.map(v => v.journey_id)) %>);
 
   // Page name helpers (local copy to avoid any scoping issues)
   const PAGE_NAMES_LOCAL = {
