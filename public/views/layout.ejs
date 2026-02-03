@@ -1397,11 +1397,15 @@
     document.addEventListener('click', function(event) {
       const siteDropdown = document.getElementById('site-switcher-dropdown');
       const userDropdown = document.getElementById('user-menu-dropdown');
-      if (siteDropdown && !event.target.closest('.site-switcher')) {
-        siteDropdown.classList.remove('show');
+      if (siteDropdown) {
+        if (!event.target.closest('.site-switcher')) {
+          siteDropdown.classList.remove('show');
+        }
       }
-      if (userDropdown && !event.target.closest('.user-menu')) {
-        userDropdown.classList.remove('show');
+      if (userDropdown) {
+        if (!event.target.closest('.user-menu')) {
+          userDropdown.classList.remove('show');
+        }
       }
     });
   </script>
