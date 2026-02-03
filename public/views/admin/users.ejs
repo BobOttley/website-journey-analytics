@@ -1,0 +1,71 @@
+<% if (typeof success !== 'undefined' && success) { %>
+  <div class="alert alert-success"><%= success %></div>
+<% } %>
+
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<div class="flex justify-between items-center mb-6">
+  <h1 style="font-size: 1.5rem; font-weight: 700;">User Management</h1>
+  <a href="/admin/users/new" class="btn btn-primary">Add New User</a>
+</div>
+
+<div class="card">
+  <h2>All Users</h2>
+
+  <% if (users.length === 0) { %>
+    <div class="empty-state">
+      <div class="icon">+</div>
+      <h3>No users yet</h3>
+      <p>Add users to give them access to the analytics dashboard.</p>
+    </div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Site Access</th>
+          <th>Last Login</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% users.forEach(function(user) { %>
+          <tr>
+            <td><strong><%= user.name || '-' %></strong></td>
+            <td><%= user.email %></td>
+            <td>
+              <% if (user.role === 'admin') { %>
+                <span class="badge badge-gold">Admin</span>
+              <% } else { %>
+                <span class="badge badge-info">Customer</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (user.role === 'admin') { %>
+                <span class="text-muted">All sites</span>
+              <% } else if (user.site_names && user.site_names.length > 0) { %>
+                <%= user.site_names.filter(Boolean).join(', ') %>
+              <% } else { %>
+                <span class="text-muted">No sites assigned</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (user.last_login) { %>
+                <%= new Date(user.last_login).toLocaleDateString() %> <%= new Date(user.last_login).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %>
+              <% } else { %>
+                <span class="text-muted">Never</span>
+              <% } %>
+            </td>
+            <td>
+              <a href="/admin/users/<%= user.id %>" class="btn btn-sm btn-secondary">Edit</a>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</div>

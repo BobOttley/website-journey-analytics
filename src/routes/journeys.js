@@ -15,6 +15,7 @@ const {
   getHourlyActivity
 } = require('../db/queries');
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
+const { getSiteId } = require('../middleware/auth');
 
 // GET /journeys - Journey list view
 router.get('/', async (req, res) => {
@@ -23,16 +24,18 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
     const filter = req.query.filter || 'all'; // 'all', 'humans', 'bots'
+    const siteId = getSiteId(req);
 
     // Build filter options
     const filterOptions = {
       excludeBots: filter === 'humans',
-      botsOnly: filter === 'bots'
+      botsOnly: filter === 'bots',
+      siteId: siteId
     };
 
     const journeys = await getAllJourneys(limit, offset, filterOptions);
     const totalCount = await getJourneyCount(filterOptions);
-    const rawStats = await getJourneyStats();
+    const rawStats = await getJourneyStats(siteId);
     const totalPages = Math.ceil(totalCount / limit);
 
     // Convert PostgreSQL string values to numbers
@@ -86,6 +89,8 @@ router.post('/rebuild', async (req, res) => {
 // GET /journeys/api/charts - Chart data for dashboard
 router.get('/api/charts', async (req, res) => {
   try {
+    const siteId = getSiteId(req);
+
     const [
       topPages,
       deviceBreakdown,
@@ -96,14 +101,14 @@ router.get('/api/charts', async (req, res) => {
       returnVisitors,
       hourlyActivity
     ] = await Promise.all([
-      getTopPages(10),
-      getDeviceBreakdown(),
-      getTrafficSources(),
-      getDailyJourneyTrend(30),
-      getScrollDepthDistribution(),
-      getConversionFunnel(),
-      getReturnVisitorStats(),
-      getHourlyActivity()
+      getTopPages(10, siteId),
+      getDeviceBreakdown(siteId),
+      getTrafficSources(siteId),
+      getDailyJourneyTrend(30, siteId),
+      getScrollDepthDistribution(siteId),
+      getConversionFunnel(siteId),
+      getReturnVisitorStats(siteId),
+      getHourlyActivity(siteId)
     ]);
 
     res.json({
@@ -132,7 +137,8 @@ router.get('/api/charts', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const journeyId = req.params.id;
-    const journey = await getJourneyWithEvents(journeyId);
+    const siteId = getSiteId(req);
+    const journey = await getJourneyWithEvents(journeyId, siteId);
 
     if (!journey) {
       return res.status(404).render('error', { error: 'Journey not found' });
@@ -152,7 +158,8 @@ router.get('/:id', async (req, res) => {
 // API endpoint for journey data
 router.get('/api/stats', async (req, res) => {
   try {
-    const stats = await getJourneyStats();
+    const siteId = getSiteId(req);
+    const stats = await getJourneyStats(siteId);
     res.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);

@@ -203,6 +203,185 @@
       background: rgba(255, 159, 28, 0.15);
     }
 
+    /* Site Switcher */
+    .site-switcher {
+      position: relative;
+      margin-right: 1rem;
+    }
+
+    .site-switcher-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: var(--white);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .site-switcher-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--award-gold);
+    }
+
+    .site-switcher-btn .site-name {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .site-switcher-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--white);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      min-width: 220px;
+      display: none;
+      z-index: 1001;
+      overflow: hidden;
+    }
+
+    .site-switcher-dropdown.show {
+      display: block;
+    }
+
+    .site-switcher-dropdown a {
+      display: block;
+      padding: 0.9rem 1.2rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border-grey);
+      transition: background 0.2s;
+    }
+
+    .site-switcher-dropdown a:last-child {
+      border-bottom: none;
+    }
+
+    .site-switcher-dropdown a:hover {
+      background: rgba(255, 159, 28, 0.1);
+    }
+
+    .site-switcher-dropdown a.active {
+      background: rgba(255, 159, 28, 0.15);
+      color: var(--award-gold);
+      font-weight: 600;
+    }
+
+    /* User Menu */
+    .user-menu {
+      position: relative;
+      margin-left: 0.5rem;
+    }
+
+    .user-menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .user-menu-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--white);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--award-gold) 0%, var(--gold-light) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--blazer-navy);
+    }
+
+    .user-menu-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.5rem;
+      background: var(--white);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      min-width: 200px;
+      display: none;
+      z-index: 1001;
+      overflow: hidden;
+    }
+
+    .user-menu-dropdown.show {
+      display: block;
+    }
+
+    .user-menu-header {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid var(--border-grey);
+    }
+
+    .user-menu-header .name {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .user-menu-header .email {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .user-menu-header .role {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.2rem 0.6rem;
+      background: rgba(255, 159, 28, 0.15);
+      color: var(--award-gold);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      border-radius: 4px;
+    }
+
+    .user-menu-dropdown a {
+      display: block;
+      padding: 0.75rem 1.2rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border-grey);
+      transition: background 0.2s;
+    }
+
+    .user-menu-dropdown a:last-child {
+      border-bottom: none;
+    }
+
+    .user-menu-dropdown a:hover {
+      background: rgba(255, 159, 28, 0.1);
+    }
+
+    .user-menu-dropdown a.logout {
+      color: var(--danger);
+    }
+
     .theme-switch {
       position: relative;
       display: inline-block;
@@ -1065,7 +1244,53 @@
           <a href="/realtime" class="<%= typeof currentPage !== 'undefined' && currentPage === 'realtime' ? 'active' : '' %>">Real-time</a>
           <a href="/bots" class="<%= typeof currentPage !== 'undefined' && currentPage === 'bots' ? 'active' : '' %>">Bots</a>
           <a href="/insights" class="<%= typeof currentPage !== 'undefined' && currentPage === 'insights' ? 'active' : '' %>">AI Insights</a>
+          <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+            <a href="/admin/sites" class="<%= typeof currentPage !== 'undefined' && currentPage === 'admin' ? 'active' : '' %>">Admin</a>
+          <% } %>
         </nav>
+
+        <% if (typeof userSites !== 'undefined' && userSites.length > 1) { %>
+          <!-- Site Switcher (only show if user has access to multiple sites) -->
+          <div class="site-switcher">
+            <button class="site-switcher-btn" onclick="toggleSiteSwitcher(event)">
+              <span class="site-name"><%= typeof currentSite !== 'undefined' && currentSite ? currentSite.name : 'Select Site' %></span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="site-switcher-dropdown" id="site-switcher-dropdown">
+              <% userSites.forEach(function(site) { %>
+                <a href="#" onclick="switchSite(<%= site.id %>); return false;" class="<%= typeof currentSite !== 'undefined' && currentSite && currentSite.id === site.id ? 'active' : '' %>">
+                  <%= site.name %>
+                </a>
+              <% }); %>
+            </div>
+          </div>
+        <% } else if (typeof currentSite !== 'undefined' && currentSite) { %>
+          <!-- Single site indicator -->
+          <div style="margin-right: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); border-radius: 8px; color: white; font-size: 0.85rem;">
+            <%= currentSite.name %>
+          </div>
+        <% } %>
+
+        <% if (typeof user !== 'undefined' && user) { %>
+          <!-- User Menu -->
+          <div class="user-menu">
+            <button class="user-menu-btn" onclick="toggleUserMenu(event)">
+              <div class="user-avatar"><%= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() %></div>
+            </button>
+            <div class="user-menu-dropdown" id="user-menu-dropdown">
+              <div class="user-menu-header">
+                <div class="name"><%= user.name || 'User' %></div>
+                <div class="email"><%= user.email %></div>
+                <span class="role"><%= user.role %></span>
+              </div>
+              <a href="/change-password">Change Password</a>
+              <a href="/logout" class="logout">Sign Out</a>
+            </div>
+          </div>
+        <% } %>
+
         <label class="theme-switch" title="Toggle dark mode">
           <input type="checkbox" onchange="toggleTheme()" id="theme-checkbox">
           <span class="theme-slider"></span>
@@ -1134,6 +1359,50 @@
       Chart.defaults.color = isDark ? '#ffffff' : '#2C3E50';
       Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
     }
+
+    // Site Switcher
+    function toggleSiteSwitcher(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('site-switcher-dropdown');
+      const userDropdown = document.getElementById('user-menu-dropdown');
+      if (userDropdown) userDropdown.classList.remove('show');
+      dropdown.classList.toggle('show');
+    }
+
+    function switchSite(siteId) {
+      // Create a form and submit it
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/switch-site';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'site_id';
+      input.value = siteId;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+    // User Menu
+    function toggleUserMenu(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('user-menu-dropdown');
+      const siteDropdown = document.getElementById('site-switcher-dropdown');
+      if (siteDropdown) siteDropdown.classList.remove('show');
+      dropdown.classList.toggle('show');
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+      const siteDropdown = document.getElementById('site-switcher-dropdown');
+      const userDropdown = document.getElementById('user-menu-dropdown');
+      if (siteDropdown && !event.target.closest('.site-switcher')) {
+        siteDropdown.classList.remove('show');
+      }
+      if (userDropdown && !event.target.closest('.user-menu')) {
+        userDropdown.classList.remove('show');
+      }
+    });
   </script>
 </body>
 </html>

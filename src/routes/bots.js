@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
 const { getBotTypeLabel } = require('../services/botDetection');
+const { getSiteId } = require('../middleware/auth');
 
 // ============================================
 // BOT ANALYTICS DASHBOARD
@@ -13,12 +14,13 @@ const { getBotTypeLabel } = require('../services/botDetection');
  */
 router.get('/', async (req, res) => {
   try {
-    const stats = await getBotOverviewStats();
-    const typeBreakdown = await getBotTypeBreakdown();
-    const topUserAgents = await getTopBotUserAgents();
-    const dailyTrend = await getDailyBotTrend(30);
-    const hourlyActivity = await getHourlyBotActivity();
-    const locationStats = await getBotLocationStats();
+    const siteId = getSiteId(req);
+    const stats = await getBotOverviewStats(siteId);
+    const typeBreakdown = await getBotTypeBreakdown(siteId);
+    const topUserAgents = await getTopBotUserAgents(20, siteId);
+    const dailyTrend = await getDailyBotTrend(30, siteId);
+    const hourlyActivity = await getHourlyBotActivity(siteId);
+    const locationStats = await getBotLocationStats(siteId);
 
     res.render('bots', {
       title: 'Bot Analytics - SMART Journey',
@@ -46,7 +48,8 @@ router.get('/', async (req, res) => {
  */
 router.get('/api/overview', async (req, res) => {
   try {
-    const stats = await getBotOverviewStats();
+    const siteId = getSiteId(req);
+    const stats = await getBotOverviewStats(siteId);
     res.json(stats);
   } catch (error) {
     console.error('Bot overview error:', error);
@@ -60,7 +63,8 @@ router.get('/api/overview', async (req, res) => {
  */
 router.get('/api/types', async (req, res) => {
   try {
-    const types = await getBotTypeBreakdown();
+    const siteId = getSiteId(req);
+    const types = await getBotTypeBreakdown(siteId);
     res.json(types);
   } catch (error) {
     console.error('Bot types error:', error);
@@ -75,7 +79,8 @@ router.get('/api/types', async (req, res) => {
 router.get('/api/user-agents', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
-    const userAgents = await getTopBotUserAgents(limit);
+    const siteId = getSiteId(req);
+    const userAgents = await getTopBotUserAgents(limit, siteId);
     res.json(userAgents);
   } catch (error) {
     console.error('Bot user-agents error:', error);
@@ -90,7 +95,8 @@ router.get('/api/user-agents', async (req, res) => {
 router.get('/api/trend', async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 30;
-    const trend = await getDailyBotTrend(days);
+    const siteId = getSiteId(req);
+    const trend = await getDailyBotTrend(days, siteId);
     res.json(trend);
   } catch (error) {
     console.error('Bot trend error:', error);
@@ -104,7 +110,8 @@ router.get('/api/trend', async (req, res) => {
  */
 router.get('/api/hourly', async (req, res) => {
   try {
-    const hourly = await getHourlyBotActivity();
+    const siteId = getSiteId(req);
+    const hourly = await getHourlyBotActivity(siteId);
     res.json(hourly);
   } catch (error) {
     console.error('Bot hourly error:', error);
@@ -119,7 +126,8 @@ router.get('/api/hourly', async (req, res) => {
 router.get('/api/pages', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
-    const pages = await getMostCrawledPages(limit);
+    const siteId = getSiteId(req);
+    const pages = await getMostCrawledPages(limit, siteId);
     res.json(pages);
   } catch (error) {
     console.error('Bot pages error:', error);
@@ -133,7 +141,8 @@ router.get('/api/pages', async (req, res) => {
  */
 router.get('/api/comparison', async (req, res) => {
   try {
-    const comparison = await getBotVsHumanComparison();
+    const siteId = getSiteId(req);
+    const comparison = await getBotVsHumanComparison(siteId);
     res.json(comparison);
   } catch (error) {
     console.error('Bot comparison error:', error);
@@ -148,15 +157,21 @@ router.get('/api/comparison', async (req, res) => {
 /**
  * Get overview statistics
  */
-async function getBotOverviewStats() {
+async function getBotOverviewStats(siteId = null) {
   const db = getDb();
+  const siteFilter = siteId ? 'WHERE site_id = $1' : '';
+  const siteAndFilter = siteId ? 'AND site_id = $1' : '';
+  const params = siteId ? [siteId] : [];
 
   // Total journeys
-  const totalResult = await db.query('SELECT COUNT(*) as count FROM journeys');
+  const totalResult = await db.query(`SELECT COUNT(*) as count FROM journeys ${siteFilter}`, params);
   const totalJourneys = parseInt(totalResult.rows[0].count);
 
   // Bot journeys
-  const botResult = await db.query('SELECT COUNT(*) as count FROM journeys WHERE is_bot = true');
+  const botQuery = siteId
+    ? 'SELECT COUNT(*) as count FROM journeys WHERE is_bot = true AND site_id = $1'
+    : 'SELECT COUNT(*) as count FROM journeys WHERE is_bot = true';
+  const botResult = await db.query(botQuery, params);
   const botJourneys = parseInt(botResult.rows[0].count);
 
   // Human journeys
@@ -166,19 +181,17 @@ async function getBotOverviewStats() {
   const botPercentage = totalJourneys > 0 ? ((botJourneys / totalJourneys) * 100).toFixed(1) : 0;
 
   // Today's bots
-  const todayResult = await db.query(`
-    SELECT COUNT(*) as count FROM journeys
-    WHERE is_bot = true AND first_seen >= CURRENT_DATE
-  `);
+  const todayQuery = siteId
+    ? `SELECT COUNT(*) as count FROM journeys WHERE is_bot = true AND first_seen >= CURRENT_DATE AND site_id = $1`
+    : `SELECT COUNT(*) as count FROM journeys WHERE is_bot = true AND first_seen >= CURRENT_DATE`;
+  const todayResult = await db.query(todayQuery, params);
   const todayBots = parseInt(todayResult.rows[0].count);
 
   // Yesterday's bots (for trend)
-  const yesterdayResult = await db.query(`
-    SELECT COUNT(*) as count FROM journeys
-    WHERE is_bot = true
-    AND first_seen >= CURRENT_DATE - INTERVAL '1 day'
-    AND first_seen < CURRENT_DATE
-  `);
+  const yesterdayQuery = siteId
+    ? `SELECT COUNT(*) as count FROM journeys WHERE is_bot = true AND first_seen >= CURRENT_DATE - INTERVAL '1 day' AND first_seen < CURRENT_DATE AND site_id = $1`
+    : `SELECT COUNT(*) as count FROM journeys WHERE is_bot = true AND first_seen >= CURRENT_DATE - INTERVAL '1 day' AND first_seen < CURRENT_DATE`;
+  const yesterdayResult = await db.query(yesterdayQuery, params);
   const yesterdayBots = parseInt(yesterdayResult.rows[0].count);
 
   // Trend calculation
@@ -188,16 +201,17 @@ async function getBotOverviewStats() {
   }
 
   // Suspicious journeys (score 31-60)
-  const suspiciousResult = await db.query(`
-    SELECT COUNT(*) as count FROM journeys
-    WHERE bot_score >= 31 AND bot_score <= 60
-  `);
+  const suspiciousQuery = siteId
+    ? `SELECT COUNT(*) as count FROM journeys WHERE bot_score >= 31 AND bot_score <= 60 AND site_id = $1`
+    : `SELECT COUNT(*) as count FROM journeys WHERE bot_score >= 31 AND bot_score <= 60`;
+  const suspiciousResult = await db.query(suspiciousQuery, params);
   const suspiciousJourneys = parseInt(suspiciousResult.rows[0].count);
 
   // Average bot score
-  const avgScoreResult = await db.query(`
-    SELECT AVG(bot_score) as avg FROM journeys WHERE is_bot = true
-  `);
+  const avgQuery = siteId
+    ? `SELECT AVG(bot_score) as avg FROM journeys WHERE is_bot = true AND site_id = $1`
+    : `SELECT AVG(bot_score) as avg FROM journeys WHERE is_bot = true`;
+  const avgScoreResult = await db.query(avgQuery, params);
   const avgBotScore = avgScoreResult.rows[0].avg ?
     parseFloat(avgScoreResult.rows[0].avg).toFixed(0) : 0;
 
@@ -216,18 +230,20 @@ async function getBotOverviewStats() {
 /**
  * Get bot type breakdown
  */
-async function getBotTypeBreakdown() {
+async function getBotTypeBreakdown(siteId = null) {
   const db = getDb();
+  const whereClause = siteId ? 'WHERE is_bot = true AND site_id = $1' : 'WHERE is_bot = true';
+  const params = siteId ? [siteId] : [];
 
   const result = await db.query(`
     SELECT
       COALESCE(bot_type, 'unknown') as bot_type,
       COUNT(*) as count
     FROM journeys
-    WHERE is_bot = true
+    ${whereClause}
     GROUP BY bot_type
     ORDER BY count DESC
-  `);
+  `, params);
 
   return result.rows.map(row => ({
     type: row.bot_type,
@@ -239,8 +255,12 @@ async function getBotTypeBreakdown() {
 /**
  * Get top bot user agents
  */
-async function getTopBotUserAgents(limit = 20) {
+async function getTopBotUserAgents(limit = 20, siteId = null) {
   const db = getDb();
+  const whereClause = siteId
+    ? 'WHERE is_bot = true AND user_agent IS NOT NULL AND site_id = $2'
+    : 'WHERE is_bot = true AND user_agent IS NOT NULL';
+  const params = siteId ? [limit, siteId] : [limit];
 
   const result = await db.query(`
     SELECT
@@ -248,11 +268,11 @@ async function getTopBotUserAgents(limit = 20) {
       COUNT(*) as count,
       AVG(bot_score) as avg_score
     FROM journey_events
-    WHERE is_bot = true AND user_agent IS NOT NULL
+    ${whereClause}
     GROUP BY user_agent
     ORDER BY count DESC
     LIMIT $1
-  `, [limit]);
+  `, params);
 
   return result.rows.map(row => ({
     userAgent: row.user_agent,
@@ -264,8 +284,12 @@ async function getTopBotUserAgents(limit = 20) {
 /**
  * Get daily bot trend
  */
-async function getDailyBotTrend(days = 30) {
+async function getDailyBotTrend(days = 30, siteId = null) {
   const db = getDb();
+  const whereClause = siteId
+    ? `WHERE first_seen >= NOW() - INTERVAL '${days} days' AND site_id = $1`
+    : `WHERE first_seen >= NOW() - INTERVAL '${days} days'`;
+  const params = siteId ? [siteId] : [];
 
   const result = await db.query(`
     SELECT
@@ -274,10 +298,10 @@ async function getDailyBotTrend(days = 30) {
       COUNT(*) FILTER (WHERE is_bot = false OR is_bot IS NULL) as humans,
       COUNT(*) as total
     FROM journeys
-    WHERE first_seen >= NOW() - INTERVAL '${days} days'
+    ${whereClause}
     GROUP BY DATE(first_seen)
     ORDER BY date ASC
-  `);
+  `, params);
 
   return result.rows.map(row => ({
     date: row.date,
@@ -292,8 +316,12 @@ async function getDailyBotTrend(days = 30) {
 /**
  * Get hourly bot activity
  */
-async function getHourlyBotActivity() {
+async function getHourlyBotActivity(siteId = null) {
   const db = getDb();
+  const whereClause = siteId
+    ? `WHERE first_seen >= NOW() - INTERVAL '7 days' AND site_id = $1`
+    : `WHERE first_seen >= NOW() - INTERVAL '7 days'`;
+  const params = siteId ? [siteId] : [];
 
   const result = await db.query(`
     SELECT
@@ -301,10 +329,10 @@ async function getHourlyBotActivity() {
       COUNT(*) FILTER (WHERE is_bot = true) as bots,
       COUNT(*) FILTER (WHERE is_bot = false OR is_bot IS NULL) as humans
     FROM journeys
-    WHERE first_seen >= NOW() - INTERVAL '7 days'
+    ${whereClause}
     GROUP BY hour
     ORDER BY hour
-  `);
+  `, params);
 
   // Fill in missing hours with 0
   const hourlyData = Array(24).fill(null).map((_, i) => ({
@@ -328,8 +356,12 @@ async function getHourlyBotActivity() {
 /**
  * Get most crawled pages by bots
  */
-async function getMostCrawledPages(limit = 20) {
+async function getMostCrawledPages(limit = 20, siteId = null) {
   const db = getDb();
+  const whereClause = siteId
+    ? "WHERE is_bot = true AND event_type = 'page_view' AND page_url IS NOT NULL AND site_id = $2"
+    : "WHERE is_bot = true AND event_type = 'page_view' AND page_url IS NOT NULL";
+  const params = siteId ? [limit, siteId] : [limit];
 
   const result = await db.query(`
     SELECT
@@ -337,11 +369,11 @@ async function getMostCrawledPages(limit = 20) {
       COUNT(*) as bot_visits,
       COUNT(DISTINCT journey_id) as unique_bots
     FROM journey_events
-    WHERE is_bot = true AND event_type = 'page_view' AND page_url IS NOT NULL
+    ${whereClause}
     GROUP BY page_url
     ORDER BY bot_visits DESC
     LIMIT $1
-  `, [limit]);
+  `, params);
 
   return result.rows.map(row => ({
     url: row.page_url,
@@ -353,8 +385,10 @@ async function getMostCrawledPages(limit = 20) {
 /**
  * Get bot vs human comparison
  */
-async function getBotVsHumanComparison() {
+async function getBotVsHumanComparison(siteId = null) {
   const db = getDb();
+  const siteFilter = siteId ? 'WHERE site_id = $1' : '';
+  const params = siteId ? [siteId] : [];
 
   // Average events per journey
   const eventsResult = await db.query(`
@@ -363,8 +397,9 @@ async function getBotVsHumanComparison() {
       AVG(event_count) as avg_events,
       AVG(EXTRACT(EPOCH FROM (last_seen - first_seen))) as avg_duration
     FROM journeys
+    ${siteFilter}
     GROUP BY CASE WHEN is_bot = true THEN 'bot' ELSE 'human' END
-  `);
+  `, params);
 
   // Conversion rates
   const conversionResult = await db.query(`
@@ -373,8 +408,9 @@ async function getBotVsHumanComparison() {
       COUNT(*) as total,
       COUNT(*) FILTER (WHERE outcome IN ('enquiry_submitted', 'visit_booked')) as conversions
     FROM journeys
+    ${siteFilter}
     GROUP BY CASE WHEN is_bot = true THEN 'bot' ELSE 'human' END
-  `);
+  `, params);
 
   const comparison = {
     bot: { avgEvents: 0, avgDuration: 0, conversionRate: 0, total: 0 },
@@ -398,8 +434,10 @@ async function getBotVsHumanComparison() {
 /**
  * Get bot location statistics
  */
-async function getBotLocationStats() {
+async function getBotLocationStats(siteId = null) {
   const db = getDb();
+  const siteFilter = siteId ? "AND je.site_id = $1" : "";
+  const params = siteId ? [siteId] : [];
 
   const result = await db.query(`
     SELECT
@@ -410,10 +448,11 @@ async function getBotLocationStats() {
       AND je.event_type = 'page_view'
       AND je.metadata IS NOT NULL
       AND je.metadata->'location'->>'country' IS NOT NULL
+      ${siteFilter}
     GROUP BY je.metadata->'location'->>'country'
     ORDER BY count DESC
     LIMIT 10
-  `);
+  `, params);
 
   return result.rows.map(row => ({
     country: row.country || 'Unknown',

@@ -404,8 +404,8 @@ function determineOutcome(events) {
   return { outcome: 'no_action', raw_outcome: 'no_action', intent_type: null };
 }
 
-async function reconstructJourney(journeyId) {
-  const rawEvents = await getEventsByJourneyId(journeyId);
+async function reconstructJourney(journeyId, siteId = null) {
+  const rawEvents = await getEventsByJourneyId(journeyId, siteId);
   if (!rawEvents || rawEvents.length === 0) return null;
 
   const events = sortEventsByTime(rawEvents);
@@ -475,10 +475,10 @@ async function reconstructAllJourneys() {
   return results;
 }
 
-async function getJourneyWithEvents(journeyId) {
-  const rawEvents = await getEventsByJourneyId(journeyId);
+async function getJourneyWithEvents(journeyId, siteId = null) {
+  const rawEvents = await getEventsByJourneyId(journeyId, siteId);
   const events = sortEventsByTime(rawEvents || []);
-  const journey = await reconstructJourney(journeyId);
+  const journey = await reconstructJourney(journeyId, siteId);
 
   if (!journey) return null;
 

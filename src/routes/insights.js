@@ -2,12 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { getLatestInsight, getAllInsights } = require('../db/queries');
 const { runAnalysis } = require('../services/aiAnalysis');
+const { getSiteId } = require('../middleware/auth');
 
 // GET /insights - Insights dashboard
 router.get('/', async (req, res) => {
   try {
-    const latestInsight = await getLatestInsight();
-    const allInsights = await getAllInsights(5);
+    const siteId = getSiteId(req);
+    const latestInsight = await getLatestInsight(siteId);
+    const allInsights = await getAllInsights(5, siteId);
 
     // Parse analysis_result JSON if present
     const parsedInsight = latestInsight ? {
@@ -42,8 +44,9 @@ router.post('/analyze', async (req, res) => {
     // Default to last 30 days
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const siteId = getSiteId(req);
 
-    const result = await runAnalysis(startDate, endDate);
+    const result = await runAnalysis(startDate, endDate, siteId);
 
     if (result.success) {
       res.redirect('/insights?analyzed=true');
@@ -63,8 +66,9 @@ router.post('/api/analyze', async (req, res) => {
 
     const endDate = end_date || new Date().toISOString().split('T')[0];
     const startDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const siteId = getSiteId(req);
 
-    const result = await runAnalysis(startDate, endDate);
+    const result = await runAnalysis(startDate, endDate, siteId);
 
     if (result.success) {
       res.json(result);
@@ -80,7 +84,8 @@ router.post('/api/analyze', async (req, res) => {
 // API endpoint to get latest insight
 router.get('/api/latest', async (req, res) => {
   try {
-    const latestInsight = await getLatestInsight();
+    const siteId = getSiteId(req);
+    const latestInsight = await getLatestInsight(siteId);
 
     if (!latestInsight) {
       return res.status(404).json({ error: 'No insights found' });

@@ -1,0 +1,77 @@
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<div class="flex justify-between items-center mb-6">
+  <h1 style="font-size: 1.5rem; font-weight: 700;"><%= user ? 'Edit User' : 'Add New User' %></h1>
+  <a href="/admin/users" class="btn btn-secondary">Back to Users</a>
+</div>
+
+<div class="card" style="max-width: 600px;">
+  <h2><%= user ? 'User Details' : 'New User Details' %></h2>
+
+  <form method="POST" action="<%= user ? '/admin/users/' + user.id : '/admin/users' %>">
+    <div class="form-group mb-4">
+      <label for="name" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Full Name</label>
+      <input type="text" id="name" name="name" value="<%= user ? user.name : '' %>" placeholder="e.g., John Smith" style="width: 100%;">
+    </div>
+
+    <div class="form-group mb-4">
+      <label for="email" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Email Address</label>
+      <input type="email" id="email" name="email" required value="<%= user ? user.email : '' %>" placeholder="e.g., john@example.com" style="width: 100%;">
+    </div>
+
+    <div class="form-group mb-4">
+      <label for="role" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Role</label>
+      <select id="role" name="role" required style="width: 100%;" onchange="toggleSiteSelection()">
+        <option value="customer" <%= user && user.role === 'customer' ? 'selected' : '' %>>Customer (limited to assigned sites)</option>
+        <option value="admin" <%= user && user.role === 'admin' ? 'selected' : '' %>>Admin (access to all sites)</option>
+      </select>
+    </div>
+
+    <div class="form-group mb-4" id="site-selection" style="<%= user && user.role === 'admin' ? 'display: none;' : '' %>">
+      <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Site Access</label>
+      <% if (sites.length === 0) { %>
+        <p class="text-muted">No sites available. Create a site first.</p>
+      <% } else { %>
+        <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-grey); border-radius: 8px; padding: 0.5rem;">
+          <% sites.forEach(function(site) { %>
+            <label style="display: flex; align-items: center; padding: 0.5rem; cursor: pointer;">
+              <input type="checkbox" name="site_ids" value="<%= site.id %>" <%= userSiteIds.includes(site.id) ? 'checked' : '' %> style="margin-right: 0.75rem;">
+              <span><strong><%= site.name %></strong> <span class="text-muted">(<%= site.domain %>)</span></span>
+            </label>
+          <% }); %>
+        </div>
+        <small style="color: var(--text-muted); font-size: 0.8rem;">Select which sites this user can access</small>
+      <% } %>
+    </div>
+
+    <div class="form-group mb-6">
+      <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;"><%= user ? 'New Password (leave blank to keep current)' : 'Password' %></label>
+      <input type="password" id="password" name="password" <%= user ? '' : 'required' %> minlength="8" placeholder="<%= user ? 'Leave blank to keep current password' : 'Minimum 8 characters' %>" style="width: 100%;">
+    </div>
+
+    <div class="flex gap-4">
+      <button type="submit" class="btn btn-primary"><%= user ? 'Update User' : 'Create User' %></button>
+      <a href="/admin/users" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+  <% if (user) { %>
+    <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-grey);">
+
+    <h3 style="color: var(--danger); margin-bottom: 1rem;">Danger Zone</h3>
+    <form action="/admin/users/<%= user.id %>/delete" method="POST">
+      <p class="text-muted mb-4">Deleting a user will remove their access to the analytics dashboard. This cannot be undone.</p>
+      <button type="submit" class="btn btn-outline" style="border-color: var(--danger); color: var(--danger);" onclick="return confirm('Are you sure you want to delete this user?')">Delete User</button>
+    </form>
+  <% } %>
+</div>
+
+<script>
+function toggleSiteSelection() {
+  const role = document.getElementById('role').value;
+  const siteSelection = document.getElementById('site-selection');
+  siteSelection.style.display = role === 'admin' ? 'none' : 'block';
+}
+</script>

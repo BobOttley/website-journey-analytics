@@ -6,16 +6,20 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
-    "init-db": "node src/db/init.js"
+    "init-db": "node src/db/init.js",
+    "seed": "node src/db/seed.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@azure/identity": "^4.0.0",
     "@microsoft/microsoft-graph-client": "^3.0.0",
+    "bcrypt": "^6.0.0",
+    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
+    "express-session": "^1.19.0",
     "pg": "^8.11.3",
     "uuid": "^11.0.5"
   },

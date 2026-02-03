@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getActiveVisitors, getRecentNewJourneys, getActiveVisitorCount, getVisitorLocations, getRecentInactiveSessions } = require('../db/queries');
 const emailService = require('../services/emailService');
+const { getSiteId } = require('../middleware/auth');
 
 // Track which journeys we've already notified about (in-memory, resets on restart)
 const notifiedJourneys = new Set();
@@ -9,7 +10,8 @@ const notifiedJourneys = new Set();
 // GET /realtime - Dashboard view
 router.get('/', async (req, res) => {
   try {
-    const visitors = await getActiveVisitors(300); // Active in last 5 minutes
+    const siteId = getSiteId(req);
+    const visitors = await getActiveVisitors(300, siteId); // Active in last 5 minutes
     const visitorCount = visitors.length;
 
     // Parse location from metadata for each visitor
@@ -41,7 +43,8 @@ router.get('/', async (req, res) => {
 router.get('/api/visitors', async (req, res) => {
   try {
     const withinSeconds = parseInt(req.query.seconds) || 300;
-    const visitors = await getActiveVisitors(withinSeconds);
+    const siteId = getSiteId(req);
+    const visitors = await getActiveVisitors(withinSeconds, siteId);
 
     // Parse location from metadata for each visitor
     const visitorsWithLocation = visitors.map(v => {
@@ -81,7 +84,8 @@ router.get('/api/visitors', async (req, res) => {
 router.get('/api/locations', async (req, res) => {
   try {
     const withinSeconds = parseInt(req.query.seconds) || 300;
-    const locations = await getVisitorLocations(withinSeconds);
+    const siteId = getSiteId(req);
+    const locations = await getVisitorLocations(withinSeconds, siteId);
 
     // Aggregate by country
     const byCountry = {};
@@ -122,7 +126,8 @@ router.get('/api/locations', async (req, res) => {
 router.get('/api/new-journeys', async (req, res) => {
   try {
     const sinceSeconds = parseInt(req.query.seconds) || 300;
-    const newJourneys = await getRecentNewJourneys(sinceSeconds);
+    const siteId = getSiteId(req);
+    const newJourneys = await getRecentNewJourneys(sinceSeconds, siteId);
 
     // Find journeys we haven't notified about yet
     const unnotified = newJourneys.filter(j => !notifiedJourneys.has(j.journey_id));
@@ -164,7 +169,8 @@ router.get('/api/new-journeys', async (req, res) => {
 router.get('/api/count', async (req, res) => {
   try {
     const withinSeconds = parseInt(req.query.seconds) || 300;
-    const count = await getActiveVisitorCount(withinSeconds);
+    const siteId = getSiteId(req);
+    const count = await getActiveVisitorCount(withinSeconds, siteId);
 
     res.json({
       success: true,
@@ -182,7 +188,8 @@ router.get('/api/recent-sessions', async (req, res) => {
   try {
     const inactiveAfter = parseInt(req.query.inactive_after) || 300;
     const limit = parseInt(req.query.limit) || 10;
-    const sessions = await getRecentInactiveSessions(inactiveAfter, limit);
+    const siteId = getSiteId(req);
+    const sessions = await getRecentInactiveSessions(inactiveAfter, limit, siteId);
 
     // Parse location from metadata
     const sessionsWithLocation = sessions.map(s => {

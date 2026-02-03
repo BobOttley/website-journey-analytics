@@ -16,6 +16,7 @@
   "use strict";
 
   var ANALYTICS_ENDPOINT = "https://website-journey-analytics.onrender.com/api/event";
+  var TRACKING_KEY = "";  // Set this to your site's tracking key
   var HEARTBEAT_INTERVAL = 30000;
 
   // ============================================
@@ -504,7 +505,8 @@
     var payload = {
       journey_id: journeyId,
       device_type: deviceType,
-      occurred_at: new Date().toISOString()
+      occurred_at: new Date().toISOString(),
+      tracking_key: TRACKING_KEY
     };
 
     // Merge data

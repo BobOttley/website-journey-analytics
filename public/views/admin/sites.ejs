@@ -1,0 +1,86 @@
+<% if (typeof success !== 'undefined' && success) { %>
+  <div class="alert alert-success"><%= success %></div>
+<% } %>
+
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<div class="flex justify-between items-center mb-6">
+  <h1 style="font-size: 1.5rem; font-weight: 700;">Site Management</h1>
+  <a href="/admin/sites/new" class="btn btn-primary">Add New Site</a>
+</div>
+
+<div class="card">
+  <h2>All Sites</h2>
+
+  <% if (sites.length === 0) { %>
+    <div class="empty-state">
+      <div class="icon">+</div>
+      <h3>No sites yet</h3>
+      <p>Add your first site to start tracking analytics.</p>
+    </div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Site Name</th>
+          <th>Domain</th>
+          <th>Tracking Key</th>
+          <th>Journeys</th>
+          <th>Users</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% sites.forEach(function(site) { %>
+          <tr>
+            <td><strong><%= site.name %></strong></td>
+            <td><%= site.domain %></td>
+            <td>
+              <code style="font-size: 0.75rem;"><%= site.tracking_key %></code>
+              <button onclick="copyToClipboard('<%= site.tracking_key %>')" class="btn btn-sm btn-secondary" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem;">Copy</button>
+            </td>
+            <td><%= site.journey_count || 0 %></td>
+            <td><%= site.user_count || 0 %></td>
+            <td><%= new Date(site.created_at).toLocaleDateString() %></td>
+            <td>
+              <div class="flex gap-2">
+                <a href="/admin/sites/<%= site.id %>" class="btn btn-sm btn-secondary">Edit</a>
+                <form action="/admin/sites/<%= site.id %>/regenerate-key" method="POST" style="display: inline;">
+                  <button type="submit" class="btn btn-sm btn-outline" onclick="return confirm('Regenerate tracking key? The old key will stop working immediately.')">Regenerate Key</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<div class="card mt-6">
+  <h2>Tracking Script Installation</h2>
+  <p class="text-muted mb-4">Add this script to your website to start tracking visitor journeys. Replace <code>YOUR_TRACKING_KEY</code> with the site's tracking key from the table above.</p>
+
+  <div style="background: var(--paper); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto;">
+    <pre>&lt;script&gt;
+(function() {
+  var TRACKING_KEY = 'YOUR_TRACKING_KEY';
+  var script = document.createElement('script');
+  script.src = '<%= process.env.SERVER_URL || 'https://website-journey-analytics.onrender.com' %>/tracking.js?key=' + TRACKING_KEY;
+  script.async = true;
+  document.head.appendChild(script);
+})();
+&lt;/script&gt;</pre>
+  </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    alert('Tracking key copied to clipboard!');
+  });
+}
+</script>

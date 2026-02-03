@@ -1,10 +1,43 @@
 const express = require('express');
 const router = express.Router();
 
-const { insertEvent, getEventsByJourneyId } = require('../db/queries');
+const { insertEvent, getEventsByJourneyId, getSiteByTrackingKey } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 const emailService = require('../services/emailService');
 const { detectBotForEvent } = require('../services/botDetection');
+
+// Cache for tracking key -> site_id lookups (avoids DB hit on every event)
+const trackingKeyCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function resolveSiteId(trackingKey) {
+  if (!trackingKey) return null;
+
+  // Check cache
+  const cached = trackingKeyCache.get(trackingKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.siteId;
+  }
+
+  // Look up in database
+  const site = await getSiteByTrackingKey(trackingKey);
+  const siteId = site ? site.id : null;
+
+  // Cache the result
+  trackingKeyCache.set(trackingKey, { siteId, timestamp: Date.now() });
+
+  // Clean old cache entries periodically
+  if (trackingKeyCache.size > 100) {
+    const now = Date.now();
+    for (const [key, value] of trackingKeyCache) {
+      if (now - value.timestamp > CACHE_TTL) {
+        trackingKeyCache.delete(key);
+      }
+    }
+  }
+
+  return siteId;
+}
 
 /**
  * Track which journeys we’ve already emailed about
@@ -158,6 +191,9 @@ router.post('/', async (req, res) => {
       metadata
     });
 
+    // Resolve site_id from tracking_key (if provided)
+    const siteId = await resolveSiteId(body.tracking_key);
+
     const event = {
       journey_id: body.journey_id,
       visitor_id: body.visitor_id || null,
@@ -174,7 +210,9 @@ router.post('/', async (req, res) => {
       ip_address: clientIP,
       is_bot: botDetection.isBot,
       bot_score: botDetection.botScore,
-      bot_signals: botDetection.signals
+      bot_signals: botDetection.signals,
+      // Multi-tenant field
+      site_id: siteId
     };
 
     const result = await insertEvent(event);
@@ -267,6 +305,9 @@ router.post('/batch', async (req, res) => {
         metadata
       });
 
+      // Resolve site_id from tracking_key
+      const siteId = await resolveSiteId(e.tracking_key);
+
       try {
         await insertEvent({
           journey_id: e.journey_id,
@@ -283,7 +324,8 @@ router.post('/batch', async (req, res) => {
           ip_address: clientIP,
           is_bot: botDetection.isBot,
           bot_score: botDetection.botScore,
-          bot_signals: botDetection.signals
+          bot_signals: botDetection.signals,
+          site_id: siteId
         });
 
         results.push({ index: i, success: true });

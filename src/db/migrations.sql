@@ -1,6 +1,68 @@
 -- Migration: Add visitor_id support for return visitor tracking
 -- Run this to update existing tables
 
+-- ============================================
+-- MULTI-TENANCY TABLES
+-- ============================================
+
+-- Sites table - each customer site being tracked
+CREATE TABLE IF NOT EXISTS sites (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  domain TEXT NOT NULL UNIQUE,
+  tracking_key TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users table - admin and customer users
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  name TEXT,
+  role TEXT NOT NULL DEFAULT 'customer',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_login TIMESTAMP
+);
+
+-- User-Site mapping - which sites can each user access
+CREATE TABLE IF NOT EXISTS user_sites (
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  site_id INTEGER REFERENCES sites(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, site_id)
+);
+
+-- Session store table for connect-pg-simple
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid" varchar NOT NULL COLLATE "default",
+  "sess" json NOT NULL,
+  "expire" timestamp(6) NOT NULL
+)
+WITH (OIDS=FALSE);
+
+ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+
+-- ============================================
+-- ADD site_id TO EXISTING TABLES
+-- ============================================
+
+-- Add site_id to journey_events
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS site_id INTEGER REFERENCES sites(id);
+CREATE INDEX IF NOT EXISTS idx_journey_events_site_id ON journey_events(site_id);
+
+-- Add site_id to journeys
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS site_id INTEGER REFERENCES sites(id);
+CREATE INDEX IF NOT EXISTS idx_journeys_site_id ON journeys(site_id);
+
+-- Add site_id to insights
+ALTER TABLE insights ADD COLUMN IF NOT EXISTS site_id INTEGER REFERENCES sites(id);
+CREATE INDEX IF NOT EXISTS idx_insights_site_id ON insights(site_id);
+
+-- ============================================
+-- EXISTING MIGRATIONS
+-- ============================================
+
 -- Add visitor_id to journey_events if it doesn't exist
 ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS visitor_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_journey_events_visitor_id ON journey_events(visitor_id);

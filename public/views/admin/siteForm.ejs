@@ -1,0 +1,51 @@
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<div class="flex justify-between items-center mb-6">
+  <h1 style="font-size: 1.5rem; font-weight: 700;"><%= site ? 'Edit Site' : 'Add New Site' %></h1>
+  <a href="/admin/sites" class="btn btn-secondary">Back to Sites</a>
+</div>
+
+<div class="card" style="max-width: 600px;">
+  <h2><%= site ? 'Site Details' : 'New Site Details' %></h2>
+
+  <form method="POST" action="<%= site ? '/admin/sites/' + site.id : '/admin/sites' %>">
+    <div class="form-group mb-4">
+      <label for="name" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Site Name</label>
+      <input type="text" id="name" name="name" required value="<%= site ? site.name : '' %>" placeholder="e.g., More House School" style="width: 100%;">
+      <small style="color: var(--text-muted); font-size: 0.8rem;">A friendly name to identify this site</small>
+    </div>
+
+    <div class="form-group mb-4">
+      <label for="domain" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Domain</label>
+      <input type="text" id="domain" name="domain" required value="<%= site ? site.domain : '' %>" placeholder="e.g., morehouse.org.uk" style="width: 100%;">
+      <small style="color: var(--text-muted); font-size: 0.8rem;">The website domain (without http/https)</small>
+    </div>
+
+    <% if (site) { %>
+      <div class="form-group mb-6">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Tracking Key</label>
+        <div style="background: var(--paper); padding: 1rem; border-radius: 8px; font-family: monospace;">
+          <%= site.tracking_key %>
+        </div>
+        <small style="color: var(--text-muted); font-size: 0.8rem;">Use "Regenerate Key" on the sites list to generate a new key</small>
+      </div>
+    <% } %>
+
+    <div class="flex gap-4">
+      <button type="submit" class="btn btn-primary"><%= site ? 'Update Site' : 'Create Site' %></button>
+      <a href="/admin/sites" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+  <% if (site) { %>
+    <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-grey);">
+
+    <h3 style="color: var(--danger); margin-bottom: 1rem;">Danger Zone</h3>
+    <form action="/admin/sites/<%= site.id %>/delete" method="POST">
+      <p class="text-muted mb-4">Deleting a site will remove all user assignments. This cannot be undone. Sites with existing journey data cannot be deleted.</p>
+      <button type="submit" class="btn btn-outline" style="border-color: var(--danger); color: var(--danger);" onclick="return confirm('Are you sure you want to delete this site?')">Delete Site</button>
+    </form>
+  <% } %>
+</div>

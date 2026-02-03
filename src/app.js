@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const { initializeSchema, getDb } = require('./db/database');
 
 // Import routes
@@ -11,6 +13,11 @@ const journeysRouter = require('./routes/journeys');
 const insightsRouter = require('./routes/insights');
 const realtimeRouter = require('./routes/realtime');
 const botsRouter = require('./routes/bots');
+const authRouter = require('./routes/auth');
+const adminRouter = require('./routes/admin');
+
+// Import middleware
+const { requireAuth, attachUserContext } = require('./middleware/auth');
 
 // Import journey builder for background sync
 const { reconstructJourney } = require('./services/journeyBuilder');
@@ -40,6 +47,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Session configuration - must be before routes
+app.use(session({
+  store: new pgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'session',
+    createTableIfMissing: true
+  }),
+  secret: process.env.SESSION_SECRET || 'smart-journey-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  }
+}));
+
+// Attach user context to all requests
+app.use(attachUserContext);
+
 // EJS setup with express-ejs-layouts style
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../public/views'));
@@ -65,17 +92,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve tracking script with correct endpoint
+// Serve tracking script with correct endpoint and tracking key
 app.get('/tracking.js', (req, res) => {
   const fs = require('fs');
   const scriptPath = path.join(__dirname, '../gtm/trackingScript.js');
   let script = fs.readFileSync(scriptPath, 'utf8');
 
+  // Get tracking key from query param
+  const trackingKey = req.query.key || '';
+
   // Replace endpoint with actual server URL
   const serverUrl = process.env.SERVER_URL || `https://website-journey-analytics.onrender.com`;
   script = script.replace(
-    /const ANALYTICS_ENDPOINT = ['"][^'"]+['"]/,
-    `const ANALYTICS_ENDPOINT = '${serverUrl}/api/event'`
+    /endpoint: ['"][^'"]+['"]/,
+    `endpoint: '${serverUrl}/api/event'`
+  );
+
+  // Inject tracking key
+  script = script.replace(
+    /trackingKey: ['"][^'"]*['"]/,
+    `trackingKey: '${trackingKey}'`
   );
 
   res.setHeader('Content-Type', 'application/javascript');
@@ -109,19 +145,27 @@ app.get('/debug', async (req, res) => {
   }
 });
 
-// API Routes
+// Auth Routes (public - no auth required)
+app.use('/', authRouter);
+
+// API Routes (public - tracking events don't require auth)
 app.use('/api/event', eventsRouter);
 app.use('/api/events', eventsRouter);
 
-// Web Routes
-app.use('/journeys', journeysRouter);
-app.use('/realtime', realtimeRouter);
-app.use('/insights', insightsRouter);
-app.use('/bots', botsRouter);
+// Web Routes (protected - require authentication)
+app.use('/journeys', requireAuth, journeysRouter);
+app.use('/realtime', requireAuth, realtimeRouter);
+app.use('/insights', requireAuth, insightsRouter);
+app.use('/bots', requireAuth, botsRouter);
+app.use('/admin', requireAuth, adminRouter);
 
 // Root redirect
 app.get('/', (req, res) => {
-  res.redirect('/journeys');
+  if (req.session && req.session.userId) {
+    res.redirect('/journeys');
+  } else {
+    res.redirect('/login');
+  }
 });
 
 // 404 handler

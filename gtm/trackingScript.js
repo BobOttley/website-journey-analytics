@@ -12,6 +12,7 @@
   // ============ CONFIGURATION ============
   const CONFIG = {
     endpoint: 'https://website-journey-analytics.onrender.com/api/event',
+    trackingKey: '',                 // Will be injected by server
     heartbeatInterval: 30000,        // 30 seconds
     scrollThresholds: [25, 50, 75, 90, 100],
     hoverThreshold: 2000,            // 2 seconds to count as meaningful hover
@@ -278,6 +279,7 @@
       device_type: deviceInfo.type,
       user_agent: navigator.userAgent,  // Full User-Agent for bot detection
       occurred_at: new Date().toISOString(),
+      tracking_key: CONFIG.trackingKey,  // For multi-tenant site identification
       metadata
     };
 
