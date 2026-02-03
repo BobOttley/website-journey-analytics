@@ -6,6 +6,9 @@
     </h2>
   </div>
   <div class="flex gap-2 items-center">
+    <button class="btn btn-primary" onclick="analyseJourney()" id="analyseBtn">
+      Analyse with AI
+    </button>
     <% if (journey.visit_number && journey.visit_number > 1) { %>
       <span class="badge badge-gold">Return Visitor (Visit #<%= journey.visit_number %>)</span>
     <% } %>
@@ -46,6 +49,17 @@
         <span class="text-muted">-</span>
       <% } %>
     </div>
+  </div>
+</div>
+
+<!-- AI Analysis Section (hidden until analysis is run) -->
+<div class="card mb-6" id="analysisSection" style="display: none;">
+  <div class="flex justify-between items-center mb-4">
+    <h2 style="margin-bottom: 0;">AI Analysis</h2>
+    <button class="btn btn-secondary btn-sm" onclick="hideAnalysis()">Hide</button>
+  </div>
+  <div id="analysisContent">
+    <!-- Analysis will be inserted here -->
   </div>
 </div>
 
@@ -615,4 +629,144 @@
       }
     });
   });
+
+  // AI Analysis functions
+  async function analyseJourney() {
+    const btn = document.getElementById('analyseBtn');
+    const section = document.getElementById('analysisSection');
+    const content = document.getElementById('analysisContent');
+
+    // Show loading state
+    btn.disabled = true;
+    btn.textContent = 'Analysing...';
+    section.style.display = 'block';
+    content.innerHTML = '<div class="text-center"><p class="text-muted">Analysing journey with AI...</p></div>';
+
+    try {
+      const response = await fetch('/journeys/<%= journey.journey_id %>/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Analysis failed');
+      }
+
+      // Display the analysis
+      displayAnalysis(data.analysis);
+      btn.textContent = 'Re-analyse';
+
+    } catch (error) {
+      console.error('Analysis error:', error);
+      content.innerHTML = `<div class="text-center"><p class="text-muted" style="color: var(--danger);">Analysis failed: ${error.message}</p></div>`;
+      btn.textContent = 'Try Again';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function displayAnalysis(analysis) {
+    const content = document.getElementById('analysisContent');
+
+    const engagementColour = {
+      'high': 'var(--success)',
+      'medium': 'var(--warning)',
+      'low': 'var(--danger)'
+    };
+
+    const priorityBadge = {
+      'high': 'badge-danger',
+      'medium': 'badge-warning',
+      'low': 'badge-neutral'
+    };
+
+    let html = `
+      <div class="analysis-summary mb-4" style="background: var(--paper); padding: 16px; border-radius: 8px; border-left: 4px solid var(--accent);">
+        <p style="font-size: 1.1rem; margin: 0;">${analysis.summary || 'No summary available'}</p>
+      </div>
+
+      <div class="grid-2 mb-4" style="gap: 16px;">
+        <div style="background: var(--paper); padding: 16px; border-radius: 8px;">
+          <h4 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-muted);">Visitor Profile</h4>
+          <p style="margin-bottom: 8px;"><strong>Likely Intent:</strong> ${analysis.visitorProfile?.likelyIntent || 'Unknown'}</p>
+          <p style="margin-bottom: 8px;"><strong>Engagement:</strong> <span style="color: ${engagementColour[analysis.visitorProfile?.engagementLevel] || 'inherit'}">${analysis.visitorProfile?.engagementLevel || 'Unknown'}</span></p>
+          <p style="margin: 0;"><strong>Buyer Stage:</strong> ${analysis.visitorProfile?.buyerStage || 'Unknown'}</p>
+        </div>
+
+        <div style="background: var(--paper); padding: 16px; border-radius: 8px;">
+          <h4 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-muted);">Follow-up Suggestion</h4>
+          <p style="margin: 0;">${analysis.followUpSuggestion || 'No specific suggestion'}</p>
+        </div>
+      </div>
+    `;
+
+    // Positive signals
+    if (analysis.positiveSignals?.length > 0) {
+      html += `
+        <div class="mb-4">
+          <h4 style="color: var(--success); margin-bottom: 12px;">Positive Signals</h4>
+          <ul style="margin: 0; padding-left: 20px;">
+            ${analysis.positiveSignals.map(s => `<li style="margin-bottom: 6px;">${s}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Concern signals
+    if (analysis.concernSignals?.length > 0) {
+      html += `
+        <div class="mb-4">
+          <h4 style="color: var(--warning); margin-bottom: 12px;">Concern Signals</h4>
+          <ul style="margin: 0; padding-left: 20px;">
+            ${analysis.concernSignals.map(s => `<li style="margin-bottom: 6px;">${s}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Key moments
+    if (analysis.keyMoments?.length > 0) {
+      html += `
+        <div class="mb-4">
+          <h4 style="margin-bottom: 12px;">Key Moments</h4>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${analysis.keyMoments.map(m => `
+              <div style="background: var(--paper); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent);">
+                <strong>${m.event}</strong>
+                <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: var(--text-muted);">${m.significance}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Recommendations
+    if (analysis.recommendations?.length > 0) {
+      html += `
+        <div>
+          <h4 style="margin-bottom: 12px;">Recommendations</h4>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            ${analysis.recommendations.map(r => `
+              <div style="background: var(--paper); padding: 16px; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong>${r.action}</strong>
+                  <span class="badge ${priorityBadge[r.priority] || 'badge-neutral'}">${r.priority} priority</span>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);">${r.reason}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    content.innerHTML = html;
+  }
+
+  function hideAnalysis() {
+    document.getElementById('analysisSection').style.display = 'none';
+  }
 </script>

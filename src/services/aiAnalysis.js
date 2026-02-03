@@ -562,8 +562,217 @@ async function runAnalysis(startDate, endDate) {
   }
 }
 
+/**
+ * Analyse a single journey in detail
+ */
+async function analyseSingleJourney(journey) {
+  if (!journey || !journey.events || journey.events.length === 0) {
+    return { success: false, error: 'Journey has no events to analyse' };
+  }
+
+  // Format the journey data for AI analysis
+  const formattedJourney = formatSingleJourneyForAI(journey);
+  const prompt = buildSingleJourneyPrompt(formattedJourney);
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const content = response?.content?.[0]?.text || '';
+    let analysisResult;
+
+    try {
+      analysisResult = JSON.parse(content);
+    } catch (parseError) {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) analysisResult = JSON.parse(jsonMatch[0]);
+      else throw new Error('Failed to parse AI response as JSON');
+    }
+
+    return {
+      success: true,
+      analysis: analysisResult
+    };
+  } catch (error) {
+    console.error('Single journey AI analysis error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Format a single journey's events for AI analysis
+ */
+function formatSingleJourneyForAI(journey) {
+  const events = journey.events || [];
+
+  // Group events by type
+  const eventCounts = {};
+  events.forEach(e => {
+    eventCounts[e.event_type] = (eventCounts[e.event_type] || 0) + 1;
+  });
+
+  // Calculate engagement metrics
+  const pageViews = events.filter(e => e.event_type === 'page_view');
+  const ctaClicks = events.filter(e => e.event_type === 'cta_click');
+  const deadClicks = events.filter(e => e.event_type === 'dead_click');
+  const ctaHovers = events.filter(e => e.event_type === 'cta_hover');
+  const formEvents = events.filter(e => e.event_type.startsWith('form_'));
+  const scrollEvents = events.filter(e => e.event_type === 'scroll_depth');
+  const heartbeats = events.filter(e => e.event_type === 'heartbeat');
+  const quickBacks = events.filter(e => e.event_type === 'quick_back');
+  const sectionViews = events.filter(e => e.event_type === 'section_visibility');
+
+  // Calculate session duration from first to last event
+  const firstEvent = events[0];
+  const lastEvent = events[events.length - 1];
+  const sessionDurationSeconds = firstEvent && lastEvent
+    ? Math.round((new Date(lastEvent.occurred_at) - new Date(firstEvent.occurred_at)) / 1000)
+    : 0;
+
+  // Estimate dwell time from heartbeats (each heartbeat = ~15 seconds)
+  const estimatedDwellSeconds = heartbeats.length * 15;
+
+  // Get unique pages visited
+  const uniquePages = [...new Set(pageViews.map(e => e.page_url))];
+
+  // Build event timeline (simplified)
+  const timeline = events
+    .filter(e => e.event_type !== 'heartbeat') // Skip heartbeats for readability
+    .map(e => {
+      const time = new Date(e.occurred_at).toLocaleTimeString('en-GB', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      let detail = e.event_type;
+      if (e.page_url) {
+        const path = e.page_url.replace(/https?:\/\/[^\/]+/, '');
+        detail += ` on ${path}`;
+      }
+      if (e.cta_label) detail += ` - "${e.cta_label}"`;
+      if (e.intent_type) detail += ` (intent: ${e.intent_type})`;
+      return `${time}: ${detail}`;
+    });
+
+  // Get CTA click details
+  const ctaDetails = ctaClicks.map(e => ({
+    label: e.cta_label,
+    page: e.page_url?.replace(/https?:\/\/[^\/]+/, '') || 'unknown',
+    intent: e.intent_type
+  }));
+
+  // Get dead click details (frustration signals)
+  const deadClickDetails = deadClicks.map(e => {
+    const metadata = typeof e.metadata === 'string' ? JSON.parse(e.metadata) : (e.metadata || {});
+    return {
+      element: metadata.element || 'unknown',
+      page: e.page_url?.replace(/https?:\/\/[^\/]+/, '') || 'unknown'
+    };
+  });
+
+  // Get CTA hesitation details
+  const hesitationDetails = ctaHovers.map(e => ({
+    label: e.cta_label,
+    page: e.page_url?.replace(/https?:\/\/[^\/]+/, '') || 'unknown'
+  }));
+
+  return `
+## Single Journey Analysis
+
+### Journey Overview
+- Journey ID: ${journey.journey_id}
+- Visitor: ${journey.visit_number > 1 ? `Returning visitor (visit #${journey.visit_number})` : 'New visitor'}
+- Entry Page: ${journey.entry_page || 'Unknown'}
+- Referrer: ${journey.entry_referrer || 'Direct'}
+- Outcome: ${journey.outcome || 'Unknown'}
+- Session Duration: ${Math.floor(sessionDurationSeconds / 60)}m ${sessionDurationSeconds % 60}s
+- Estimated Dwell Time: ${Math.floor(estimatedDwellSeconds / 60)}m ${estimatedDwellSeconds % 60}s
+
+### Engagement Summary
+- Total Events: ${events.length}
+- Pages Viewed: ${pageViews.length} (${uniquePages.length} unique)
+- CTA Clicks: ${ctaClicks.length}
+- Dead Clicks (frustration): ${deadClicks.length}
+- CTA Hovers (hesitation): ${ctaHovers.length}
+- Quick Backs: ${quickBacks.length}
+- Form Interactions: ${formEvents.length}
+- Sections Viewed: ${sectionViews.length}
+- Heartbeats: ${heartbeats.length}
+
+### Pages Visited (in order)
+${uniquePages.map((url, i) => `${i + 1}. ${url.replace(/https?:\/\/[^\/]+/, '')}`).join('\n') || '- None recorded'}
+
+### CTA Interactions
+${ctaDetails.length > 0
+  ? ctaDetails.map(c => `- Clicked "${c.label}" on ${c.page}${c.intent ? ` (intent: ${c.intent})` : ''}`).join('\n')
+  : '- No CTA clicks recorded'}
+
+### Frustration Signals
+${deadClickDetails.length > 0
+  ? `Dead clicks (clicking non-interactive elements):\n${deadClickDetails.map(d => `- Clicked <${d.element}> on ${d.page}`).join('\n')}`
+  : '- No dead clicks detected'}
+${hesitationDetails.length > 0
+  ? `\nCTA Hesitations (hovered but didn't click):\n${hesitationDetails.map(h => `- Hovered over "${h.label}" on ${h.page}`).join('\n')}`
+  : ''}
+${quickBacks.length > 0 ? `\nQuick backs: ${quickBacks.length} (left page within 5 seconds)` : ''}
+
+### Event Timeline (key events only)
+${timeline.slice(0, 50).join('\n')}${timeline.length > 50 ? `\n... and ${timeline.length - 50} more events` : ''}
+`;
+}
+
+/**
+ * Build prompt for single journey analysis
+ */
+function buildSingleJourneyPrompt(formattedData) {
+  return `You are an expert in website user behaviour analysis. Analyse this single visitor journey and provide insights.
+
+CONTEXT: This is a visitor to ${siteStructure.siteName} (${siteStructure.siteUrl}), a B2B SaaS company selling admissions software to schools.
+
+Site pages and their roles:
+${Object.entries(siteStructure.pages || {})
+  .map(([path, info]) => `- ${path}: ${info.name} (${info.stage} stage)`)
+  .join('\n')}
+
+JOURNEY DATA:
+${formattedData}
+
+Analyse this visitor's behaviour and respond with ONLY this JSON:
+
+{
+  "summary": "2-3 sentences describing what this visitor did and their likely intent",
+  "visitorProfile": {
+    "likelyIntent": "What they were probably looking for",
+    "engagementLevel": "high|medium|low",
+    "buyerStage": "awareness|consideration|decision"
+  },
+  "positiveSignals": [
+    "Things that indicate interest or intent (be specific, reference actual events)"
+  ],
+  "concernSignals": [
+    "Things that indicate confusion, frustration, or hesitation (be specific)"
+  ],
+  "keyMoments": [
+    {
+      "event": "What happened",
+      "significance": "Why it matters"
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "What the sales/marketing team should do",
+      "reason": "Why this would help",
+      "priority": "high|medium|low"
+    }
+  ],
+  "followUpSuggestion": "If this visitor could be contacted, what approach would work best"
+}`;
+}
+
 module.exports = {
   runAnalysis,
   aggregateJourneyData,
-  formatDataForAI
+  formatDataForAI,
+  analyseSingleJourney
 };

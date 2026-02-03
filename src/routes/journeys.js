@@ -16,6 +16,7 @@ const {
 } = require('../db/queries');
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
 const { getSiteId } = require('../middleware/auth');
+const { analyseSingleJourney } = require('../services/aiAnalysis');
 
 // GET /journeys - Journey list view
 router.get('/', async (req, res) => {
@@ -164,6 +165,41 @@ router.get('/api/stats', async (req, res) => {
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// POST /journeys/:id/analyse - AI analysis of a single journey
+router.post('/:id/analyse', async (req, res) => {
+  try {
+    const journeyId = req.params.id;
+    const siteId = getSiteId(req);
+
+    // Get the journey with all its events
+    const journey = await getJourneyWithEvents(journeyId, siteId);
+
+    if (!journey) {
+      return res.status(404).json({ success: false, error: 'Journey not found' });
+    }
+
+    if (!journey.events || journey.events.length === 0) {
+      return res.status(400).json({ success: false, error: 'Journey has no events to analyse' });
+    }
+
+    // Run AI analysis
+    const result = await analyseSingleJourney(journey);
+
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: result.error });
+    }
+
+    res.json({
+      success: true,
+      journey_id: journeyId,
+      analysis: result.analysis
+    });
+  } catch (error) {
+    console.error('Error analysing journey:', error);
+    res.status(500).json({ success: false, error: 'Failed to analyse journey' });
   }
 });
 
