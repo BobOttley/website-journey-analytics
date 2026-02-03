@@ -644,7 +644,7 @@ async function getActiveVisitors(withinSeconds = 300, siteId = null) {
        je.page_url,
        je.device_type,
        je.occurred_at as last_activity,
-       je.metadata,
+       (SELECT je4.metadata FROM journey_events je4 WHERE je4.journey_id = je.journey_id AND je4.event_type = 'page_view' AND je4.metadata IS NOT NULL ORDER BY je4.occurred_at ASC LIMIT 1) as metadata,
        (SELECT MIN(je2.occurred_at) FROM journey_events je2 WHERE je2.journey_id = je.journey_id) as first_seen,
        (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer,
        (SELECT j.visitor_id FROM journeys j WHERE j.journey_id = je.journey_id) as visitor_id,
