@@ -109,7 +109,8 @@ async function sendNewVisitorNotification(visitor) {
     const loc = visitor.location;
     subjectLocation = loc.city ? ` from ${loc.city}` : (loc.country ? ` from ${loc.country}` : '');
   }
-  const subject = `🌐 New Visitor${subjectLocation} - ${visitor.entry_page || 'Unknown page'}`;
+  const visitorType = visitor.isReturn ? 'Returning Visitor' : 'New Visitor';
+  const subject = `${visitorType}${subjectLocation} - ${visitor.entry_page || 'Unknown page'}`;
 
   const referrerText = visitor.referrer
     ? `<p><strong>Referrer:</strong> ${visitor.referrer}</p>`
@@ -125,10 +126,13 @@ async function sendNewVisitorNotification(visitor) {
     locationText = `<p style="margin: 0 0 12px 0;"><strong>Location:</strong> ${flag} ${locationString}</p>`;
   }
 
+  const headerText = visitor.isReturn ? 'Returning Visitor' : 'New Website Visitor';
+  const headerColor = visitor.isReturn ? '#10B981' : '#FF9F1C';
+
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background: #091825; color: white; padding: 20px; border-bottom: 3px solid #FF9F1C;">
-        <h1 style="margin: 0; font-size: 20px;">New Website Visitor</h1>
+      <div style="background: #091825; color: white; padding: 20px; border-bottom: 3px solid ${headerColor};">
+        <h1 style="margin: 0; font-size: 20px;">${headerText}</h1>
       </div>
       <div style="padding: 24px; background: #f8fafc; border: 1px solid #e5e7eb;">
         <p style="margin: 0 0 12px 0;"><strong>Entry Page:</strong> <a href="${visitor.entry_page || '#'}" style="color: #034674;">${visitor.entry_page || 'Unknown'}</a></p>

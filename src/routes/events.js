@@ -160,43 +160,37 @@ router.post('/', async (req, res) => {
     const result = await insertEvent(event);
 
     /**
-     * New-visitor email logic
-     * Only fire once per journey, on first page_view
+     * Visitor email logic
+     * Fire once per journey per server session (covers new AND returning visitors)
      */
-    if (event.event_type === 'page_view') {
-      const alreadyNotified = notifiedJourneys.has(event.journey_id);
-      const existing = await getEventsByJourneyId(event.journey_id);
+    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
+      notifiedJourneys.add(event.journey_id);
 
-      console.log(`[EMAIL DEBUG] journey=${event.journey_id.substring(0,8)}, alreadyNotified=${alreadyNotified}, existingEvents=${existing.length}`);
-
-      if (!alreadyNotified && existing.length <= 1) {
-        notifiedJourneys.add(event.journey_id);
-
-        // Keep memory bounded
-        if (notifiedJourneys.size > 5000) {
-          Array.from(notifiedJourneys).slice(0, 2500)
-            .forEach(id => notifiedJourneys.delete(id));
-        }
-
-        const location = metadata.location || null;
-
-        console.log(`[EMAIL] Sending notification for journey ${event.journey_id.substring(0,8)}`);
-
-        emailService.sendNewVisitorNotification({
-          journey_id: event.journey_id,
-          entry_page: event.page_url,
-          referrer: event.referrer,
-          device_type: event.device_type,
-          first_seen: event.occurred_at,
-          location
-        }).then(result => {
-          console.log(`[EMAIL] Result:`, result);
-        }).catch(err => {
-          console.error('[EMAIL] Failed:', err.message);
-        });
-      } else {
-        console.log(`[EMAIL] Skipped - alreadyNotified=${alreadyNotified}, existingEvents=${existing.length}`);
+      // Keep memory bounded
+      if (notifiedJourneys.size > 5000) {
+        Array.from(notifiedJourneys).slice(0, 2500)
+          .forEach(id => notifiedJourneys.delete(id));
       }
+
+      const location = metadata.location || null;
+      const existing = await getEventsByJourneyId(event.journey_id);
+      const isReturn = existing.length > 1;
+
+      console.log(`[EMAIL] Sending for journey ${event.journey_id.substring(0,8)} (${isReturn ? 'returning' : 'new'})`);
+
+      emailService.sendNewVisitorNotification({
+        journey_id: event.journey_id,
+        entry_page: event.page_url,
+        referrer: event.referrer,
+        device_type: event.device_type,
+        first_seen: event.occurred_at,
+        location,
+        isReturn
+      }).then(result => {
+        console.log(`[EMAIL] Result:`, result);
+      }).catch(err => {
+        console.error('[EMAIL] Failed:', err.message);
+      });
     }
 
     res.status(201).json({
