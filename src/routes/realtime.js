@@ -177,12 +177,12 @@ router.get('/api/count', async (req, res) => {
   }
 });
 
-// GET /realtime/api/recent-sessions - Get recently ended sessions (last 10 mins but not active now)
+// GET /realtime/api/recent-sessions - Get latest sessions that are not currently active
 router.get('/api/recent-sessions', async (req, res) => {
   try {
     const inactiveAfter = parseInt(req.query.inactive_after) || 60;
-    const recentWithin = parseInt(req.query.recent_within) || 600;
-    const sessions = await getRecentInactiveSessions(inactiveAfter, recentWithin);
+    const limit = parseInt(req.query.limit) || 10;
+    const sessions = await getRecentInactiveSessions(inactiveAfter, limit);
 
     // Parse location from metadata
     const sessionsWithLocation = sessions.map(s => {

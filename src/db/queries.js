@@ -504,13 +504,12 @@ async function getActiveVisitorCount(withinSeconds = 60) {
 }
 
 /**
- * Get recent sessions that are no longer active
- * Sessions with activity between inactiveAfter and recentWithin, but no activity in last inactiveAfter seconds
+ * Get latest sessions that are no longer active
+ * Always returns the most recent N sessions (not currently active)
  */
-async function getRecentInactiveSessions(inactiveAfterSeconds = 60, recentWithinSeconds = 600) {
+async function getRecentInactiveSessions(inactiveAfterSeconds = 60, limit = 10) {
   const db = getDb();
   const activeCutoff = new Date(Date.now() - (inactiveAfterSeconds * 1000)).toISOString();
-  const recentCutoff = new Date(Date.now() - (recentWithinSeconds * 1000)).toISOString();
 
   const result = await db.query(
     `SELECT
@@ -527,10 +526,9 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 60, recentWithin
        (SELECT je.metadata FROM journey_events je WHERE je.journey_id = j.journey_id AND je.event_type = 'page_view' AND je.metadata IS NOT NULL ORDER BY je.occurred_at DESC LIMIT 1) as metadata
      FROM journeys j
      WHERE j.last_seen < $1
-       AND j.last_seen >= $2
      ORDER BY j.last_seen DESC
-     LIMIT 20`,
-    [activeCutoff, recentCutoff]
+     LIMIT $2`,
+    [activeCutoff, limit]
   );
   return result.rows;
 }
