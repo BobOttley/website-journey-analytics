@@ -12,7 +12,13 @@ const {
   getSearchQueries,
   getTextSelections,
   getUXTrend,
-  getExitPages
+  getExitPages,
+  getFormAnalytics,
+  getFormFieldAbandonment,
+  getPDFDownloads,
+  getVideoEngagement,
+  getRageClicks,
+  getReturnVisitorAnalytics
 } = require('../db/queries');
 const { getSiteId } = require('../middleware/auth');
 
@@ -22,7 +28,11 @@ router.get('/', async (req, res) => {
     const siteId = getSiteId(req);
 
     // Load all data for initial page render
-    const [overview, deadClicks, hesitations, scrollBehaviour, scrollByPage, scrollDepth, sectionVisibility, quickBacks, searches, selections, trend, exitPages] = await Promise.all([
+    const [
+      overview, deadClicks, hesitations, scrollBehaviour, scrollByPage, scrollDepth,
+      sectionVisibility, quickBacks, searches, selections, trend, exitPages,
+      formAnalytics, formAbandonment, pdfDownloads, videoEngagement, rageClicks, returnVisitors
+    ] = await Promise.all([
       getUXOverview(siteId),
       getDeadClicks(siteId),
       getCTAHesitations(siteId),
@@ -34,7 +44,13 @@ router.get('/', async (req, res) => {
       getSearchQueries(siteId),
       getTextSelections(siteId),
       getUXTrend(siteId),
-      getExitPages(siteId)
+      getExitPages(siteId),
+      getFormAnalytics(siteId),
+      getFormFieldAbandonment(siteId),
+      getPDFDownloads(siteId),
+      getVideoEngagement(siteId),
+      getRageClicks(siteId),
+      getReturnVisitorAnalytics(siteId)
     ]);
 
     res.render('ux', {
@@ -50,6 +66,12 @@ router.get('/', async (req, res) => {
       selections,
       trend,
       exitPages,
+      formAnalytics,
+      formAbandonment,
+      pdfDownloads,
+      videoEngagement,
+      rageClicks,
+      returnVisitors,
       currentPage: 'ux',
       title: 'UX Analytics - SMART Journey'
     });

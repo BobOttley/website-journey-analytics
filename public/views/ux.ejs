@@ -667,6 +667,235 @@
 </div>
 <% } %>
 
+<!-- Form Analytics (only show if there's data) -->
+<% if ((formAnalytics && formAnalytics.length > 0) || (formAbandonment && formAbandonment.length > 0)) { %>
+<div class="section-grid">
+  <% if (formAnalytics && formAnalytics.length > 0) { %>
+  <div class="section-card">
+    <h3>Form Conversion</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      How many visitors complete your forms vs abandon them.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Form</th>
+          <th>Starts</th>
+          <th>Completed</th>
+          <th>Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% formAnalytics.slice(0, 6).forEach(item => { %>
+          <tr>
+            <td><%= item.form_id %></td>
+            <td class="number"><%= item.starts %></td>
+            <td class="number"><%= item.completions %></td>
+            <td>
+              <span class="rate-badge <%= item.completion_rate >= 60 ? 'low' : item.completion_rate >= 30 ? 'medium' : 'high' %>">
+                <%= item.completion_rate %>%
+              </span>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+
+  <% if (formAbandonment && formAbandonment.length > 0) { %>
+  <div class="section-card">
+    <h3>Form Field Abandonment</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Which form fields cause people to give up. Fix these to increase conversions.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Abandons</th>
+          <th>Avg Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% formAbandonment.slice(0, 6).forEach(item => { %>
+          <tr>
+            <td><%= item.field_name %></td>
+            <td class="number"><%= item.abandon_count %></td>
+            <td><%= item.avg_time_on_field %>s</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+<% } %>
+
+<!-- PDF Downloads (only show if there's data) -->
+<% if (pdfDownloads && pdfDownloads.length > 0) { %>
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>PDF Downloads</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Strong intent signals - visitors downloading documents are serious prospects.
+    </p>
+    <%
+      function getPageNamePDF(url) {
+        if (!url) return '-';
+        try {
+          const pathname = new URL(url).pathname;
+          let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+          if (name === '' || name === 'index') return 'Home';
+          name = name.split('/').pop();
+          name = name.replace(/-/g, ' ');
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        } catch(e) { return url; }
+      }
+    %>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Page</th>
+          <th>Downloads</th>
+          <th>Unique Users</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% pdfDownloads.slice(0, 8).forEach(item => { %>
+          <tr>
+            <td><%= item.filename %></td>
+            <td><%= getPageNamePDF(item.page_url) %></td>
+            <td class="number"><%= item.download_count %></td>
+            <td class="number"><%= item.unique_downloaders %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- Video Engagement (only show if there's data) -->
+<% if (videoEngagement && videoEngagement.length > 0) { %>
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>Video Engagement</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Video completion separates casual browsers from serious prospects.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Video</th>
+          <th>Plays</th>
+          <th>Completions</th>
+          <th>Completion Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% videoEngagement.slice(0, 8).forEach(item => { %>
+          <tr>
+            <td><%= item.video_id %></td>
+            <td class="number"><%= item.plays %></td>
+            <td class="number"><%= item.completions %></td>
+            <td>
+              <span class="rate-badge <%= item.completion_rate >= 50 ? 'low' : item.completion_rate >= 25 ? 'medium' : 'high' %>">
+                <%= item.completion_rate %>%
+              </span>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- Rage Clicks (only show if there's data) -->
+<% if (rageClicks && rageClicks.length > 0) { %>
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>Rage Clicks</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Frustrated users clicking repeatedly. These elements may be broken or confusing.
+    </p>
+    <%
+      function getPageNameRC(url) {
+        if (!url) return '-';
+        try {
+          const pathname = new URL(url).pathname;
+          let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+          if (name === '' || name === 'index') return 'Home';
+          name = name.split('/').pop();
+          name = name.replace(/-/g, ' ');
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        } catch(e) { return url; }
+      }
+      const elementNamesRC = {
+        'p': 'Paragraph', 'span': 'Text', 'div': 'Container',
+        'h1': 'Main Heading', 'h2': 'Heading', 'h3': 'Subheading',
+        'h4': 'Small Heading', 'li': 'List Item', 'img': 'Image',
+        'button': 'Button', 'a': 'Link'
+      };
+    %>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Element</th>
+          <th>Text</th>
+          <th>Page</th>
+          <th>Occurrences</th>
+          <th>Avg Clicks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rageClicks.slice(0, 8).forEach(item => { %>
+          <tr>
+            <td><%= elementNamesRC[item.element] || item.element %></td>
+            <td class="truncate" style="max-width: 150px;" title="<%= item.element_text %>"><%= item.element_text || '-' %></td>
+            <td><%= getPageNameRC(item.page_url) %></td>
+            <td class="number"><%= item.rage_count %></td>
+            <td class="number"><%= item.avg_clicks %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- Return Visitors Summary -->
+<% if (returnVisitors && (returnVisitors.new_visitors > 0 || returnVisitors.returning_visitors > 0)) { %>
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>Visitor Loyalty</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      How many visitors come back. Returning visitors are more likely to convert.
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-top: 1rem;">
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);"><%= returnVisitors.new_visitors %></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">New Visitors</div>
+      </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #10B981;"><%= returnVisitors.returning_visitors %></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Returning</div>
+      </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);"><%= returnVisitors.avg_visits_per_visitor %></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Avg Visits</div>
+      </div>
+      <div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);"><%= returnVisitors.max_visits %></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Most Visits</div>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+
 <!-- 30-Day Trend (full width) - only show if we have at least 3 days of data -->
 <% if (trend && trend.length >= 3) { %>
 <div class="section-grid">

@@ -90,7 +90,10 @@ const VALID_EVENT_TYPES = [
   'quick_back',
   'text_selection',
   'site_search',
-  'section_visibility'
+  'section_visibility',
+  'pdf_download',
+  'rage_click',
+  'return_visitor'
 ];
 
 /**

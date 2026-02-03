@@ -1309,6 +1309,258 @@ async function getExitPages(siteId = null, limit = 15) {
   return result.rows;
 }
 
+/**
+ * Get form field analytics - which fields cause abandonment
+ */
+async function getFormAnalytics(siteId = null) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    WITH form_events AS (
+      SELECT
+        journey_id,
+        COALESCE(metadata->>'form_id', metadata->>'form_name', 'unknown') as form_id,
+        COALESCE(metadata->>'field_name', cta_label) as field_name,
+        event_type,
+        COALESCE((metadata->>'time_spent')::numeric, 0) as time_spent
+      FROM journey_events
+      WHERE event_type IN ('form_start', 'form_field_blur', 'form_abandon', 'form_submit')
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    )
+    SELECT
+      form_id,
+      COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_start') as starts,
+      COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_submit') as completions,
+      COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_abandon') as abandons,
+      ROUND(
+        CASE WHEN COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_start') > 0
+        THEN (COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_submit')::numeric /
+              COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_start')::numeric) * 100
+        ELSE 0 END
+      ) as completion_rate
+    FROM form_events
+    GROUP BY form_id
+    HAVING COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'form_start') > 0
+    ORDER BY starts DESC
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get form field abandonment - which fields cause people to leave
+ */
+async function getFormFieldAbandonment(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'field_name', cta_label) as field_name,
+      COALESCE(metadata->>'form_id', 'unknown') as form_id,
+      COUNT(*) as abandon_count,
+      ROUND(AVG(COALESCE((metadata->>'time_spent')::numeric, 0)), 1) as avg_time_on_field
+    FROM journey_events
+    WHERE event_type = 'form_abandon'
+      AND (metadata->>'field_name' IS NOT NULL OR cta_label IS NOT NULL)
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'field_name', cta_label), COALESCE(metadata->>'form_id', 'unknown')
+    ORDER BY abandon_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get PDF download analytics
+ */
+async function getPDFDownloads(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'filename', cta_label) as filename,
+      page_url,
+      COUNT(*) as download_count,
+      COUNT(DISTINCT journey_id) as unique_downloaders
+    FROM journey_events
+    WHERE event_type = 'pdf_download'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'filename', cta_label), page_url
+    ORDER BY download_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get video engagement analytics
+ */
+async function getVideoEngagement(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    WITH video_events AS (
+      SELECT
+        journey_id,
+        COALESCE(metadata->>'video_id', metadata->>'video_title', cta_label) as video_id,
+        event_type,
+        page_url
+      FROM journey_events
+      WHERE event_type IN ('video_play', 'video_pause', 'video_complete')
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    )
+    SELECT
+      video_id,
+      COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_play') as plays,
+      COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_complete') as completions,
+      ROUND(
+        CASE WHEN COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_play') > 0
+        THEN (COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_complete')::numeric /
+              COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_play')::numeric) * 100
+        ELSE 0 END
+      ) as completion_rate
+    FROM video_events
+    GROUP BY video_id
+    HAVING COUNT(DISTINCT journey_id) FILTER (WHERE event_type = 'video_play') > 0
+    ORDER BY plays DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get rage click analytics - frustrated users clicking repeatedly
+ */
+async function getRageClicks(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'element', 'unknown') as element,
+      COALESCE(metadata->>'text', cta_label, '') as element_text,
+      page_url,
+      COUNT(*) as rage_count,
+      COUNT(DISTINCT journey_id) as unique_visitors,
+      ROUND(AVG(COALESCE((metadata->>'click_count')::numeric, 3)), 0) as avg_clicks
+    FROM journey_events
+    WHERE event_type = 'rage_click'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'element', 'unknown'), COALESCE(metadata->>'text', cta_label, ''), page_url
+    ORDER BY rage_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get return visitor stats
+ */
+async function getReturnVisitorAnalytics(siteId = null) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    WITH visitor_journeys AS (
+      SELECT DISTINCT
+        visitor_id,
+        journey_id
+      FROM journey_events
+      WHERE visitor_id IS NOT NULL
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    ),
+    visitor_stats AS (
+      SELECT
+        visitor_id,
+        COUNT(DISTINCT journey_id) as journey_count
+      FROM visitor_journeys
+      GROUP BY visitor_id
+    )
+    SELECT
+      COUNT(*) FILTER (WHERE journey_count = 1) as new_visitors,
+      COUNT(*) FILTER (WHERE journey_count > 1) as returning_visitors,
+      ROUND(AVG(journey_count), 1) as avg_visits_per_visitor,
+      MAX(journey_count) as max_visits
+    FROM visitor_stats
+  `, params);
+
+  return result.rows[0] || { new_visitors: 0, returning_visitors: 0, avg_visits_per_visitor: 0, max_visits: 0 };
+}
+
 // ============================================
 // SITE LOOKUP FUNCTIONS
 // ============================================
@@ -1389,6 +1641,12 @@ module.exports = {
   getTextSelections,
   getUXTrend,
   getExitPages,
+  getFormAnalytics,
+  getFormFieldAbandonment,
+  getPDFDownloads,
+  getVideoEngagement,
+  getRageClicks,
+  getReturnVisitorAnalytics,
   // Sites
   getSiteByTrackingKey,
   getAllSites,
