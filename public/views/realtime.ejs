@@ -20,7 +20,7 @@
   <div class="stat-card highlight">
     <h3>Active Now</h3>
     <div class="value" id="visitor-count"><%= visitorCount %></div>
-    <div class="subtitle">Visitors in last 60 seconds</div>
+    <div class="subtitle">Visitors in last 5 minutes</div>
   </div>
   <div class="stat-card">
     <h3>Status</h3>
@@ -187,7 +187,7 @@
 
   async function refreshData() {
     try {
-      const response = await fetch('/realtime/api/visitors?seconds=60');
+      const response = await fetch('/realtime/api/visitors?seconds=300');
       const data = await response.json();
 
       if (!data.success) {
@@ -302,7 +302,7 @@
         previousJourneyIds = currentJourneyIds;
       }
 
-      fetch('/realtime/api/new-journeys?seconds=60').catch(console.error);
+      fetch('/realtime/api/new-journeys?seconds=300').catch(console.error);
 
     } catch (error) {
       console.error('Error refreshing data:', error);

@@ -9,7 +9,7 @@ const notifiedJourneys = new Set();
 // GET /realtime - Dashboard view
 router.get('/', async (req, res) => {
   try {
-    const visitors = await getActiveVisitors(60); // Active in last 60 seconds
+    const visitors = await getActiveVisitors(300); // Active in last 5 minutes
     const visitorCount = visitors.length;
 
     // Parse location from metadata for each visitor
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 // GET /realtime/api/visitors - JSON endpoint for polling
 router.get('/api/visitors', async (req, res) => {
   try {
-    const withinSeconds = parseInt(req.query.seconds) || 60;
+    const withinSeconds = parseInt(req.query.seconds) || 300;
     const visitors = await getActiveVisitors(withinSeconds);
 
     // Parse location from metadata for each visitor
@@ -121,7 +121,7 @@ router.get('/api/locations', async (req, res) => {
 // GET /realtime/api/new-journeys - Check for new journeys and send notifications
 router.get('/api/new-journeys', async (req, res) => {
   try {
-    const sinceSeconds = parseInt(req.query.seconds) || 60;
+    const sinceSeconds = parseInt(req.query.seconds) || 300;
     const newJourneys = await getRecentNewJourneys(sinceSeconds);
 
     // Find journeys we haven't notified about yet
@@ -163,7 +163,7 @@ router.get('/api/new-journeys', async (req, res) => {
 // GET /realtime/api/count - Just the count for quick polling
 router.get('/api/count', async (req, res) => {
   try {
-    const withinSeconds = parseInt(req.query.seconds) || 60;
+    const withinSeconds = parseInt(req.query.seconds) || 300;
     const count = await getActiveVisitorCount(withinSeconds);
 
     res.json({
@@ -180,7 +180,7 @@ router.get('/api/count', async (req, res) => {
 // GET /realtime/api/recent-sessions - Get latest sessions that are not currently active
 router.get('/api/recent-sessions', async (req, res) => {
   try {
-    const inactiveAfter = parseInt(req.query.inactive_after) || 60;
+    const inactiveAfter = parseInt(req.query.inactive_after) || 300;
     const limit = parseInt(req.query.limit) || 10;
     const sessions = await getRecentInactiveSessions(inactiveAfter, limit);
 

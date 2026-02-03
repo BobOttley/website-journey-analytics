@@ -440,7 +440,7 @@ async function getAllInsights(limit = 10) {
 }
 
 // Real-time queries
-async function getActiveVisitors(withinSeconds = 60) {
+async function getActiveVisitors(withinSeconds = 300) {
   const db = getDb();
   const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
 
@@ -466,7 +466,7 @@ async function getActiveVisitors(withinSeconds = 60) {
   return result.rows;
 }
 
-async function getRecentNewJourneys(sinceSeconds = 60) {
+async function getRecentNewJourneys(sinceSeconds = 300) {
   const db = getDb();
   const cutoffTime = new Date(Date.now() - (sinceSeconds * 1000)).toISOString();
 
@@ -489,7 +489,7 @@ async function getRecentNewJourneys(sinceSeconds = 60) {
   return result.rows;
 }
 
-async function getActiveVisitorCount(withinSeconds = 60) {
+async function getActiveVisitorCount(withinSeconds = 300) {
   const db = getDb();
   const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
 
@@ -507,7 +507,7 @@ async function getActiveVisitorCount(withinSeconds = 60) {
  * Get latest sessions that are no longer active
  * Always returns the most recent N sessions (not currently active)
  */
-async function getRecentInactiveSessions(inactiveAfterSeconds = 60, limit = 10) {
+async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10) {
   const db = getDb();
   const activeCutoff = new Date(Date.now() - (inactiveAfterSeconds * 1000)).toISOString();
 
