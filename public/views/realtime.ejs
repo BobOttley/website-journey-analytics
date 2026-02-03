@@ -310,13 +310,17 @@
   }
 
   async function loadRecentSessions() {
+    const container = document.getElementById('recent-sessions-content');
     try {
       const response = await fetch('/realtime/api/recent-sessions?_t=' + Date.now());
+
+      if (!response.ok) {
+        throw new Error('Server returned ' + response.status);
+      }
+
       const data = await response.json();
 
-      const container = document.getElementById('recent-sessions-content');
-
-      if (!data.success || data.sessions.length === 0) {
+      if (!data.success || !data.sessions || data.sessions.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <p class="text-muted">No completed sessions yet.</p>
@@ -390,7 +394,8 @@
     pollInterval = setInterval(refreshData, 10000);
     setInterval(updateLastUpdated, 1000);
 
-    // Load recent sessions initially and refresh every 30 seconds
+    // Load data immediately, then refresh periodically
+    refreshData();
     loadRecentSessions();
     setInterval(loadRecentSessions, 30000);
   }
