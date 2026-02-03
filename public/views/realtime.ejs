@@ -49,74 +49,75 @@
 </div>
 
 <!-- Active Sessions Table -->
-<div class="card">
+<div class="card" id="active-sessions-card">
   <h2>Active Sessions</h2>
 
-  <% if (visitors.length === 0) { %>
-  <div class="empty-state">
-    <h3>No active visitors</h3>
-    <p>Visitors will appear here when they're browsing your website.</p>
+  <div id="active-sessions-container">
+    <% if (visitors.length === 0) { %>
+    <div class="empty-state" id="no-visitors-message">
+      <h3>No active visitors</h3>
+      <p>Visitors will appear here when they're browsing your website.</p>
+    </div>
+    <% } %>
+    <div style="overflow-x: auto; <%= visitors.length === 0 ? 'display: none;' : '' %>" id="visitors-table-container">
+      <table id="visitors-table">
+        <thead>
+          <tr>
+            <th>Location</th>
+            <th>Current Page</th>
+            <th>Referrer</th>
+            <th>Device</th>
+            <th>Visitor</th>
+            <th>Session Started</th>
+            <th>Last Activity</th>
+            <th>Journey</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% visitors.forEach(visitor => { %>
+          <tr data-journey="<%= visitor.journey_id %>">
+            <td>
+              <% if (visitor.location && visitor.location.countryCode) { %>
+                <span class="text-small"><%= visitor.location.city || visitor.location.country || visitor.location.countryCode %></span>
+              <% } else { %>
+                <span class="text-muted">Unknown</span>
+              <% } %>
+            </td>
+            <td>
+              <a href="<%= visitor.page_url %>" target="_blank" title="<%= visitor.page_url %>">
+                <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40) : 'Unknown' %><%= visitor.page_url && visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').length > 40 ? '...' : '' %>
+              </a>
+            </td>
+            <td>
+              <% if (visitor.referrer) { %>
+              <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 25) %></span>
+              <% } else { %>
+              <span class="text-muted">Direct</span>
+              <% } %>
+            </td>
+            <td>
+              <span class="badge badge-<%= visitor.device_type === 'mobile' ? 'warning' : visitor.device_type === 'tablet' ? 'info' : 'neutral' %>">
+                <%= visitor.device_type || 'Unknown' %>
+              </span>
+            </td>
+            <td>
+              <% if (visitor.visit_number && visitor.visit_number > 1) { %>
+                <span class="badge badge-gold">Return</span>
+              <% } else { %>
+                <span class="badge badge-neutral">New</span>
+              <% } %>
+            </td>
+            <td><%= new Date(visitor.first_seen).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
+            <td class="last-activity"><%= new Date(visitor.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
+            <td>
+              <a href="/journeys/<%= visitor.journey_id %>" class="btn btn-outline btn-sm">View</a>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
   </div>
-  <% } else { %>
-  <div style="overflow-x: auto;">
-    <table id="visitors-table">
-      <thead>
-        <tr>
-          <th>Location</th>
-          <th>Current Page</th>
-          <th>Referrer</th>
-          <th>Device</th>
-          <th>Visitor</th>
-          <th>Session Started</th>
-          <th>Last Activity</th>
-          <th>Journey</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% visitors.forEach(visitor => { %>
-        <tr data-journey="<%= visitor.journey_id %>">
-          <td>
-            <% if (visitor.location && visitor.location.countryCode) { %>
-              <span class="text-small"><%= visitor.location.city || visitor.location.country || visitor.location.countryCode %></span>
-            <% } else { %>
-              <span class="text-muted">Unknown</span>
-            <% } %>
-          </td>
-          <td>
-            <a href="<%= visitor.page_url %>" target="_blank" title="<%= visitor.page_url %>">
-              <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40) : 'Unknown' %><%= visitor.page_url && visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').length > 40 ? '...' : '' %>
-            </a>
-          </td>
-          <td>
-            <% if (visitor.referrer) { %>
-            <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 25) %></span>
-            <% } else { %>
-            <span class="text-muted">Direct</span>
-            <% } %>
-          </td>
-          <td>
-            <span class="badge badge-<%= visitor.device_type === 'mobile' ? 'warning' : visitor.device_type === 'tablet' ? 'info' : 'neutral' %>">
-              <%= visitor.device_type || 'Unknown' %>
-            </span>
-          </td>
-          <td>
-            <% if (visitor.visit_number && visitor.visit_number > 1) { %>
-              <span class="badge badge-gold">Return</span>
-            <% } else { %>
-              <span class="badge badge-neutral">New</span>
-            <% } %>
-          </td>
-          <td><%= new Date(visitor.first_seen).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
-          <td class="last-activity"><%= new Date(visitor.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
-          <td>
-            <a href="/journeys/<%= visitor.journey_id %>" class="btn btn-outline btn-sm">View</a>
-          </td>
-        </tr>
-        <% }); %>
-      </tbody>
-    </table>
-  </div>
-  <% } %>
 </div>
 
 <!-- Recent Sessions (Ended in last 10 mins) -->
@@ -229,22 +230,31 @@
 
       // Update table
       const tbody = document.querySelector('#visitors-table tbody');
+      const tableContainer = document.getElementById('visitors-table-container');
+      const emptyMessage = document.getElementById('no-visitors-message');
 
       if (data.visitors.length === 0) {
-        if (tbody) {
-          const tableContainer = document.querySelector('#visitors-table').closest('div[style*="overflow"]');
-          if (tableContainer) {
-            tableContainer.innerHTML = `
-              <div class="empty-state">
-                <h3>No active visitors</h3>
-                <p>Visitors will appear here when they're browsing your website.</p>
-              </div>
-            `;
+        if (tableContainer) tableContainer.style.display = 'none';
+        if (emptyMessage) {
+          emptyMessage.style.display = 'block';
+        } else {
+          // Create empty message if it doesn't exist
+          const container = document.getElementById('active-sessions-container');
+          if (container) {
+            const msg = document.createElement('div');
+            msg.className = 'empty-state';
+            msg.id = 'no-visitors-message';
+            msg.innerHTML = '<h3>No active visitors</h3><p>Visitors will appear here when they\'re browsing your website.</p>';
+            container.insertBefore(msg, tableContainer);
           }
         }
         previousJourneyIds.clear();
         return;
       }
+
+      // Show table, hide empty message
+      if (tableContainer) tableContainer.style.display = 'block';
+      if (emptyMessage) emptyMessage.style.display = 'none';
 
       if (tbody) {
         const currentJourneyIds = new Set(data.visitors.map(v => v.journey_id));
