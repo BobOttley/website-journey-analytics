@@ -9,7 +9,7 @@
   'use strict';
 
   // Configuration
-  const ANALYTICS_ENDPOINT = 'http://localhost:3000/api/event';
+  const ANALYTICS_ENDPOINT = 'https://website-journey-analytics.onrender.com/api/event';
   const JOURNEY_ID_KEY = 'wja_journey_id';
   const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
   const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds

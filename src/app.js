@@ -60,6 +60,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve tracking script with correct endpoint
+app.get('/tracking.js', (req, res) => {
+  const fs = require('fs');
+  const scriptPath = path.join(__dirname, '../gtm/trackingScript.js');
+  let script = fs.readFileSync(scriptPath, 'utf8');
+
+  // Replace endpoint with actual server URL
+  const serverUrl = process.env.SERVER_URL || `https://website-journey-analytics.onrender.com`;
+  script = script.replace(
+    /const ANALYTICS_ENDPOINT = ['"][^'"]+['"]/,
+    `const ANALYTICS_ENDPOINT = '${serverUrl}/api/event'`
+  );
+
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+  res.send(script);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
