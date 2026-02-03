@@ -18,6 +18,7 @@ function getDb() {
 async function initializeSchema() {
   const database = getDb();
   const schemaPath = path.join(__dirname, 'schema.sql');
+  const migrationsPath = path.join(__dirname, 'migrations.sql');
   const schema = fs.readFileSync(schemaPath, 'utf-8');
 
   try {
@@ -29,6 +30,20 @@ async function initializeSchema() {
       console.error('Schema initialization error:', error.message);
     } else {
       console.log('Database schema already exists');
+    }
+  }
+
+  // Run migrations to add new columns
+  try {
+    if (fs.existsSync(migrationsPath)) {
+      const migrations = fs.readFileSync(migrationsPath, 'utf-8');
+      await database.query(migrations);
+      console.log('Database migrations applied');
+    }
+  } catch (error) {
+    // Columns likely already exist
+    if (!error.message.includes('already exists')) {
+      console.error('Migration error:', error.message);
     }
   }
 }

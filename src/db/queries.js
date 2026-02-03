@@ -4,11 +4,12 @@ const { getDb } = require('./database');
 async function insertEvent(event) {
   const db = getDb();
   const result = await db.query(
-    `INSERT INTO journey_events (journey_id, event_type, page_url, referrer, intent_type, cta_label, device_type, occurred_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO journey_events (journey_id, visitor_id, event_type, page_url, referrer, intent_type, cta_label, device_type, occurred_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id`,
     [
       event.journey_id,
+      event.visitor_id || null,
       event.event_type,
       event.page_url || null,
       event.referrer || null,
@@ -59,8 +60,8 @@ async function getEventsInDateRange(startDate, endDate) {
 async function upsertJourney(journey) {
   const db = getDb();
   const result = await db.query(
-    `INSERT INTO journeys (journey_id, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
      ON CONFLICT(journey_id) DO UPDATE SET
        last_seen = EXCLUDED.last_seen,
        page_sequence = EXCLUDED.page_sequence,
@@ -71,6 +72,8 @@ async function upsertJourney(journey) {
      RETURNING journey_id`,
     [
       journey.journey_id,
+      journey.visitor_id || null,
+      journey.visit_number || 1,
       journey.first_seen,
       journey.last_seen,
       journey.entry_page,

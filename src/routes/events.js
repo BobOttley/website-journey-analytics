@@ -64,6 +64,7 @@ router.post('/', async (req, res) => {
 
     const event = {
       journey_id: req.body.journey_id,
+      visitor_id: req.body.visitor_id,
       event_type: req.body.event_type,
       page_url: req.body.page_url,
       referrer: req.body.referrer,
@@ -113,6 +114,7 @@ router.post('/batch', async (req, res) => {
       try {
         const event = {
           journey_id: eventData.journey_id,
+          visitor_id: eventData.visitor_id,
           event_type: eventData.event_type,
           page_url: eventData.page_url,
           referrer: eventData.referrer,

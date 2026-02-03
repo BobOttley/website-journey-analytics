@@ -2,7 +2,12 @@
  * Website Journey Analytics - GTM Tracking Script
  *
  * Install: Add this script to Google Tag Manager as a Custom HTML tag
- * Configure: Set ANALYTICS_ENDPOINT to your server URL
+ * Or include directly: <script src="https://website-journey-analytics.onrender.com/tracking.js"></script>
+ *
+ * Tracking:
+ * - visitor_id: Stored in localStorage, persists forever (identifies the person)
+ * - journey_id: Stored in sessionStorage, new each visit (identifies this session)
+ * - visit_number: Incremented each new session for the same visitor
  */
 
 (function() {
@@ -10,8 +15,9 @@
 
   // Configuration
   const ANALYTICS_ENDPOINT = 'https://website-journey-analytics.onrender.com/api/event';
+  const VISITOR_ID_KEY = 'wja_visitor_id';
   const JOURNEY_ID_KEY = 'wja_journey_id';
-  const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+  const VISIT_COUNT_KEY = 'wja_visit_count';
   const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 
   // CTA selectors to track (customize for your site)
@@ -20,7 +26,9 @@
     prospectus: '[data-cta="prospectus"], a[href*="prospectus"], .prospectus-btn',
     book_visit: '[data-cta="book-visit"], a[href*="book-visit"], a[href*="open-day"], .visit-btn',
     apply: '[data-cta="apply"], a[href*="apply"], .apply-btn',
-    contact: '[data-cta="contact"], a[href*="contact"], .contact-btn'
+    contact: '[data-cta="contact"], a[href*="contact"], .contact-btn',
+    demo: '[data-cta="demo"], a[href*="demo"], .demo-btn',
+    calculate: '[data-cta="calculate"], a[href*="calculator"], a[href*="roi"], .calculator-btn'
   };
 
   // Form selectors to track
@@ -28,7 +36,8 @@
     enquire: 'form[data-form="enquire"], #enquiry-form, .enquiry-form',
     book_visit: 'form[data-form="book-visit"], #visit-form, .visit-form',
     apply: 'form[data-form="apply"], #application-form, .application-form',
-    contact: 'form[data-form="contact"], #contact-form, .contact-form'
+    contact: 'form[data-form="contact"], #contact-form, .contact-form',
+    demo: 'form[data-form="demo"], #demo-form, .demo-form'
   };
 
   // Heartbeat timer reference
@@ -43,25 +52,35 @@
     });
   }
 
+  // Get or create visitor ID (persists across sessions in localStorage)
+  function getVisitorId() {
+    let visitorId = localStorage.getItem(VISITOR_ID_KEY);
+    if (!visitorId) {
+      visitorId = 'vis_' + Date.now() + '_' + generateUUID().substring(0, 8);
+      localStorage.setItem(VISITOR_ID_KEY, visitorId);
+    }
+    return visitorId;
+  }
+
+  // Get or create journey ID (new each session in sessionStorage)
   function getJourneyId() {
     let journeyId = sessionStorage.getItem(JOURNEY_ID_KEY);
-    const lastActivity = sessionStorage.getItem(JOURNEY_ID_KEY + '_time');
-
-    // Check for session timeout
-    if (journeyId && lastActivity) {
-      const elapsed = Date.now() - parseInt(lastActivity, 10);
-      if (elapsed > SESSION_TIMEOUT) {
-        journeyId = null;
-      }
-    }
-
     if (!journeyId) {
-      journeyId = generateUUID();
+      // New session - create new journey and increment visit count
+      journeyId = 'jrn_' + Date.now() + '_' + generateUUID().substring(0, 8);
       sessionStorage.setItem(JOURNEY_ID_KEY, journeyId);
-    }
 
-    sessionStorage.setItem(JOURNEY_ID_KEY + '_time', Date.now().toString());
+      // Increment visit count for this visitor
+      let visitCount = parseInt(localStorage.getItem(VISIT_COUNT_KEY) || '0', 10);
+      visitCount++;
+      localStorage.setItem(VISIT_COUNT_KEY, visitCount.toString());
+    }
     return journeyId;
+  }
+
+  // Get visit number for this visitor
+  function getVisitNumber() {
+    return parseInt(localStorage.getItem(VISIT_COUNT_KEY) || '1', 10);
   }
 
   function getDeviceType() {
@@ -73,7 +92,9 @@
 
   function sendEvent(eventData) {
     const payload = {
+      visitor_id: getVisitorId(),
       journey_id: getJourneyId(),
+      visit_number: getVisitNumber(),
       device_type: getDeviceType(),
       occurred_at: new Date().toISOString(),
       ...eventData
@@ -113,8 +134,7 @@
       clearInterval(heartbeatTimer);
     }
 
-    // Send heartbeat immediately on page load (after page_view)
-    // Then continue every HEARTBEAT_INTERVAL
+    // Send heartbeat every HEARTBEAT_INTERVAL
     heartbeatTimer = setInterval(function() {
       // Only send heartbeat if page is visible
       if (document.visibilityState === 'visible') {
@@ -192,6 +212,31 @@
     });
   }
 
+  // Generic click tracking for buttons
+  function setupGenericClickTracking() {
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('button, a.btn, .btn, [role="button"]');
+      if (btn && !btn.dataset.wjaTracked) {
+        const label = btn.textContent.trim();
+        let intent = 'explore';
+        if (/demo/i.test(label)) intent = 'demo';
+        else if (/contact/i.test(label)) intent = 'contact';
+        else if (/calculator|roi/i.test(label)) intent = 'calculate';
+        else if (/enquir/i.test(label)) intent = 'enquire';
+        else if (/book|visit|tour/i.test(label)) intent = 'book_visit';
+        else if (/apply/i.test(label)) intent = 'apply';
+        else if (/prospectus/i.test(label)) intent = 'prospectus';
+
+        sendEvent({
+          event_type: 'cta_click',
+          page_url: window.location.href,
+          cta_label: label.substring(0, 100),
+          intent_type: intent
+        });
+      }
+    });
+  }
+
   // Initialize tracking
   function init() {
     // Track initial page view
@@ -203,6 +248,7 @@
     // Setup click and form tracking
     setupCtaTracking();
     setupFormTracking();
+    setupGenericClickTracking();
 
     // Re-run setup after dynamic content loads
     if (window.MutationObserver) {
@@ -248,5 +294,8 @@
 
   // Expose for manual event tracking
   window.wjaTrackEvent = sendEvent;
+  window.wjaGetVisitorId = getVisitorId;
+  window.wjaGetJourneyId = getJourneyId;
+  window.wjaGetVisitNumber = getVisitNumber;
 
 })();
