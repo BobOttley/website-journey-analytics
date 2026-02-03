@@ -85,6 +85,11 @@ app.use((req, res, next) => {
     options.error = req.query.error;
     options.currentPage = options.currentPage || view;
 
+    // If layout: false, render directly without wrapping in layout
+    if (options.layout === false) {
+      return originalRender(view, options);
+    }
+
     // Render the view first, then inject into layout
     app.render(view, { ...options, layout: false }, (err, body) => {
       if (err) {
