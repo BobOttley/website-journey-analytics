@@ -247,14 +247,14 @@
       }
 
       // Calculate return rate
-      const returnVisitors = data.visitors.filter(v => v.visit_number && v.visit_number > 1).length;
+      const returnVisitors = data.visitors.filter(v => v.visit_number ? v.visit_number > 1 : false).length;
       const returnRate = data.visitors.length > 0 ? ((returnVisitors / data.visitors.length) * 100).toFixed(0) : 0;
       document.getElementById('return-rate').textContent = returnRate + '%';
 
       // Update locations
       const locationMap = {};
       data.visitors.forEach(v => {
-        if (v.location && v.location.countryCode) {
+        if (v.location ? v.location.countryCode : false) {
           const code = v.location.countryCode;
           if (!locationMap[code]) {
             locationMap[code] = { country: v.location.country, count: 0 };
