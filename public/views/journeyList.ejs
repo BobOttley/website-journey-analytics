@@ -1,19 +1,17 @@
 <% if (typeof rebuilt !== 'undefined') { %>
 <div class="alert alert-success slide-in">
-  <span>✓</span> Successfully rebuilt <%= rebuilt %> journeys from events.
+  Successfully rebuilt <%= rebuilt %> journeys from events.
 </div>
 <% } %>
 
 <!-- Hero KPI Cards -->
 <div class="stats-grid">
   <div class="stat-card highlight">
-    <div class="icon">👥</div>
     <h3>Total Journeys</h3>
     <div class="value"><%= stats.total_journeys || 0 %></div>
     <div class="subtitle">All-time visitors tracked</div>
   </div>
   <div class="stat-card success">
-    <div class="icon">📬</div>
     <h3>Enquiries</h3>
     <div class="value"><%= stats.enquiries || 0 %></div>
     <div class="subtitle">
@@ -25,7 +23,6 @@
     </div>
   </div>
   <div class="stat-card info">
-    <div class="icon">📅</div>
     <h3>Visits Booked</h3>
     <div class="value"><%= stats.visits_booked || 0 %></div>
     <div class="subtitle">
@@ -37,7 +34,6 @@
     </div>
   </div>
   <div class="stat-card">
-    <div class="icon">📊</div>
     <h3>Avg Events</h3>
     <div class="value"><%= stats.avg_events ? stats.avg_events.toFixed(1) : '0' %></div>
     <div class="subtitle">Events per journey</div>
@@ -94,15 +90,12 @@
   <div class="flex justify-between items-center mb-4">
     <h2 style="margin-bottom: 0;">All Journeys</h2>
     <form action="/journeys/rebuild" method="POST" style="display: inline;">
-      <button type="submit" class="btn btn-secondary btn-sm">
-        🔄 Rebuild Journeys
-      </button>
+      <button type="submit" class="btn btn-secondary btn-sm">Rebuild Journeys</button>
     </form>
   </div>
 
   <% if (journeys.length === 0) { %>
     <div class="empty-state">
-      <div class="icon">📊</div>
       <h3>No journeys recorded yet</h3>
       <p>Events will appear here once the tracking script captures visitor behaviour.</p>
     </div>
@@ -126,7 +119,7 @@
           <% journeys.forEach(journey => { %>
             <tr>
               <td>
-                <code style="font-size: 0.8rem; background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px;">
+                <code style="font-size: 0.8rem; background: var(--paper); padding: 4px 8px; border-radius: 4px;">
                   <%= journey.journey_id.substring(0, 8) %>...
                 </code>
               </td>
@@ -144,22 +137,20 @@
               <td><%= journey.event_count %></td>
               <td>
                 <% if (journey.visit_number && journey.visit_number > 1) { %>
-                  <span class="badge badge-return" title="Visit #<%= journey.visit_number %>">
-                    ↩ Return
-                  </span>
+                  <span class="badge badge-gold" title="Visit #<%= journey.visit_number %>">Return</span>
                 <% } else { %>
                   <span class="badge badge-neutral">New</span>
                 <% } %>
               </td>
               <td>
                 <% if (journey.outcome === 'enquiry_submitted') { %>
-                  <span class="badge badge-success">📬 Enquiry</span>
+                  <span class="badge badge-success">Enquiry</span>
                 <% } else if (journey.outcome === 'visit_booked') { %>
-                  <span class="badge badge-success">📅 Visit Booked</span>
+                  <span class="badge badge-success">Visit Booked</span>
                 <% } else if (journey.outcome === 'engaged') { %>
-                  <span class="badge badge-info">👀 Engaged</span>
+                  <span class="badge badge-info">Engaged</span>
                 <% } else if (journey.outcome === 'form_abandoned') { %>
-                  <span class="badge badge-warning">⚠️ Form Abandoned</span>
+                  <span class="badge badge-warning">Form Abandoned</span>
                 <% } else { %>
                   <span class="badge badge-neutral">No Action</span>
                 <% } %>
@@ -174,7 +165,7 @@
                 <% } %>
               </td>
               <td>
-                <a href="/journeys/<%= journey.journey_id %>" class="btn btn-outline btn-sm">View →</a>
+                <a href="/journeys/<%= journey.journey_id %>" class="btn btn-outline btn-sm">View</a>
               </td>
             </tr>
           <% }) %>
@@ -185,7 +176,7 @@
     <% if (pagination.totalPages > 1) { %>
       <div class="pagination">
         <% if (pagination.hasPrev) { %>
-          <a href="/journeys?page=<%= pagination.page - 1 %>">← Previous</a>
+          <a href="/journeys?page=<%= pagination.page - 1 %>">Previous</a>
         <% } %>
 
         <%
@@ -208,7 +199,7 @@
         <% } %>
 
         <% if (pagination.hasNext) { %>
-          <a href="/journeys?page=<%= pagination.page + 1 %>">Next →</a>
+          <a href="/journeys?page=<%= pagination.page + 1 %>">Next</a>
         <% } %>
       </div>
     <% } %>
@@ -216,10 +207,9 @@
 </div>
 
 <script>
-  // Chart.js Configuration
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+  const textColor = isDark ? '#f1f5f9' : '#2C3E50';
+  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
 
   const brandColors = {
     gold: '#FF9F1C',
@@ -232,7 +222,6 @@
     info: '#3B82F6'
   };
 
-  // Fetch chart data
   async function loadCharts() {
     try {
       const response = await fetch('/journeys/api/charts');
@@ -245,7 +234,7 @@
 
       const data = result.data;
 
-      // Conversion Funnel (Horizontal Bar)
+      // Conversion Funnel
       if (data.conversionFunnel && data.conversionFunnel.length > 0) {
         const funnelCtx = document.getElementById('funnelChart').getContext('2d');
         new Chart(funnelCtx, {
@@ -269,29 +258,21 @@
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-              x: {
-                grid: { color: gridColor },
-                ticks: { color: textColor }
-              },
-              y: {
-                grid: { display: false },
-                ticks: { color: textColor, font: { weight: 500 } }
-              }
+              x: { grid: { color: gridColor }, ticks: { color: textColor } },
+              y: { grid: { display: false }, ticks: { color: textColor, font: { weight: 600 } } }
             }
           }
         });
       }
 
-      // Top Pages (Vertical Bar)
+      // Top Pages
       if (data.topPages && data.topPages.length > 0) {
         const pagesCtx = document.getElementById('pagesChart').getContext('2d');
         const pageLabels = data.topPages.map(p => {
           const path = p.page_url ? p.page_url.replace(/https?:\/\/[^\/]+/, '') : '/';
-          return path.length > 25 ? path.substring(0, 25) + '...' : path;
+          return path.length > 20 ? path.substring(0, 20) + '...' : path;
         });
 
         new Chart(pagesCtx, {
@@ -308,32 +289,19 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-              x: {
-                grid: { display: false },
-                ticks: { color: textColor, maxRotation: 45 }
-              },
-              y: {
-                grid: { color: gridColor },
-                ticks: { color: textColor }
-              }
+              x: { grid: { display: false }, ticks: { color: textColor, maxRotation: 45 } },
+              y: { grid: { color: gridColor }, ticks: { color: textColor } }
             }
           }
         });
       }
 
-      // Device Breakdown (Doughnut)
+      // Device Breakdown
       if (data.deviceBreakdown && data.deviceBreakdown.length > 0) {
         const deviceCtx = document.getElementById('deviceChart').getContext('2d');
-        const deviceColors = {
-          'desktop': brandColors.blue,
-          'mobile': brandColors.gold,
-          'tablet': brandColors.success,
-          'unknown': '#94a3b8'
-        };
+        const deviceColors = { 'desktop': brandColors.blue, 'mobile': brandColors.gold, 'tablet': brandColors.success, 'unknown': '#94a3b8' };
 
         new Chart(deviceCtx, {
           type: 'doughnut',
@@ -349,29 +317,15 @@
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { color: textColor, padding: 16, usePointStyle: true }
-              }
-            }
+            plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 16, usePointStyle: true } } }
           }
         });
       }
 
-      // Traffic Sources (Doughnut)
+      // Traffic Sources
       if (data.trafficSources && data.trafficSources.length > 0) {
         const sourcesCtx = document.getElementById('sourcesChart').getContext('2d');
-        const sourceColors = [
-          brandColors.gold,
-          brandColors.blue,
-          brandColors.success,
-          brandColors.warning,
-          brandColors.info,
-          '#8B5CF6',
-          '#EC4899',
-          '#94a3b8'
-        ];
+        const sourceColors = [brandColors.gold, brandColors.blue, brandColors.success, brandColors.warning, brandColors.info, '#8B5CF6', '#EC4899', '#94a3b8'];
 
         new Chart(sourcesCtx, {
           type: 'doughnut',
@@ -387,17 +341,12 @@
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { color: textColor, padding: 16, usePointStyle: true }
-              }
-            }
+            plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 16, usePointStyle: true } } }
           }
         });
       }
 
-      // Daily Trend (Line Chart)
+      // Daily Trend
       if (data.dailyTrend && data.dailyTrend.length > 0) {
         const trendCtx = document.getElementById('trendChart').getContext('2d');
 
@@ -434,26 +383,11 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-              intersect: false,
-              mode: 'index'
-            },
-            plugins: {
-              legend: {
-                position: 'top',
-                labels: { color: textColor, usePointStyle: true, padding: 20 }
-              }
-            },
+            interaction: { intersect: false, mode: 'index' },
+            plugins: { legend: { position: 'top', labels: { color: textColor, usePointStyle: true, padding: 20 } } },
             scales: {
-              x: {
-                grid: { color: gridColor },
-                ticks: { color: textColor }
-              },
-              y: {
-                grid: { color: gridColor },
-                ticks: { color: textColor },
-                beginAtZero: true
-              }
+              x: { grid: { color: gridColor }, ticks: { color: textColor } },
+              y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
             }
           }
         });
@@ -464,6 +398,5 @@
     }
   }
 
-  // Load charts on page load
   document.addEventListener('DOMContentLoaded', loadCharts);
 </script>

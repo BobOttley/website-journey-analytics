@@ -1,31 +1,25 @@
 <% if (typeof analyzed !== 'undefined') { %>
 <div class="alert alert-success slide-in">
-  <span>✓</span> Analysis completed successfully.
+  Analysis completed successfully.
 </div>
 <% } %>
 
 <% if (typeof error !== 'undefined') { %>
 <div class="alert alert-danger">
-  <span>⚠️</span> Error: <%= error %>
+  Error: <%= error %>
 </div>
 <% } %>
 
 <div class="flex justify-between items-center mb-4">
-  <h2 style="font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
-    <span style="font-size: 1.5rem;">🧠</span>
-    AI Insights
-  </h2>
+  <h2 style="font-size: 1.5rem;">AI Insights</h2>
   <form action="/insights/analyze" method="POST" style="display: inline;">
-    <button type="submit" class="btn btn-primary">
-      ✨ Run New Analysis
-    </button>
+    <button type="submit" class="btn btn-primary">Run New Analysis</button>
   </form>
 </div>
 
 <% if (!insight) { %>
   <div class="card">
     <div class="empty-state">
-      <div class="icon">🔬</div>
       <h3>No analysis yet</h3>
       <p>Click "Run New Analysis" to generate AI-powered insights from your journey data.</p>
       <p class="text-small text-muted mt-4">The AI will analyse visitor behaviour patterns, identify friction points, and provide actionable recommendations.</p>
@@ -35,24 +29,20 @@
   <!-- Analysis Overview Stats -->
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="icon">📅</div>
       <h3>Analysis Period</h3>
       <div class="value text-small" style="font-size: 1rem;">
         <%= new Date(insight.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %> - <%= new Date(insight.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %>
       </div>
     </div>
     <div class="stat-card highlight">
-      <div class="icon">👥</div>
       <h3>Journeys Analysed</h3>
       <div class="value"><%= insight.total_journeys %></div>
     </div>
-    <div class="stat-card <%= insight.conversion_rate >= 5 ? 'success' : insight.conversion_rate >= 2 ? '' : 'warning' %>">
-      <div class="icon"><%= insight.conversion_rate >= 5 ? '🎯' : insight.conversion_rate >= 2 ? '📊' : '⚠️' %></div>
+    <div class="stat-card <%= insight.conversion_rate >= 5 ? 'success' : insight.conversion_rate >= 2 ? '' : '' %>">
       <h3>Conversion Rate</h3>
       <div class="value"><%= insight.conversion_rate.toFixed(1) %>%</div>
     </div>
     <div class="stat-card">
-      <div class="icon">🕐</div>
       <h3>Generated</h3>
       <div class="value text-small" style="font-size: 1rem;"><%= new Date(insight.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %></div>
     </div>
@@ -64,22 +54,22 @@
     <!-- Summary Card -->
     <div class="card mb-6">
       <h2>Executive Summary</h2>
-      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text-secondary);">
+      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text-muted);">
         <%= analysis.summary %>
       </p>
 
       <% if (analysis.keyMetrics) { %>
         <div class="stats-grid mt-6">
-          <div class="stat-card" style="background: var(--bg-secondary);">
+          <div class="stat-card" style="background: var(--paper);">
             <h3>Conversion Rate</h3>
             <div class="value text-gold"><%= analysis.keyMetrics.conversionRate %>%</div>
           </div>
-          <div class="stat-card" style="background: var(--bg-secondary);">
+          <div class="stat-card" style="background: var(--paper);">
             <h3>Avg Journey Length</h3>
             <div class="value"><%= analysis.keyMetrics.avgJourneyLength %></div>
             <div class="subtitle">events per journey</div>
           </div>
-          <div class="stat-card" style="background: var(--bg-secondary);">
+          <div class="stat-card" style="background: var(--paper);">
             <h3>Avg Time to Action</h3>
             <div class="value"><%= Math.floor(analysis.keyMetrics.avgTimeToAction / 60) %>m</div>
             <div class="subtitle"><%= analysis.keyMetrics.avgTimeToAction % 60 %>s</div>
@@ -91,11 +81,11 @@
     <!-- Quick Wins -->
     <% if (analysis.quickWins && analysis.quickWins.length > 0) { %>
     <div class="card mb-6" style="border-left: 4px solid var(--success);">
-      <h2>⚡ Quick Wins</h2>
+      <h2>Quick Wins</h2>
       <p class="text-muted mb-4">Low-effort changes that can have immediate impact</p>
       <div class="grid-2">
         <% analysis.quickWins.forEach((win, index) => { %>
-          <div style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 12px;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: var(--paper); border-radius: 12px;">
             <div style="width: 32px; height: 32px; background: var(--success-light); color: var(--success); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">
               <%= index + 1 %>
             </div>
@@ -109,7 +99,7 @@
     <!-- Patterns Identified -->
     <% if (analysis.patterns && analysis.patterns.length > 0) { %>
     <div class="card mb-6">
-      <h2>📊 Patterns Identified</h2>
+      <h2>Patterns Identified</h2>
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -128,11 +118,11 @@
                 <td><span class="badge badge-info"><%= pattern.frequency %></span></td>
                 <td>
                   <% if (pattern.impact === 'high') { %>
-                    <span class="badge badge-danger">🔴 High</span>
+                    <span class="badge badge-danger">High</span>
                   <% } else if (pattern.impact === 'medium') { %>
-                    <span class="badge badge-warning">🟡 Medium</span>
+                    <span class="badge badge-warning">Medium</span>
                   <% } else { %>
-                    <span class="badge badge-info">🔵 Low</span>
+                    <span class="badge badge-info">Low</span>
                   <% } %>
                 </td>
               </tr>
@@ -146,7 +136,7 @@
     <!-- Friction Points -->
     <% if (analysis.frictionPoints && analysis.frictionPoints.length > 0) { %>
     <div class="card mb-6" style="border-left: 4px solid var(--danger);">
-      <h2>🚧 Friction Points</h2>
+      <h2>Friction Points</h2>
       <p class="text-muted mb-4">Areas where visitors are struggling or dropping off</p>
       <div style="overflow-x: auto;">
         <table>
@@ -161,21 +151,16 @@
           <tbody>
             <% analysis.frictionPoints.forEach(point => { %>
               <tr>
-                <td>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 1.2rem;">📍</span>
-                    <strong><%= point.location %></strong>
-                  </div>
-                </td>
+                <td><strong><%= point.location %></strong></td>
                 <td><%= point.issue %></td>
                 <td class="text-small text-muted"><%= point.evidence %></td>
                 <td>
                   <% if (point.severity === 'high') { %>
-                    <span class="badge badge-danger">🔴 High</span>
+                    <span class="badge badge-danger">High</span>
                   <% } else if (point.severity === 'medium') { %>
-                    <span class="badge badge-warning">🟡 Medium</span>
+                    <span class="badge badge-warning">Medium</span>
                   <% } else { %>
-                    <span class="badge badge-info">🔵 Low</span>
+                    <span class="badge badge-info">Low</span>
                   <% } %>
                 </td>
               </tr>
@@ -189,10 +174,10 @@
     <!-- Recommendations -->
     <% if (analysis.recommendations && analysis.recommendations.length > 0) { %>
     <div class="card mb-6">
-      <h2>💡 Recommendations</h2>
+      <h2>Recommendations</h2>
       <div style="display: flex; flex-direction: column; gap: 20px;">
         <% analysis.recommendations.forEach((rec, index) => { %>
-          <div style="padding: 20px; background: var(--bg-secondary); border-radius: 12px; border-left: 4px solid <%= rec.priority === 'high' ? 'var(--danger)' : rec.priority === 'medium' ? 'var(--warning)' : 'var(--info)' %>;">
+          <div style="padding: 20px; background: var(--paper); border-radius: 12px; border-left: 4px solid <%= rec.priority === 'high' ? 'var(--danger)' : rec.priority === 'medium' ? 'var(--warning)' : 'var(--info)' %>;">
             <div class="flex justify-between items-center mb-2">
               <h3 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px;">
                 <span style="width: 28px; height: 28px; background: var(--bg-card); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">
@@ -201,18 +186,17 @@
                 <%= rec.title %>
               </h3>
               <% if (rec.priority === 'high') { %>
-                <span class="badge badge-danger">🔴 High Priority</span>
+                <span class="badge badge-danger">High Priority</span>
               <% } else if (rec.priority === 'medium') { %>
-                <span class="badge badge-warning">🟡 Medium Priority</span>
+                <span class="badge badge-warning">Medium Priority</span>
               <% } else { %>
-                <span class="badge badge-info">🔵 Low Priority</span>
+                <span class="badge badge-info">Low Priority</span>
               <% } %>
             </div>
-            <p style="margin: 12px 0; color: var(--text-secondary);"><%= rec.description %></p>
+            <p style="margin: 12px 0; color: var(--text-muted);"><%= rec.description %></p>
             <% if (rec.expectedImpact) { %>
               <div class="flex gap-4 mt-4" style="flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 6px;" class="text-small">
-                  <span style="color: var(--success);">📈</span>
                   <strong>Expected Impact:</strong>
                   <span class="text-muted"><%= rec.expectedImpact %></span>
                 </div>
@@ -220,7 +204,6 @@
             <% } %>
             <% if (rec.implementation) { %>
               <div class="mt-2 text-small" style="display: flex; align-items: center; gap: 6px;">
-                <span>🔧</span>
                 <strong>Implementation:</strong>
                 <span class="text-muted"><%= rec.implementation %></span>
               </div>
@@ -235,7 +218,7 @@
   <!-- Analysis History -->
   <% if (history && history.length > 1) { %>
   <div class="card">
-    <h2>📜 Analysis History</h2>
+    <h2>Analysis History</h2>
     <div style="overflow-x: auto;">
       <table>
         <thead>
@@ -255,9 +238,7 @@
                 <%= new Date(h.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %> - <%= new Date(h.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %>
               </td>
               <td><%= h.total_journeys %></td>
-              <td>
-                <strong><%= h.conversion_rate.toFixed(1) %>%</strong>
-              </td>
+              <td><strong><%= h.conversion_rate.toFixed(1) %>%</strong></td>
               <td>
                 <%
                   if (index < history.length - 1) {
@@ -265,15 +246,15 @@
                     const diff = h.conversion_rate - prevRate;
                     if (diff > 0) {
                 %>
-                  <span class="badge badge-success">↑ +<%= diff.toFixed(1) %>%</span>
+                  <span class="badge badge-success">+<%= diff.toFixed(1) %>%</span>
                 <%
                     } else if (diff < 0) {
                 %>
-                  <span class="badge badge-danger">↓ <%= diff.toFixed(1) %>%</span>
+                  <span class="badge badge-danger"><%= diff.toFixed(1) %>%</span>
                 <%
                     } else {
                 %>
-                  <span class="badge badge-neutral">→ 0%</span>
+                  <span class="badge badge-neutral">0%</span>
                 <%
                     }
                   } else {
