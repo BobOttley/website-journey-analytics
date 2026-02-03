@@ -487,10 +487,10 @@
 <!-- Section View Times + Quick Backs -->
 <div class="section-grid">
   <div class="section-card">
-    <h3>Section View Times</h3>
+    <h3>Section Views</h3>
     <% if (sectionVisibility && sectionVisibility.length > 0) { %>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
-        Which sections get the most attention. Longer times = more engagement.
+        Which sections get viewed most. Higher counts = more attention.
       </p>
       <div class="chart-wrap">
         <canvas id="visibilityChart"></canvas>
@@ -950,8 +950,8 @@ document.addEventListener('DOMContentLoaded', function() {
           return page ? `${page}: ${section}` : section;
         }),
         datasets: [{
-          label: 'Avg View Time (s)',
-          data: visibilityData.slice(0, 6).map(d => parseFloat(d.avg_view_time)),
+          label: 'Views',
+          data: visibilityData.slice(0, 6).map(d => parseInt(d.view_count) || 0),
           backgroundColor: '#3B82F6',
           borderRadius: 4
         }]

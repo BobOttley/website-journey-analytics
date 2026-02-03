@@ -1096,7 +1096,6 @@ async function getSectionVisibility(siteId = null, limit = 15) {
     SELECT
       COALESCE(metadata->>'section', cta_label) as section,
       page_url,
-      ROUND(AVG((metadata->>'visibility_time')::numeric), 1) as avg_view_time,
       COUNT(*) as view_count
     FROM journey_events
     WHERE event_type = 'section_visibility'
@@ -1106,7 +1105,7 @@ async function getSectionVisibility(siteId = null, limit = 15) {
       ${siteFilter}
     GROUP BY COALESCE(metadata->>'section', cta_label), page_url
     HAVING COUNT(*) >= 1
-    ORDER BY avg_view_time DESC
+    ORDER BY view_count DESC
     LIMIT $1
   `, params);
 
