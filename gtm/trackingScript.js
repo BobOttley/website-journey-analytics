@@ -37,7 +37,88 @@
     isIdle: false,
     formFields: new Map(),
     activeHovers: new Map(),
+    botIndicatorsSent: false,  // Track if we've sent bot indicators
   };
+
+  // ============ BOT DETECTION ============
+  function detectBotIndicators() {
+    const indicators = {};
+
+    // Check for webdriver property (Selenium, Puppeteer, etc.)
+    indicators.webdriver = !!(navigator.webdriver);
+
+    // Check for automation-controlled flag
+    indicators.automationControlled = !!(
+      window.navigator.webdriver ||
+      window._phantom ||
+      window.__nightmare ||
+      window.callPhantom ||
+      window._selenium ||
+      window.__webdriver_script_fn ||
+      window.__driver_evaluate ||
+      window.__webdriver_evaluate ||
+      window.__selenium_evaluate ||
+      window.__fxdriver_evaluate ||
+      window.__driver_unwrapped ||
+      window.__webdriver_unwrapped ||
+      window.__selenium_unwrapped ||
+      window.__fxdriver_unwrapped ||
+      window._Selenium_IDE_Recorder ||
+      window.document.__webdriver_evaluate ||
+      window.document.__selenium_evaluate ||
+      window.document.__webdriver_script_function ||
+      window.document.__webdriver_script_func ||
+      window.document.__webdriver_script_fn ||
+      window.document.$cdc_asdjflasutopfhvcZLmcfl_ ||
+      window.document.$chrome_asyncScriptInfo
+    );
+
+    // Check for missing plugins (headless browsers often have none)
+    indicators.plugins = navigator.plugins?.length || 0;
+
+    // Check for missing languages
+    indicators.languages = navigator.languages?.length || 0;
+
+    // Check for notification permission state
+    try {
+      indicators.notificationPermission = Notification?.permission || 'unknown';
+    } catch (e) {
+      indicators.notificationPermission = 'error';
+    }
+
+    // Check touch support
+    indicators.touchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    // Check for headless Chrome indicators
+    indicators.headlessChrome = !!(
+      /HeadlessChrome/.test(navigator.userAgent) ||
+      navigator.plugins.length === 0 && !navigator.webdriver
+    );
+
+    // Check Chrome properties
+    if (window.chrome) {
+      indicators.hasChrome = true;
+      indicators.hasChromeRuntime = !!window.chrome.runtime;
+    } else {
+      indicators.hasChrome = false;
+      indicators.hasChromeRuntime = false;
+    }
+
+    // Check for permission inconsistencies
+    try {
+      indicators.permissionsAvailable = !!navigator.permissions;
+    } catch (e) {
+      indicators.permissionsAvailable = false;
+    }
+
+    // Get hardware concurrency (bots often have 1 or very high)
+    indicators.hardwareConcurrency = navigator.hardwareConcurrency || 0;
+
+    // Check device memory (Chrome only, bots might not have this)
+    indicators.deviceMemory = navigator.deviceMemory || 0;
+
+    return indicators;
+  }
 
   // ============ UTILITIES ============
   function generateId(prefix) {
@@ -174,6 +255,20 @@
     const deviceInfo = getDeviceInfo();
     const utmParams = getUtmParams();
 
+    // Build metadata object
+    const metadata = {
+      visit_number: state.visitNumber,
+      ...data,
+      device: deviceInfo,
+      utm: Object.keys(utmParams).length > 0 ? utmParams : undefined,
+    };
+
+    // Include bot indicators on page_view events (first event detection)
+    if (eventType === 'page_view' && !state.botIndicatorsSent) {
+      metadata.botIndicators = detectBotIndicators();
+      state.botIndicatorsSent = true;
+    }
+
     const payload = {
       visitor_id: getVisitorId(),
       journey_id: getJourneyId(),
@@ -181,13 +276,9 @@
       page_url: window.location.href,
       referrer: document.referrer || null,
       device_type: deviceInfo.type,
+      user_agent: navigator.userAgent,  // Full User-Agent for bot detection
       occurred_at: new Date().toISOString(),
-      metadata: {
-        visit_number: state.visitNumber,
-        ...data,
-        device: deviceInfo,
-        utm: Object.keys(utmParams).length > 0 ? utmParams : undefined,
-      }
+      metadata
     };
 
     // Copy top-level fields if provided

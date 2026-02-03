@@ -10,6 +10,7 @@ const eventsRouter = require('./routes/events');
 const journeysRouter = require('./routes/journeys');
 const insightsRouter = require('./routes/insights');
 const realtimeRouter = require('./routes/realtime');
+const botsRouter = require('./routes/bots');
 
 // Import journey builder for background sync
 const { reconstructJourney } = require('./services/journeyBuilder');
@@ -116,6 +117,7 @@ app.use('/api/events', eventsRouter);
 app.use('/journeys', journeysRouter);
 app.use('/realtime', realtimeRouter);
 app.use('/insights', insightsRouter);
+app.use('/bots', botsRouter);
 
 // Root redirect
 app.get('/', (req, res) => {

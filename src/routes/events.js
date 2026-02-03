@@ -4,6 +4,7 @@ const router = express.Router();
 const { insertEvent, getEventsByJourneyId } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 const emailService = require('../services/emailService');
+const { detectBotForEvent } = require('../services/botDetection');
 
 /**
  * Track which journeys we’ve already emailed about
@@ -144,6 +145,19 @@ router.post('/', async (req, res) => {
       metadata = await enrichWithLocation(req, metadata);
     }
 
+    // Extract User-Agent from request headers or body
+    const userAgent = body.user_agent || req.get('User-Agent') || null;
+
+    // Extract client IP
+    const clientIP = getClientIP(req);
+
+    // Run bot detection
+    const botDetection = detectBotForEvent({
+      userAgent,
+      ipAddress: clientIP,
+      metadata
+    });
+
     const event = {
       journey_id: body.journey_id,
       visitor_id: body.visitor_id || null,
@@ -154,7 +168,13 @@ router.post('/', async (req, res) => {
       cta_label: body.cta_label || null,
       device_type: body.device_type || null,
       metadata,
-      occurred_at: body.occurred_at || new Date().toISOString()
+      occurred_at: body.occurred_at || new Date().toISOString(),
+      // Bot detection fields
+      user_agent: userAgent,
+      ip_address: clientIP,
+      is_bot: botDetection.isBot,
+      bot_score: botDetection.botScore,
+      bot_signals: botDetection.signals
     };
 
     const result = await insertEvent(event);
@@ -236,6 +256,17 @@ router.post('/batch', async (req, res) => {
         metadata = await enrichWithLocation(req, metadata);
       }
 
+      // Extract User-Agent and IP for batch events
+      const userAgent = e.user_agent || req.get('User-Agent') || null;
+      const clientIP = getClientIP(req);
+
+      // Run bot detection
+      const botDetection = detectBotForEvent({
+        userAgent,
+        ipAddress: clientIP,
+        metadata
+      });
+
       try {
         await insertEvent({
           journey_id: e.journey_id,
@@ -247,7 +278,12 @@ router.post('/batch', async (req, res) => {
           cta_label: e.cta_label || null,
           device_type: e.device_type || null,
           metadata,
-          occurred_at: e.occurred_at || new Date().toISOString()
+          occurred_at: e.occurred_at || new Date().toISOString(),
+          user_agent: userAgent,
+          ip_address: clientIP,
+          is_bot: botDetection.isBot,
+          bot_score: botDetection.botScore,
+          bot_signals: botDetection.signals
         });
 
         results.push({ index: i, success: true });

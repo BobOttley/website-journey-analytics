@@ -19,3 +19,26 @@ ALTER TABLE journeys ADD COLUMN IF NOT EXISTS metadata JSONB;
 
 -- Add confidence column for quick filtering
 ALTER TABLE journeys ADD COLUMN IF NOT EXISTS confidence INTEGER DEFAULT 0;
+
+-- ============================================
+-- BOT DETECTION COLUMNS
+-- ============================================
+
+-- Add bot detection columns to journey_events
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT false;
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS bot_score REAL DEFAULT 0;
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS bot_signals TEXT[];
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS user_agent TEXT;
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS ip_address TEXT;
+
+-- Add bot detection columns to journeys
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT false;
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS bot_score REAL DEFAULT 0;
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS bot_type TEXT; -- crawler, scraper, automation, unknown
+
+-- Create indexes for fast bot filtering
+CREATE INDEX IF NOT EXISTS idx_journey_events_is_bot ON journey_events(is_bot);
+CREATE INDEX IF NOT EXISTS idx_journey_events_bot_score ON journey_events(bot_score);
+CREATE INDEX IF NOT EXISTS idx_journeys_is_bot ON journeys(is_bot);
+CREATE INDEX IF NOT EXISTS idx_journeys_bot_score ON journeys(bot_score);
+CREATE INDEX IF NOT EXISTS idx_journeys_bot_type ON journeys(bot_type);

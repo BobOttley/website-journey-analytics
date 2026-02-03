@@ -4,8 +4,8 @@ const { getDb } = require('./database');
 async function insertEvent(event) {
   const db = getDb();
   const result = await db.query(
-    `INSERT INTO journey_events (journey_id, visitor_id, event_type, page_url, referrer, intent_type, cta_label, device_type, metadata, occurred_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO journey_events (journey_id, visitor_id, event_type, page_url, referrer, intent_type, cta_label, device_type, metadata, occurred_at, user_agent, ip_address, is_bot, bot_score, bot_signals)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING id`,
     [
       event.journey_id,
@@ -17,7 +17,12 @@ async function insertEvent(event) {
       event.cta_label || null,
       event.device_type || null,
       event.metadata ? JSON.stringify(event.metadata) : null,
-      event.occurred_at || new Date().toISOString()
+      event.occurred_at || new Date().toISOString(),
+      event.user_agent || null,
+      event.ip_address || null,
+      event.is_bot || false,
+      event.bot_score || 0,
+      event.bot_signals || null
     ]
   );
   return { lastInsertRowid: result.rows[0].id };
@@ -66,12 +71,13 @@ async function upsertJourney(journey) {
     outcome_detail: journey.outcome_detail || null,
     friction: journey.friction || null,
     engagement_metrics: journey.engagement_metrics || null,
-    loops: journey.loops || []
+    loops: journey.loops || [],
+    bot_signals: journey.bot_signals || []
   };
 
   const result = await db.query(
-    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP)
+    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, is_bot, bot_score, bot_type, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
      ON CONFLICT(journey_id) DO UPDATE SET
        last_seen = EXCLUDED.last_seen,
        page_sequence = EXCLUDED.page_sequence,
@@ -80,6 +86,9 @@ async function upsertJourney(journey) {
        time_to_action = EXCLUDED.time_to_action,
        confidence = EXCLUDED.confidence,
        metadata = EXCLUDED.metadata,
+       is_bot = EXCLUDED.is_bot,
+       bot_score = EXCLUDED.bot_score,
+       bot_type = EXCLUDED.bot_type,
        updated_at = CURRENT_TIMESTAMP
      RETURNING journey_id`,
     [
@@ -96,17 +105,30 @@ async function upsertJourney(journey) {
       journey.outcome,
       journey.time_to_action,
       journey.confidence || 0,
-      JSON.stringify(metadata)
+      JSON.stringify(metadata),
+      journey.is_bot || false,
+      journey.bot_score || 0,
+      journey.bot_type || null
     ]
   );
   return result;
 }
 
-async function getAllJourneys(limit = 100, offset = 0) {
+async function getAllJourneys(limit = 100, offset = 0, options = {}) {
   const db = getDb();
+  let whereClause = '';
+  const params = [limit, offset];
+
+  // Filter by bot status
+  if (options.excludeBots === true) {
+    whereClause = 'WHERE (is_bot = false OR is_bot IS NULL)';
+  } else if (options.botsOnly === true) {
+    whereClause = 'WHERE is_bot = true';
+  }
+
   const result = await db.query(
-    `SELECT * FROM journeys ORDER BY last_seen DESC LIMIT $1 OFFSET $2`,
-    [limit, offset]
+    `SELECT * FROM journeys ${whereClause} ORDER BY last_seen DESC LIMIT $1 OFFSET $2`,
+    params
   );
   return result.rows;
 }
@@ -120,9 +142,17 @@ async function getJourneyById(journeyId) {
   return result.rows[0];
 }
 
-async function getJourneyCount() {
+async function getJourneyCount(options = {}) {
   const db = getDb();
-  const result = await db.query('SELECT COUNT(*) as count FROM journeys');
+  let whereClause = '';
+
+  if (options.excludeBots === true) {
+    whereClause = 'WHERE (is_bot = false OR is_bot IS NULL)';
+  } else if (options.botsOnly === true) {
+    whereClause = 'WHERE is_bot = true';
+  }
+
+  const result = await db.query(`SELECT COUNT(*) as count FROM journeys ${whereClause}`);
   return parseInt(result.rows[0].count);
 }
 

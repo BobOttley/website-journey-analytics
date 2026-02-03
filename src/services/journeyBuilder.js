@@ -1,4 +1,5 @@
 const { getEventsByJourneyId, getUniqueJourneyIds, upsertJourney } = require('../db/queries');
+const { calculateJourneyBotScore } = require('./botDetection');
 
 /**
  * Sort events chronologically - never trust upstream ordering.
@@ -422,6 +423,9 @@ async function reconstructJourney(journeyId) {
   const friction = detectFriction(events, loops);
   const confidence = calculateConfidence(events, metrics);
 
+  // Calculate bot score for the entire journey
+  const botResult = calculateJourneyBotScore(events);
+
   return {
     journey_id: journeyId,
     visitor_id: firstEvent.visitor_id || null,
@@ -442,7 +446,12 @@ async function reconstructJourney(journeyId) {
     loops,
     friction,
     confidence,
-    engagement_metrics: metrics
+    engagement_metrics: metrics,
+    // Bot detection fields
+    is_bot: botResult.isBot,
+    bot_score: botResult.botScore,
+    bot_type: botResult.botType,
+    bot_signals: botResult.signals
   };
 }
 

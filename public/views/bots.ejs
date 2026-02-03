@@ -1,0 +1,375 @@
+<%# Bot Analytics Dashboard %>
+
+<% if (typeof rebuilt !== 'undefined' && rebuilt === 'true') { %>
+  <div class="alert alert-success slide-in">Data refreshed successfully</div>
+<% } %>
+
+<!-- Overview Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="icon">&#129302;</div>
+    <h3>Total Bots Detected</h3>
+    <div class="value"><%= stats.botJourneys.toLocaleString() %></div>
+    <div class="subtitle"><%= stats.botPercentage %>% of all traffic</div>
+  </div>
+
+  <div class="stat-card highlight">
+    <div class="icon">&#128100;</div>
+    <h3>Human Visitors</h3>
+    <div class="value"><%= stats.humanJourneys.toLocaleString() %></div>
+    <div class="subtitle">Verified real visitors</div>
+  </div>
+
+  <div class="stat-card info">
+    <div class="icon">&#128200;</div>
+    <h3>Today's Bots</h3>
+    <div class="value"><%= stats.todayBots.toLocaleString() %></div>
+    <div class="subtitle">
+      <% if (stats.trend > 0) { %>
+        <span class="text-danger">+<%= stats.trend %>% vs yesterday</span>
+      <% } else if (stats.trend < 0) { %>
+        <span class="text-success"><%= stats.trend %>% vs yesterday</span>
+      <% } else { %>
+        Same as yesterday
+      <% } %>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="icon">&#128270;</div>
+    <h3>Suspicious</h3>
+    <div class="value"><%= stats.suspiciousJourneys.toLocaleString() %></div>
+    <div class="subtitle">Score 31-60 (needs review)</div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2">
+  <!-- Bot Type Breakdown -->
+  <div class="card">
+    <h2>Bot Types</h2>
+    <div class="chart-container">
+      <canvas id="botTypesChart"></canvas>
+    </div>
+    <div style="margin-top: 1rem;">
+      <% typeBreakdown.forEach(function(type) { %>
+        <div class="flex justify-between items-center" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-grey);">
+          <span>
+            <span class="badge badge-<%= type.type === 'search_crawler' ? 'info' : type.type === 'seo_tool' ? 'warning' : type.type === 'automation' ? 'danger' : 'neutral' %>">
+              <%= type.label %>
+            </span>
+          </span>
+          <span class="text-muted"><%= type.count.toLocaleString() %></span>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <!-- Daily Trend -->
+  <div class="card">
+    <h2>Bot vs Human Trend (30 Days)</h2>
+    <div class="chart-container">
+      <canvas id="dailyTrendChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Hourly Activity & Comparison -->
+<div class="grid-2">
+  <!-- Hourly Activity -->
+  <div class="card">
+    <h2>Hourly Activity Pattern</h2>
+    <div class="chart-container">
+      <canvas id="hourlyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Bot vs Human Comparison -->
+  <div class="card">
+    <h2>Bot vs Human Behaviour</h2>
+    <div class="comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <div class="comparison-column">
+        <h4 style="color: var(--danger); margin-bottom: 1rem;">Bots</h4>
+        <div class="comparison-stat">
+          <span class="text-muted">Avg Events</span>
+          <span class="value" id="bot-avg-events">-</span>
+        </div>
+        <div class="comparison-stat">
+          <span class="text-muted">Avg Duration</span>
+          <span class="value" id="bot-avg-duration">-</span>
+        </div>
+        <div class="comparison-stat">
+          <span class="text-muted">Conversion Rate</span>
+          <span class="value" id="bot-conversion">-</span>
+        </div>
+      </div>
+      <div class="comparison-column">
+        <h4 style="color: var(--success); margin-bottom: 1rem;">Humans</h4>
+        <div class="comparison-stat">
+          <span class="text-muted">Avg Events</span>
+          <span class="value" id="human-avg-events">-</span>
+        </div>
+        <div class="comparison-stat">
+          <span class="text-muted">Avg Duration</span>
+          <span class="value" id="human-avg-duration">-</span>
+        </div>
+        <div class="comparison-stat">
+          <span class="text-muted">Conversion Rate</span>
+          <span class="value" id="human-conversion">-</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top User Agents Table -->
+<div class="card">
+  <h2>Top Bot User-Agents</h2>
+  <% if (topUserAgents.length === 0) { %>
+    <div class="empty-state">
+      <div class="icon">&#129302;</div>
+      <h3>No bot data yet</h3>
+      <p>Bot User-Agents will appear here once detected</p>
+    </div>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>User-Agent</th>
+            <th>Requests</th>
+            <th>Avg Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% topUserAgents.forEach(function(ua) { %>
+            <tr>
+              <td>
+                <code style="font-size: 0.75rem; max-width: 500px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <%= ua.userAgent %>
+                </code>
+              </td>
+              <td><%= ua.count.toLocaleString() %></td>
+              <td>
+                <span class="badge badge-<%= ua.avgScore >= 70 ? 'danger' : ua.avgScore >= 40 ? 'warning' : 'neutral' %>">
+                  <%= ua.avgScore %>
+                </span>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<!-- Score Legend -->
+<div class="card">
+  <h2>Bot Score Guide</h2>
+  <div class="grid-3" style="gap: 1rem;">
+    <div style="padding: 1rem; background: var(--success-light); border-radius: 8px;">
+      <strong style="color: #065F46;">0-30: Likely Human</strong>
+      <p class="text-small text-muted" style="margin-top: 0.5rem;">
+        Normal browser behaviour, no suspicious signals
+      </p>
+    </div>
+    <div style="padding: 1rem; background: var(--warning-light); border-radius: 8px;">
+      <strong style="color: #92400E;">31-60: Suspicious</strong>
+      <p class="text-small text-muted" style="margin-top: 0.5rem;">
+        Some bot-like behaviour, may need review
+      </p>
+    </div>
+    <div style="padding: 1rem; background: var(--danger-light); border-radius: 8px;">
+      <strong style="color: #991B1B;">61-100: Likely Bot</strong>
+      <p class="text-small text-muted" style="margin-top: 0.5rem;">
+        Strong bot indicators, automated traffic
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .comparison-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-grey);
+  }
+
+  .comparison-stat .value {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .comparison-column h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  [data-theme="dark"] .comparison-stat .value {
+    color: var(--award-gold);
+  }
+</style>
+
+<script>
+  // Chart colours
+  const botTypeColours = {
+    search_crawler: '#3B82F6',  // Blue
+    seo_tool: '#F59E0B',        // Amber
+    social_crawler: '#8B5CF6',  // Purple
+    monitoring: '#10B981',      // Green
+    scraper: '#EF4444',         // Red
+    automation: '#EC4899',      // Pink
+    unknown: '#6B7280'          // Grey
+  };
+
+  // Bot Types Pie Chart
+  const typeData = <%- JSON.stringify(typeBreakdown) %>;
+  new Chart(document.getElementById('botTypesChart'), {
+    type: 'doughnut',
+    data: {
+      labels: typeData.map(t => t.label),
+      datasets: [{
+        data: typeData.map(t => t.count),
+        backgroundColor: typeData.map(t => botTypeColours[t.type] || '#6B7280'),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 15,
+            usePointStyle: true
+          }
+        }
+      }
+    }
+  });
+
+  // Daily Trend Line Chart
+  const trendData = <%- JSON.stringify(dailyTrend) %>;
+  new Chart(document.getElementById('dailyTrendChart'), {
+    type: 'line',
+    data: {
+      labels: trendData.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      }),
+      datasets: [
+        {
+          label: 'Bots',
+          data: trendData.map(d => d.bots),
+          borderColor: '#EF4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: 'Humans',
+          data: trendData.map(d => d.humans),
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top'
+        }
+      }
+    }
+  });
+
+  // Hourly Activity Bar Chart
+  const hourlyData = <%- JSON.stringify(hourlyActivity) %>;
+  new Chart(document.getElementById('hourlyChart'), {
+    type: 'bar',
+    data: {
+      labels: hourlyData.map(h => `${h.hour}:00`),
+      datasets: [
+        {
+          label: 'Bots',
+          data: hourlyData.map(h => h.bots),
+          backgroundColor: 'rgba(239, 68, 68, 0.7)',
+          borderRadius: 4
+        },
+        {
+          label: 'Humans',
+          data: hourlyData.map(h => h.humans),
+          backgroundColor: 'rgba(16, 185, 129, 0.7)',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: false
+        },
+        y: {
+          beginAtZero: true,
+          stacked: false
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top'
+        }
+      }
+    }
+  });
+
+  // Load comparison data
+  async function loadComparison() {
+    try {
+      const res = await fetch('/bots/api/comparison');
+      const data = await res.json();
+
+      document.getElementById('bot-avg-events').textContent = data.bot.avgEvents;
+      document.getElementById('bot-avg-duration').textContent = formatDuration(data.bot.avgDuration);
+      document.getElementById('bot-conversion').textContent = data.bot.conversionRate + '%';
+
+      document.getElementById('human-avg-events').textContent = data.human.avgEvents;
+      document.getElementById('human-avg-duration').textContent = formatDuration(data.human.avgDuration);
+      document.getElementById('human-conversion').textContent = data.human.conversionRate + '%';
+    } catch (err) {
+      console.error('Failed to load comparison:', err);
+    }
+  }
+
+  function formatDuration(seconds) {
+    if (!seconds || seconds === '0') return '0s';
+    const s = parseInt(seconds);
+    if (s < 60) return s + 's';
+    if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+    return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
+  }
+
+  // Load on page ready
+  loadComparison();
+
+  // Auto-refresh every 60 seconds
+  setInterval(loadComparison, 60000);
+</script>

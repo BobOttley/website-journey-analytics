@@ -22,9 +22,16 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
+    const filter = req.query.filter || 'all'; // 'all', 'humans', 'bots'
 
-    const journeys = await getAllJourneys(limit, offset);
-    const totalCount = await getJourneyCount();
+    // Build filter options
+    const filterOptions = {
+      excludeBots: filter === 'humans',
+      botsOnly: filter === 'bots'
+    };
+
+    const journeys = await getAllJourneys(limit, offset, filterOptions);
+    const totalCount = await getJourneyCount(filterOptions);
     const rawStats = await getJourneyStats();
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -47,6 +54,7 @@ router.get('/', async (req, res) => {
     res.render('journeyList', {
       journeys: parsedJourneys,
       stats,
+      filter,
       pagination: {
         page,
         limit,

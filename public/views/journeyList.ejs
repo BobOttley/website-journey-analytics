@@ -87,11 +87,19 @@
 
 <!-- Journey Table -->
 <div class="card">
-  <div class="flex justify-between items-center mb-4">
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
     <h2 style="margin-bottom: 0;">All Journeys</h2>
-    <form action="/journeys/rebuild" method="POST" style="display: inline;">
-      <button type="submit" class="btn btn-secondary btn-sm">Rebuild Journeys</button>
-    </form>
+    <div class="flex items-center gap-2">
+      <!-- Bot Filter Buttons -->
+      <div class="filter-buttons" style="display: flex; gap: 4px; margin-right: 1rem;">
+        <a href="/journeys?filter=all" class="btn btn-sm <%= (typeof filter === 'undefined' || filter === 'all') ? 'btn-primary' : 'btn-secondary' %>">All</a>
+        <a href="/journeys?filter=humans" class="btn btn-sm <%= filter === 'humans' ? 'btn-primary' : 'btn-secondary' %>">Humans Only</a>
+        <a href="/journeys?filter=bots" class="btn btn-sm <%= filter === 'bots' ? 'btn-primary' : 'btn-secondary' %>">Bots Only</a>
+      </div>
+      <form action="/journeys/rebuild" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-secondary btn-sm">Rebuild Journeys</button>
+      </form>
+    </div>
   </div>
 
   <% if (journeys.length === 0) { %>
@@ -122,6 +130,9 @@
                 <span class="journey-id">
                   #<%= journey.journey_id.substring(4, 12) %>
                 </span>
+                <% if (journey.is_bot) { %>
+                  <span class="badge badge-danger" style="margin-left: 4px; font-size: 0.6rem;" title="Bot score: <%= journey.bot_score || 0 %>">BOT</span>
+                <% } %>
               </td>
               <td class="text-small"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) %></td>
               <td class="text-small entry-page-cell" data-url="<%= journey.entry_page || '' %>">
@@ -172,9 +183,12 @@
     </div>
 
     <% if (pagination.totalPages > 1) { %>
+      <%
+        const filterParam = filter && filter !== 'all' ? `&filter=${filter}` : '';
+      %>
       <div class="pagination">
         <% if (pagination.hasPrev) { %>
-          <a href="/journeys?page=<%= pagination.page - 1 %>">Previous</a>
+          <a href="/journeys?page=<%= pagination.page - 1 %><%= filterParam %>">Previous</a>
         <% } %>
 
         <%
@@ -183,21 +197,21 @@
         %>
 
         <% if (startPage > 1) { %>
-          <a href="/journeys?page=1">1</a>
+          <a href="/journeys?page=1<%= filterParam %>">1</a>
           <% if (startPage > 2) { %><span style="padding: 10px;">...</span><% } %>
         <% } %>
 
         <% for (let i = startPage; i <= endPage; i++) { %>
-          <a href="/journeys?page=<%= i %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+          <a href="/journeys?page=<%= i %><%= filterParam %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
         <% } %>
 
         <% if (endPage < pagination.totalPages) { %>
           <% if (endPage < pagination.totalPages - 1) { %><span style="padding: 10px;">...</span><% } %>
-          <a href="/journeys?page=<%= pagination.totalPages %>"><%= pagination.totalPages %></a>
+          <a href="/journeys?page=<%= pagination.totalPages %><%= filterParam %>"><%= pagination.totalPages %></a>
         <% } %>
 
         <% if (pagination.hasNext) { %>
-          <a href="/journeys?page=<%= pagination.page + 1 %>">Next</a>
+          <a href="/journeys?page=<%= pagination.page + 1 %><%= filterParam %>">Next</a>
         <% } %>
       </div>
     <% } %>
