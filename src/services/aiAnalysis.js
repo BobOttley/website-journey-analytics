@@ -134,11 +134,17 @@ ${Object.entries(aggregatedData.intentDistribution)
   .join('\n')}
 
 ### Site Structure Context
-This is a school website (${siteStructure.siteName}) with the following key pages:
+This is ${siteStructure.siteName} (${siteStructure.siteUrl}) - a B2B SaaS company selling admissions software to schools.
+
+**Pages on the site:**
 ${Object.entries(siteStructure.pages)
-  .slice(0, 10)
   .map(([path, info]) => `- ${path}: ${info.name} (${info.stage} stage, ${info.role} role)`)
   .join('\n')}
+
+**CTAs that ALREADY EXIST on the site (DO NOT suggest adding these):**
+${siteStructure.ctas ? Object.entries(siteStructure.ctas)
+  .map(([key, cta]) => `- "${cta.label}" button (${cta.description})`)
+  .join('\n') : 'Not specified'}
 
 ### Conversion Goals
 ${siteStructure.conversionGoals
@@ -163,7 +169,7 @@ async function runAnalysis(startDate, endDate) {
   const formattedData = formatDataForAI(aggregatedData);
 
   // Create the prompt
-  const prompt = `You are an expert in website analytics and user experience optimization, specifically for school websites trying to convert prospective parents into enquiries and visits.
+  const prompt = `You are an expert in website analytics and user experience optimization for B2B SaaS companies.
 
 Analyze the following journey data and provide actionable insights:
 
@@ -198,8 +204,7 @@ Please provide your analysis in the following JSON structure:
     }
   ],
   "quickWins": [
-    "Simple change 1",
-    "Simple change 2"
+    "Simple change based ONLY on the actual data - never suggest adding features that already exist on the site"
   ],
   "keyMetrics": {
     "conversionRate": ${aggregatedData.conversionRate.toFixed(2)},
@@ -211,11 +216,16 @@ Please provide your analysis in the following JSON structure:
 }
 
 Focus on:
-1. Why parents might not be completing enquiry forms
-2. Where in the journey parents are dropping off
+1. Why visitors might not be converting (booking demos, using contact form)
+2. Where in the journey visitors are dropping off
 3. What pages lead to conversions vs. abandonment
-4. How to improve the path from homepage to enquiry/visit booking
+4. How to improve the path from homepage to demo booking
 5. Mobile vs desktop differences if apparent
+
+CRITICAL RULES:
+- NEVER suggest adding buttons, CTAs, or features that already exist (see the "CTAs that ALREADY EXIST" list above)
+- Base Quick Wins ONLY on patterns you see in the actual data provided
+- Do not invent generic suggestions - every recommendation must be backed by the data
 
 Respond with ONLY the JSON object, no additional text.`;
 
