@@ -11,6 +11,10 @@ const journeysRouter = require('./routes/journeys');
 const insightsRouter = require('./routes/insights');
 const realtimeRouter = require('./routes/realtime');
 
+// Import journey builder for background sync
+const { reconstructJourney } = require('./services/journeyBuilder');
+const { upsertJourney, getUniqueJourneyIds } = require('./db/queries');
+
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -129,6 +133,30 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { error: 'Internal server error' });
 });
 
+// Background job to rebuild recent journeys (keeps journeys table fresh for Recent Sessions)
+async function rebuildRecentJourneys() {
+  try {
+    const db = getDb();
+    // Get journey_ids with activity in the last 5 minutes
+    const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const result = await db.query(
+      `SELECT DISTINCT journey_id FROM journey_events WHERE occurred_at > $1`,
+      [cutoff]
+    );
+
+    for (const row of result.rows) {
+      try {
+        const journey = await reconstructJourney(row.journey_id);
+        if (journey) await upsertJourney(journey);
+      } catch (err) {
+        // Silently continue - don't let one failure stop others
+      }
+    }
+  } catch (err) {
+    console.error('Background journey rebuild failed:', err.message);
+  }
+}
+
 // Initialize database and start server
 async function start() {
   try {
@@ -147,6 +175,10 @@ async function start() {
 ║  Health:     http://localhost:${PORT}/health              ║
 ╚═══════════════════════════════════════════════════════╝
       `);
+
+      // Start background journey sync (every 30 seconds)
+      setInterval(rebuildRecentJourneys, 30000);
+      rebuildRecentJourneys(); // Run immediately on startup
     });
   } catch (error) {
     console.error('Failed to start server:', error);
