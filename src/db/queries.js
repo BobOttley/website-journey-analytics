@@ -254,7 +254,7 @@ async function getJourneyStats(siteId = null) {
  */
 async function getTopPages(limit = 10, siteId = null) {
   const db = getDb();
-  let whereClause = "WHERE event_type = 'page_view' AND page_url IS NOT NULL";
+  let whereClause = "WHERE event_type = 'page_view' AND page_url IS NOT NULL AND page_url NOT LIKE '%gtm-msr.appspot.com%'";
   const params = [limit];
 
   if (siteId) {
