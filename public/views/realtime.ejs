@@ -85,7 +85,8 @@
             </td>
             <td>
               <a href="<%= visitor.page_url %>" target="_blank" title="<%= visitor.page_url %>">
-                <%= visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40) : 'Unknown' %><%= visitor.page_url && visitor.page_url.replace(/^https?:\/\/[^\/]+/, '').length > 40 ? '...' : '' %>
+                <% const path = visitor.page_url ? visitor.page_url.replace(/^https?:\/\/[^\/]+/, '') : ''; %>
+                <%= path === '/' ? 'Home' : (path.substring(0, 40) + (path.length > 40 ? '...' : '')) || 'Unknown' %>
               </a>
             </td>
             <td>
@@ -208,6 +209,7 @@
   function truncateUrl(url, maxLength = 40) {
     if (!url) return 'Unknown';
     const path = url.replace(/^https?:\/\/[^\/]+/, '');
+    if (path === '/' || path === '') return 'Home';
     return path.length > maxLength ? path.substring(0, maxLength) + '...' : path;
   }
 
