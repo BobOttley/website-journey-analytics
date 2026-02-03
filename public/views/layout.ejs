@@ -13,6 +13,65 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+  <!-- Page name mapping helpers - must be in head so available to page scripts -->
+  <script>
+    const PAGE_NAMES = {
+      '/': 'Home',
+      '/index.html': 'Home',
+      '/crm.html': 'SMART CRM',
+      '/prospectus.html': 'SMART Prospectus',
+      '/chatbot.html': 'Emily',
+      '/voice.html': 'SMART Voice',
+      '/booking.html': 'SMART Booking',
+      '/email.html': 'SMART Email',
+      '/contact.html': 'Contact',
+      '/smart-benefits-calculator.html': 'ROI Calculator',
+      '/privacy.html': 'Privacy Policy'
+    };
+
+    const PAGE_ICONS = {
+      '/': '🏠',
+      '/index.html': '🏠',
+      '/crm.html': '📊',
+      '/prospectus.html': '📖',
+      '/chatbot.html': '🤖',
+      '/voice.html': '🎙️',
+      '/booking.html': '📅',
+      '/email.html': '✉️',
+      '/contact.html': '📞',
+      '/smart-benefits-calculator.html': '🧮',
+      '/privacy.html': '🔒'
+    };
+
+    function getPageName(url) {
+      if (!url) return 'Unknown';
+      let path = url;
+      try {
+        if (url.startsWith('http')) {
+          path = new URL(url).pathname;
+        }
+      } catch (e) {
+        path = url.replace(/https?:\/\/[^\/]+/, '');
+      }
+      path = path.split('?')[0];
+      return PAGE_NAMES[path] || path.replace('.html', '').replace(/\//g, '') || 'Home';
+    }
+
+    function getPageIcon(url) {
+      if (!url) return '📄';
+      let path = url;
+      try {
+        if (url.startsWith('http')) {
+          path = new URL(url).pathname;
+        }
+      } catch (e) {
+        path = url.replace(/https?:\/\/[^\/]+/, '');
+      }
+      path = path.split('?')[0];
+      return PAGE_ICONS[path] || '📄';
+    }
+  </script>
+
   <style>
     :root {
       /* SMART AI Brand Colors - Exact Match */
@@ -481,18 +540,19 @@
     code, .journey-id {
       font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
       font-size: 0.8rem;
-      background: var(--border-grey);
-      color: var(--text-primary);
+      background: #e5e7eb;
+      color: #1e293b;
       padding: 0.35rem 0.75rem;
       border-radius: 6px;
-      border: 1px solid var(--border-grey);
+      border: 1px solid #d1d5db;
+      display: inline-block;
     }
 
     [data-theme="dark"] code,
     [data-theme="dark"] .journey-id {
-      background: rgba(255, 159, 28, 0.15);
-      border-color: rgba(255, 159, 28, 0.3);
-      color: var(--award-gold);
+      background: rgba(255, 159, 28, 0.2) !important;
+      border-color: rgba(255, 159, 28, 0.4) !important;
+      color: #FFB84D !important;
     }
 
     /* ===== HORIZONTAL JOURNEY FLOW ===== */
@@ -617,6 +677,72 @@
 
     [data-theme="dark"] .text-muted {
       color: var(--text-muted);
+    }
+
+    /* ===== INSIGHTS PAGE - METRIC CARDS ===== */
+    .metric-card {
+      background: var(--paper);
+      border: 1px solid var(--border-grey);
+    }
+
+    .metric-card .value {
+      color: var(--text-primary);
+    }
+
+    .metric-card .subtitle {
+      color: var(--text-muted);
+    }
+
+    [data-theme="dark"] .metric-card {
+      background: rgba(255, 159, 28, 0.08);
+      border-color: rgba(255, 159, 28, 0.2);
+    }
+
+    [data-theme="dark"] .metric-card .value {
+      color: var(--award-gold);
+    }
+
+    /* ===== QUICK WINS STYLING ===== */
+    .quick-win-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      background: var(--paper);
+      border-radius: 12px;
+      border: 1px solid var(--border-grey);
+    }
+
+    .quick-win-number {
+      width: 32px;
+      height: 32px;
+      background: var(--success-light);
+      color: var(--success);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .quick-win-text {
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    [data-theme="dark"] .quick-win-item {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    [data-theme="dark"] .quick-win-number {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34D399;
+    }
+
+    [data-theme="dark"] .quick-win-text {
+      color: var(--text-primary);
     }
 
     /* ===== PAGINATION ===== */
@@ -922,70 +1048,10 @@
       document.documentElement.setAttribute('data-theme', savedTheme);
     })();
 
-    // Page name mapping helper
-    const PAGE_NAMES = {
-      '/': 'Home',
-      '/index.html': 'Home',
-      '/crm.html': 'SMART CRM',
-      '/prospectus.html': 'SMART Prospectus',
-      '/chatbot.html': 'Emily',
-      '/voice.html': 'SMART Voice',
-      '/booking.html': 'SMART Booking',
-      '/email.html': 'SMART Email',
-      '/contact.html': 'Contact',
-      '/smart-benefits-calculator.html': 'ROI Calculator',
-      '/privacy.html': 'Privacy Policy'
-    };
-
-    const PAGE_ICONS = {
-      '/': '🏠',
-      '/index.html': '🏠',
-      '/crm.html': '📊',
-      '/prospectus.html': '📖',
-      '/chatbot.html': '🤖',
-      '/voice.html': '🎙️',
-      '/booking.html': '📅',
-      '/email.html': '✉️',
-      '/contact.html': '📞',
-      '/smart-benefits-calculator.html': '🧮',
-      '/privacy.html': '🔒'
-    };
-
-    function getPageName(url) {
-      if (!url) return 'Unknown';
-      // Extract path from full URL
-      let path = url;
-      try {
-        if (url.startsWith('http')) {
-          path = new URL(url).pathname;
-        }
-      } catch (e) {
-        path = url.replace(/https?:\/\/[^\/]+/, '');
-      }
-      // Remove query params
-      path = path.split('?')[0];
-      // Return friendly name or cleaned path
-      return PAGE_NAMES[path] || path.replace('.html', '').replace(/\//g, '') || 'Home';
-    }
-
-    function getPageIcon(url) {
-      if (!url) return '📄';
-      let path = url;
-      try {
-        if (url.startsWith('http')) {
-          path = new URL(url).pathname;
-        }
-      } catch (e) {
-        path = url.replace(/https?:\/\/[^\/]+/, '');
-      }
-      path = path.split('?')[0];
-      return PAGE_ICONS[path] || '📄';
-    }
-
     function updateChartTheme(chart, theme) {
       const isDark = theme === 'dark';
-      const textColor = isDark ? '#f1f5f9' : '#2C3E50';
-      const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+      const textColor = isDark ? '#ffffff' : '#2C3E50';
+      const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)';
 
       if (chart.options.scales) {
         Object.values(chart.options.scales).forEach(scale => {
