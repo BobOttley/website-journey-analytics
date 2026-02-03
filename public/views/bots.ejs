@@ -7,21 +7,18 @@
 <!-- Overview Stats -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="icon">&#129302;</div>
     <h3>Total Bots Detected</h3>
     <div class="value"><%= stats.botJourneys.toLocaleString() %></div>
     <div class="subtitle"><%= stats.botPercentage %>% of all traffic</div>
   </div>
 
   <div class="stat-card highlight">
-    <div class="icon">&#128100;</div>
     <h3>Human Visitors</h3>
     <div class="value"><%= stats.humanJourneys.toLocaleString() %></div>
     <div class="subtitle">Verified real visitors</div>
   </div>
 
   <div class="stat-card info">
-    <div class="icon">&#128200;</div>
     <h3>Today's Bots</h3>
     <div class="value"><%= stats.todayBots.toLocaleString() %></div>
     <div class="subtitle">
@@ -36,7 +33,6 @@
   </div>
 
   <div class="stat-card">
-    <div class="icon">&#128270;</div>
     <h3>Suspicious</h3>
     <div class="value"><%= stats.suspiciousJourneys.toLocaleString() %></div>
     <div class="subtitle">Score 31-60 (needs review)</div>
@@ -127,7 +123,6 @@
   <h2>Top Bot User-Agents</h2>
   <% if (topUserAgents.length === 0) { %>
     <div class="empty-state">
-      <div class="icon">&#129302;</div>
       <h3>No bot data yet</h3>
       <p>Bot User-Agents will appear here once detected</p>
     </div>
