@@ -468,78 +468,66 @@
   </div>
 </div>
 
-<!-- Site Searches + Text Selections -->
+<!-- Site Searches + Text Selections (only show if there's data) -->
+<% if ((searches && searches.length > 0) || (selections && selections.length > 0)) { %>
 <div class="section-grid">
+  <% if (searches && searches.length > 0) { %>
   <div class="section-card">
     <h3>Site Search Queries</h3>
-    <% if (searches && searches.length > 0) { %>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
-        What visitors searched for. These are content gaps - make this info more visible.
-      </p>
-      <table class="data-table">
-        <thead>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      What visitors searched for. These are content gaps - make this info more visible.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>Times</th>
+          <th>Users</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% searches.slice(0, 8).forEach(item => { %>
           <tr>
-            <th>Query</th>
-            <th>Times</th>
-            <th>Users</th>
+            <td class="truncate" title="<%= item.search_query %>"><%= item.search_query %></td>
+            <td class="number"><%= item.search_count %></td>
+            <td class="number"><%= item.unique_searchers %></td>
           </tr>
-        </thead>
-        <tbody>
-          <% searches.slice(0, 8).forEach(item => { %>
-            <tr>
-              <td class="truncate" title="<%= item.search_query %>"><%= item.search_query %></td>
-              <td class="number"><%= item.search_count %></td>
-              <td class="number"><%= item.unique_searchers %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    <% } else { %>
-      <div class="empty-state">
-        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        <p>No searches recorded</p>
-      </div>
-    <% } %>
+        <% }) %>
+      </tbody>
+    </table>
   </div>
+  <% } %>
 
+  <% if (selections && selections.length > 0) { %>
   <div class="section-card">
     <h3>Text Selection Analysis</h3>
-    <% if (selections && selections.length > 0) { %>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
-        Text visitors copied or highlighted. Could be valuable info or confusing content.
-      </p>
-      <table class="data-table">
-        <thead>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Text visitors copied or highlighted. Could be valuable info or confusing content.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Text</th>
+          <th>Times</th>
+          <th>Users</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% selections.slice(0, 6).forEach(item => { %>
           <tr>
-            <th>Text</th>
-            <th>Times</th>
-            <th>Users</th>
+            <td class="truncate" style="max-width: 200px;" title="<%= item.selected_text %>">
+              "<%= item.selected_text %>"
+            </td>
+            <td class="number"><%= item.selection_count %></td>
+            <td class="number"><%= item.unique_selectors %></td>
           </tr>
-        </thead>
-        <tbody>
-          <% selections.slice(0, 6).forEach(item => { %>
-            <tr>
-              <td class="truncate" style="max-width: 200px;" title="<%= item.selected_text %>">
-                "<%= item.selected_text %>"
-              </td>
-              <td class="number"><%= item.selection_count %></td>
-              <td class="number"><%= item.unique_selectors %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    <% } else { %>
-      <div class="empty-state">
-        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        <p>No text selections recorded</p>
-      </div>
-    <% } %>
+        <% }) %>
+      </tbody>
+    </table>
   </div>
+  <% } %>
 </div>
+<% } %>
 
 <!-- 30-Day Trend (full width) - only show if we have at least 3 days of data -->
 <% if (trend && trend.length >= 3) { %>
