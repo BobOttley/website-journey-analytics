@@ -403,7 +403,7 @@ async function getBotLocationStats() {
 
   const result = await db.query(`
     SELECT
-      je.metadata->>'location'->>'country' as country,
+      je.metadata->'location'->>'country' as country,
       COUNT(DISTINCT je.journey_id) as count
     FROM journey_events je
     WHERE je.is_bot = true
