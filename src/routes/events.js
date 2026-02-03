@@ -84,14 +84,13 @@ const VALID_EVENT_TYPES = [
   'page_load',
   'error',
 
-  // Advanced UX tracking
+  // Advanced UX tracking (must match tracking script event names)
   'dead_click',
-  'element_visibility_time',
-  'search_query',
-  'scroll_velocity',
+  'cta_hover',
+  'quick_back',
   'text_selection',
-  'cursor_hesitation',
-  'back_button'
+  'site_search',
+  'section_visibility'
 ];
 
 /**
