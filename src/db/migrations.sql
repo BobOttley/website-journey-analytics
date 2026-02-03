@@ -13,3 +13,9 @@ CREATE INDEX IF NOT EXISTS idx_journeys_visitor_id ON journeys(visitor_id);
 -- Add metadata column for granular event data (scroll %, element info, UTM params, etc.)
 ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS metadata JSONB;
 CREATE INDEX IF NOT EXISTS idx_journey_events_metadata ON journey_events USING GIN (metadata);
+
+-- Add metadata column to journeys for storing outcome_detail, friction, confidence, engagement_metrics
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS metadata JSONB;
+
+-- Add confidence column for quick filtering
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS confidence INTEGER DEFAULT 0;

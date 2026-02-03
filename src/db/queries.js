@@ -60,15 +60,26 @@ async function getEventsInDateRange(startDate, endDate) {
 // Journey queries
 async function upsertJourney(journey) {
   const db = getDb();
+
+  // Build metadata object with new analytics fields
+  const metadata = {
+    outcome_detail: journey.outcome_detail || null,
+    friction: journey.friction || null,
+    engagement_metrics: journey.engagement_metrics || null,
+    loops: journey.loops || []
+  };
+
   const result = await db.query(
-    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP)
      ON CONFLICT(journey_id) DO UPDATE SET
        last_seen = EXCLUDED.last_seen,
        page_sequence = EXCLUDED.page_sequence,
        event_count = EXCLUDED.event_count,
        outcome = EXCLUDED.outcome,
        time_to_action = EXCLUDED.time_to_action,
+       confidence = EXCLUDED.confidence,
+       metadata = EXCLUDED.metadata,
        updated_at = CURRENT_TIMESTAMP
      RETURNING journey_id`,
     [
@@ -83,7 +94,9 @@ async function upsertJourney(journey) {
       JSON.stringify(journey.page_sequence),
       journey.event_count,
       journey.outcome,
-      journey.time_to_action
+      journey.time_to_action,
+      journey.confidence || 0,
+      JSON.stringify(metadata)
     ]
   );
   return result;
