@@ -246,25 +246,76 @@
   </div>
 </div>
 
-<!-- Row 1: Dead Clicks + CTA Hesitations -->
+<!-- Dead Clicks (Full Width) -->
 <div class="section-grid">
-  <div class="section-card">
+  <div class="section-card full-width">
     <h3>Dead Click Hotspots</h3>
     <% if (deadClicks && deadClicks.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Visitors clicked these items expecting them to be interactive, but nothing happened. Consider making these clickable or changing their appearance.
+      </p>
       <table class="data-table">
         <thead>
           <tr>
-            <th>Element</th>
-            <th>Text</th>
-            <th>Clicks</th>
-            <th>Visitors</th>
+            <th style="width: 120px;">Type</th>
+            <th>Text Clicked</th>
+            <th style="width: 220px;">Page</th>
+            <th style="width: 70px;">Clicks</th>
+            <th style="width: 70px;">Users</th>
           </tr>
         </thead>
         <tbody>
-          <% deadClicks.slice(0, 8).forEach(item => { %>
+          <%
+            const elementNames = {
+              'p': 'Paragraph',
+              'span': 'Text',
+              'div': 'Container',
+              'h1': 'Main Heading',
+              'h2': 'Heading',
+              'h3': 'Subheading',
+              'h4': 'Small Heading',
+              'h5': 'Minor Heading',
+              'h6': 'Minor Heading',
+              'li': 'List Item',
+              'ul': 'List',
+              'ol': 'List',
+              'td': 'Table Cell',
+              'tr': 'Table Row',
+              'th': 'Table Header',
+              'img': 'Image',
+              'section': 'Section',
+              'article': 'Article',
+              'nav': 'Navigation',
+              'header': 'Header',
+              'footer': 'Footer',
+              'aside': 'Sidebar',
+              'label': 'Label',
+              'strong': 'Bold Text',
+              'em': 'Italic Text',
+              'b': 'Bold Text',
+              'i': 'Icon/Italic'
+            };
+          %>
+          <% deadClicks.slice(0, 10).forEach(item => {
+            const friendlyName = elementNames[item.element] || item.element;
+            let pagePath = '-';
+            try {
+              if (item.page_url) pagePath = new URL(item.page_url).pathname;
+            } catch(e) { pagePath = item.page_url || '-'; }
+          %>
             <tr>
-              <td><code><%= item.element %></code></td>
-              <td class="truncate" title="<%= item.text_clicked %>"><%= item.text_clicked || '-' %></td>
+              <td>
+                <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                  <code style="font-size: 0.7rem;"><%= item.element %></code>
+                  <span style="color: var(--text-muted); font-size: 0.8rem;"><%= friendlyName %></span>
+                </span>
+              </td>
+              <td title="<%= item.text_clicked %>" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                "<%= item.text_clicked || '-' %>"
+              </td>
+              <td class="truncate" title="<%= item.page_url %>" style="font-size: 0.8rem; color: var(--text-muted);">
+                <%= pagePath %>
+              </td>
               <td class="number"><%= item.click_count %></td>
               <td class="number"><%= item.unique_visitors %></td>
             </tr>
@@ -276,27 +327,35 @@
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <p>No dead clicks detected</p>
+        <p>No dead clicks detected - visitors aren't clicking on non-interactive elements</p>
       </div>
     <% } %>
   </div>
+</div>
 
+<!-- CTA Hesitations + Scroll Behaviour -->
+<div class="section-grid">
   <div class="section-card">
     <h3>CTA Hesitations</h3>
     <% if (hesitations && hesitations.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Visitors hovered over these buttons but didn't click. Low click rates suggest uncertainty or unclear value.
+      </p>
       <table class="data-table">
         <thead>
           <tr>
-            <th>CTA</th>
-            <th>Avg Hover</th>
-            <th>Count</th>
-            <th>Click Rate</th>
+            <th>Button Text</th>
+            <th>Hover Time</th>
+            <th>Times</th>
+            <th>Clicked</th>
           </tr>
         </thead>
         <tbody>
           <% hesitations.slice(0, 8).forEach(item => { %>
             <tr>
-              <td class="truncate" title="<%= item.cta_label %>"><%= item.cta_label %></td>
+              <td title="<%= item.cta_label %>" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <%= item.cta_label %>
+              </td>
               <td><%= item.avg_hover_time %>s</td>
               <td class="number"><%= item.hesitation_count %></td>
               <td>
@@ -313,17 +372,17 @@
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <p>No hesitations detected</p>
+        <p>No hesitations detected - visitors are clicking buttons confidently</p>
       </div>
     <% } %>
   </div>
-</div>
 
-<!-- Row 2: Scroll Behaviour + Section View Times -->
-<div class="section-grid">
   <div class="section-card">
     <h3>Scroll Behaviour</h3>
     <% if (scrollBehaviour && scrollBehaviour.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        How visitors scroll: Reading (slow, engaged), Scanning (medium, looking for something), Skimming (fast, not reading).
+      </p>
       <div class="chart-wrap">
         <canvas id="scrollChart"></canvas>
       </div>
@@ -336,10 +395,16 @@
       </div>
     <% } %>
   </div>
+</div>
 
+<!-- Section View Times + Quick Backs -->
+<div class="section-grid">
   <div class="section-card">
     <h3>Section View Times</h3>
     <% if (sectionVisibility && sectionVisibility.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Which sections get the most attention. Longer times = more engagement.
+      </p>
       <div class="chart-wrap">
         <canvas id="visibilityChart"></canvas>
       </div>
@@ -353,24 +418,24 @@
       </div>
     <% } %>
   </div>
-</div>
 
-<!-- Row 3: Quick Backs + Site Searches -->
-<div class="section-grid">
   <div class="section-card">
     <h3>Quick Back Analysis</h3>
     <% if (quickBacks && quickBacks.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Pages where visitors hit the back button within 5 seconds. Content didn't match expectations.
+      </p>
       <table class="data-table">
         <thead>
           <tr>
             <th>Page</th>
-            <th>Quick Backs</th>
+            <th>Backs</th>
             <th>Avg Time</th>
-            <th>Visitors</th>
+            <th>Users</th>
           </tr>
         </thead>
         <tbody>
-          <% quickBacks.slice(0, 8).forEach(item => { %>
+          <% quickBacks.slice(0, 6).forEach(item => { %>
             <tr>
               <td class="truncate" title="<%= item.page_url %>">
                 <%= item.page_url ? new URL(item.page_url).pathname : '-' %>
@@ -387,19 +452,25 @@
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <p>No quick backs detected</p>
+        <p>No quick backs detected - pages match visitor expectations</p>
       </div>
     <% } %>
   </div>
+</div>
 
+<!-- Site Searches + Text Selections -->
+<div class="section-grid">
   <div class="section-card">
     <h3>Site Search Queries</h3>
     <% if (searches && searches.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        What visitors searched for. These are content gaps - make this info more visible.
+      </p>
       <table class="data-table">
         <thead>
           <tr>
             <th>Query</th>
-            <th>Searches</th>
+            <th>Times</th>
             <th>Users</th>
           </tr>
         </thead>
@@ -422,30 +493,26 @@
       </div>
     <% } %>
   </div>
-</div>
 
-<!-- Row 4: Text Selections (full width) -->
-<div class="section-grid">
-  <div class="section-card full-width">
+  <div class="section-card">
     <h3>Text Selection Analysis</h3>
     <% if (selections && selections.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Text visitors copied or highlighted. Could be valuable info or confusing content.
+      </p>
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width: 50%;">Selected Text</th>
-            <th>Page</th>
-            <th>Selections</th>
+            <th>Text</th>
+            <th>Times</th>
             <th>Users</th>
           </tr>
         </thead>
         <tbody>
-          <% selections.slice(0, 10).forEach(item => { %>
+          <% selections.slice(0, 6).forEach(item => { %>
             <tr>
-              <td class="truncate" style="max-width: 400px;" title="<%= item.selected_text %>">
+              <td class="truncate" style="max-width: 200px;" title="<%= item.selected_text %>">
                 "<%= item.selected_text %>"
-              </td>
-              <td class="truncate" title="<%= item.page_url %>">
-                <%= item.page_url ? new URL(item.page_url).pathname : '-' %>
               </td>
               <td class="number"><%= item.selection_count %></td>
               <td class="number"><%= item.unique_selectors %></td>
@@ -464,11 +531,14 @@
   </div>
 </div>
 
-<!-- Row 5: 30-Day Trend (full width) -->
+<!-- 30-Day Trend (full width) -->
 <div class="section-grid">
   <div class="section-card full-width">
     <h3>30-Day UX Trend</h3>
     <% if (trend && trend.length > 0) { %>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+        Track friction metrics over time. Decreasing trends = UX improvements working.
+      </p>
       <div class="chart-wrap tall">
         <canvas id="trendChart"></canvas>
       </div>
