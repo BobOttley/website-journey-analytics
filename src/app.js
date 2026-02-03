@@ -47,6 +47,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Trust proxy - required for secure cookies behind Render/Heroku/etc
+app.set('trust proxy', 1);
+
 // Session configuration - must be before routes
 app.use(session({
   store: new pgSession({
@@ -60,6 +63,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   }
 }));
