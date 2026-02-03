@@ -647,22 +647,22 @@
     }
 
     /* ===== TABLE DARK MODE FIX ===== */
-    [data-theme="dark"] td,
-    [data-theme="dark"] tbody td,
-    [data-theme="dark"] table td,
-    [data-theme="dark"] td.text-muted,
-    [data-theme="dark"] td .text-muted,
-    [data-theme="dark"] td.text-small,
-    [data-theme="dark"] td .text-small {
+    [data-theme="dark"] td {
       color: #ffffff !important;
     }
 
-    [data-theme="dark"] td a {
+    [data-theme="dark"] td * {
+      color: #ffffff !important;
+    }
+
+    [data-theme="dark"] td a,
+    [data-theme="dark"] td a * {
       color: var(--award-gold) !important;
     }
 
-    [data-theme="dark"] .text-muted:not(td):not(td .text-muted) {
-      color: #cbd5e1;
+    [data-theme="dark"] td .badge,
+    [data-theme="dark"] td .badge * {
+      color: inherit !important;
     }
 
     /* ===== INSIGHTS PAGE - METRIC CARDS ===== */
