@@ -103,11 +103,27 @@ async function sendEmail(subject, htmlBody, textBody) {
  * Send notification for new website visitor
  */
 async function sendNewVisitorNotification(visitor) {
-  const subject = `New Website Visitor - ${visitor.entry_page || 'Unknown page'}`;
+  // Build subject with location if available
+  let subjectLocation = '';
+  if (visitor.location) {
+    const loc = visitor.location;
+    subjectLocation = loc.city ? ` from ${loc.city}` : (loc.country ? ` from ${loc.country}` : '');
+  }
+  const subject = `🌐 New Visitor${subjectLocation} - ${visitor.entry_page || 'Unknown page'}`;
 
   const referrerText = visitor.referrer
     ? `<p><strong>Referrer:</strong> ${visitor.referrer}</p>`
     : '<p><strong>Referrer:</strong> Direct visit</p>';
+
+  // Format location if available
+  let locationText = '';
+  if (visitor.location) {
+    const loc = visitor.location;
+    const locationParts = [loc.city, loc.region, loc.country].filter(Boolean);
+    const locationString = locationParts.join(', ') || 'Unknown';
+    const flag = loc.flag || '';
+    locationText = `<p style="margin: 0 0 12px 0;"><strong>Location:</strong> ${flag} ${locationString}</p>`;
+  }
 
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -117,6 +133,7 @@ async function sendNewVisitorNotification(visitor) {
       <div style="padding: 24px; background: #f8fafc; border: 1px solid #e5e7eb;">
         <p style="margin: 0 0 12px 0;"><strong>Entry Page:</strong> <a href="${visitor.entry_page || '#'}" style="color: #034674;">${visitor.entry_page || 'Unknown'}</a></p>
         ${referrerText}
+        ${locationText}
         <p style="margin: 0 0 12px 0;"><strong>Device:</strong> ${visitor.device_type || 'Unknown'}</p>
         <p style="margin: 0 0 12px 0;"><strong>Time:</strong> ${new Date(visitor.first_seen).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>
         <p style="margin: 0;"><strong>Journey ID:</strong> <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${visitor.journey_id}</code></p>
@@ -127,12 +144,20 @@ async function sendNewVisitorNotification(visitor) {
     </div>
   `;
 
+  // Format location for plain text
+  let locationPlainText = '';
+  if (visitor.location) {
+    const loc = visitor.location;
+    const locationParts = [loc.city, loc.region, loc.country].filter(Boolean);
+    locationPlainText = `Location: ${loc.flag || ''} ${locationParts.join(', ') || 'Unknown'}\n`;
+  }
+
   const textBody = `
 New Website Visitor
 
 Entry Page: ${visitor.entry_page || 'Unknown'}
 Referrer: ${visitor.referrer || 'Direct visit'}
-Device: ${visitor.device_type || 'Unknown'}
+${locationPlainText}Device: ${visitor.device_type || 'Unknown'}
 Time: ${new Date(visitor.first_seen).toLocaleString('en-GB')}
 Journey ID: ${visitor.journey_id}
 

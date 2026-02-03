@@ -167,12 +167,16 @@ router.post('/', async (req, res) => {
         }
 
         // Send email asynchronously (don't block response)
+        // Extract location from metadata if available
+        const location = metadata?.location || null;
+
         emailService.sendNewVisitorNotification({
           journey_id: event.journey_id,
           entry_page: event.page_url,
           referrer: event.referrer,
           device_type: event.device_type,
-          first_seen: event.occurred_at
+          first_seen: event.occurred_at,
+          location: location
         }).then(emailResult => {
           if (emailResult.success) {
             console.log(`Email sent for new visitor: ${event.journey_id}`);
