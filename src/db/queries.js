@@ -1178,6 +1178,64 @@ async function getUXTrend(siteId = null) {
   return result.rows;
 }
 
+/**
+ * Get exit pages - pages where visitors leave without clicking a CTA
+ */
+async function getExitPages(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Find the last page for each journey, and whether they clicked any CTA
+  const result = await db.query(`
+    WITH journey_exits AS (
+      -- Get the last page_view for each journey
+      SELECT DISTINCT ON (journey_id)
+        journey_id,
+        page_url as exit_page
+      FROM journey_events
+      WHERE event_type = 'page_view'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+      ORDER BY journey_id, occurred_at DESC
+    ),
+    journey_ctas AS (
+      -- Check which journeys had at least one CTA click
+      SELECT DISTINCT journey_id
+      FROM journey_events
+      WHERE event_type = 'cta_click'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    )
+    SELECT
+      je.exit_page as page_url,
+      COUNT(*) as total_exits,
+      COUNT(*) FILTER (WHERE jc.journey_id IS NULL) as exits_without_cta,
+      ROUND(
+        (COUNT(*) FILTER (WHERE jc.journey_id IS NULL)::numeric / COUNT(*)::numeric) * 100
+      ) as exit_rate
+    FROM journey_exits je
+    LEFT JOIN journey_ctas jc ON je.journey_id = jc.journey_id
+    WHERE je.exit_page IS NOT NULL
+    GROUP BY je.exit_page
+    HAVING COUNT(*) >= 1
+    ORDER BY exits_without_cta DESC, total_exits DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
 // ============================================
 // SITE LOOKUP FUNCTIONS
 // ============================================
@@ -1255,6 +1313,7 @@ module.exports = {
   getSearchQueries,
   getTextSelections,
   getUXTrend,
+  getExitPages,
   // Sites
   getSiteByTrackingKey,
   getAllSites,
