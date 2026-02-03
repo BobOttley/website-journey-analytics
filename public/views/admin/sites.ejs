@@ -40,7 +40,7 @@
             <td><%= site.domain %></td>
             <td>
               <code style="font-size: 0.75rem;"><%= site.tracking_key %></code>
-              <button onclick="copyToClipboard('<%= site.tracking_key %>')" class="btn btn-sm btn-secondary" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem;">Copy</button>
+              <button onclick="copyTrackingLine('<%= site.tracking_key %>')" class="btn btn-sm btn-secondary" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem;">Copy</button>
             </td>
             <td><%= site.journey_count || 0 %></td>
             <td><%= site.user_count || 0 %></td>
@@ -78,9 +78,10 @@
 </div>
 
 <script>
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(function() {
-    alert('Tracking key copied to clipboard!');
+function copyTrackingLine(key) {
+  var line = "tracking_key: '" + key + "',";
+  navigator.clipboard.writeText(line).then(function() {
+    alert('Copied! Paste this into your tracking script:\n\n' + line);
   });
 }
 </script>
