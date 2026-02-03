@@ -295,26 +295,36 @@
               'b': 'Bold Text',
               'i': 'Icon/Italic'
             };
+
+            // Convert page paths to friendly names
+            function getPageName(url) {
+              if (!url) return '-';
+              try {
+                const pathname = new URL(url).pathname;
+                // Remove leading slash and .html extension
+                let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+                // Handle index
+                if (name === '' || name === 'index') return 'Home';
+                // Capitalise first letter and replace hyphens with spaces
+                name = name.split('/').pop(); // Get last segment
+                name = name.replace(/-/g, ' ');
+                return name.charAt(0).toUpperCase() + name.slice(1);
+              } catch(e) {
+                return url;
+              }
+            }
           %>
           <% deadClicks.slice(0, 10).forEach(item => {
-            const friendlyName = elementNames[item.element] || item.element;
-            let pagePath = '-';
-            try {
-              if (item.page_url) pagePath = new URL(item.page_url).pathname;
-            } catch(e) { pagePath = item.page_url || '-'; }
+            const friendlyType = elementNames[item.element] || item.element;
+            const pageName = getPageName(item.page_url);
           %>
             <tr>
-              <td>
-                <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                  <code style="font-size: 0.7rem;"><%= item.element %></code>
-                  <span style="color: var(--text-muted); font-size: 0.8rem;"><%= friendlyName %></span>
-                </span>
-              </td>
+              <td><%= friendlyType %></td>
               <td title="<%= item.text_clicked %>" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 "<%= item.text_clicked || '-' %>"
               </td>
-              <td class="truncate" title="<%= item.page_url %>" style="font-size: 0.8rem; color: var(--text-muted);">
-                <%= pagePath %>
+              <td title="<%= item.page_url %>" style="font-size: 0.85rem;">
+                <%= pageName %>
               </td>
               <td class="number"><%= item.click_count %></td>
               <td class="number"><%= item.unique_visitors %></td>
