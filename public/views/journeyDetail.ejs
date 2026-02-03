@@ -496,56 +496,62 @@
     const container = document.getElementById('eventTimeline');
     if (!container || !container.classList.contains('snake-timeline')) return;
 
-    const events = Array.from(container.querySelectorAll('.snake-event')).filter(el => {
-      return el.style.display !== 'none' && !el.classList.contains('snake-event') ||
-             el.classList.contains('show-heartbeat') ||
-             el.dataset.eventType !== 'heartbeat';
-    });
+    // Get all children (events and session breaks)
+    const children = Array.from(container.children);
 
-    // Get visible events
-    const visibleEvents = Array.from(container.querySelectorAll('.snake-event')).filter(el => {
-      const isHeartbeat = el.dataset.eventType === 'heartbeat';
-      const showHeartbeat = el.classList.contains('show-heartbeat');
-      return !isHeartbeat || showHeartbeat;
-    });
-
-    // Calculate items per row based on container width
+    // Process in sections separated by session breaks
+    let currentOrder = 0;
+    let eventIndexInSection = 0;
     const containerWidth = container.offsetWidth;
-    const itemWidth = 180 + 38; // card width + arrow width
+    const itemWidth = 180 + 38;
     const itemsPerRow = Math.max(2, Math.floor(containerWidth / itemWidth));
 
-    // Group events into rows
-    let currentRow = 0;
-    visibleEvents.forEach((event, index) => {
-      const rowIndex = Math.floor(index / itemsPerRow);
-      const isEvenRow = rowIndex % 2 === 1;
-      const positionInRow = index % itemsPerRow;
+    children.forEach((child) => {
+      if (child.classList.contains('session-break')) {
+        // Session break takes full width and resets the row
+        child.style.order = currentOrder;
+        currentOrder++;
+        eventIndexInSection = 0; // Reset for new section
+      } else if (child.classList.contains('snake-event')) {
+        const isHeartbeat = child.dataset.eventType === 'heartbeat';
+        const showHeartbeat = child.classList.contains('show-heartbeat');
 
-      // For even rows (1, 3, 5...), reverse the order visually
-      if (isEvenRow) {
-        event.style.order = (rowIndex * itemsPerRow) + (itemsPerRow - 1 - positionInRow);
-      } else {
-        event.style.order = index;
-      }
+        if (isHeartbeat && !showHeartbeat) {
+          child.style.order = currentOrder;
+          return;
+        }
 
-      // Hide arrow on last item of each row (except last row)
-      const isLastInRow = positionInRow === itemsPerRow - 1;
-      const isLastEvent = index === visibleEvents.length - 1;
-      const arrow = event.querySelector('.snake-arrow');
-      if (arrow) {
-        if (isLastInRow && !isLastEvent) {
-          // Turn arrow - point down
-          arrow.style.display = 'none';
-        } else if (isLastEvent) {
-          arrow.style.display = 'none';
+        const rowIndex = Math.floor(eventIndexInSection / itemsPerRow);
+        const isEvenRow = rowIndex % 2 === 1;
+        const positionInRow = eventIndexInSection % itemsPerRow;
+
+        // Calculate order within section
+        let orderInSection;
+        if (isEvenRow) {
+          orderInSection = (rowIndex * itemsPerRow) + (itemsPerRow - 1 - positionInRow);
         } else {
-          arrow.style.display = 'block';
-          // Flip arrow direction on even rows
-          if (isEvenRow) {
-            arrow.style.transform = 'rotate(180deg)';
+          orderInSection = eventIndexInSection;
+        }
+
+        child.style.order = currentOrder + orderInSection;
+
+        // Handle arrows
+        const isLastInRow = positionInRow === itemsPerRow - 1;
+        const arrow = child.querySelector('.snake-arrow');
+        if (arrow) {
+          if (isLastInRow) {
+            arrow.style.display = 'none';
           } else {
-            arrow.style.transform = 'rotate(0deg)';
+            arrow.style.display = 'block';
+            arrow.style.transform = isEvenRow ? 'rotate(180deg)' : 'rotate(0deg)';
           }
+        }
+
+        eventIndexInSection++;
+
+        // Update currentOrder after completing a row
+        if (positionInRow === itemsPerRow - 1) {
+          currentOrder += itemsPerRow;
         }
       }
     });
