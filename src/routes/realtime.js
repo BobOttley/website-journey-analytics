@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getActiveVisitors, getRecentNewJourneys, getActiveVisitorCount, getVisitorLocations } = require('../db/queries');
+const { getActiveVisitors, getRecentNewJourneys, getActiveVisitorCount, getVisitorLocations, getRecentInactiveSessions } = require('../db/queries');
 const emailService = require('../services/emailService');
 
 // Track which journeys we've already notified about (in-memory, resets on restart)
@@ -174,6 +174,37 @@ router.get('/api/count', async (req, res) => {
   } catch (error) {
     console.error('Error fetching visitor count:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch count' });
+  }
+});
+
+// GET /realtime/api/recent-sessions - Get recently ended sessions (last 10 mins but not active now)
+router.get('/api/recent-sessions', async (req, res) => {
+  try {
+    const inactiveAfter = parseInt(req.query.inactive_after) || 60;
+    const recentWithin = parseInt(req.query.recent_within) || 600;
+    const sessions = await getRecentInactiveSessions(inactiveAfter, recentWithin);
+
+    // Parse location from metadata
+    const sessionsWithLocation = sessions.map(s => {
+      let location = null;
+      try {
+        if (s.metadata) {
+          const metadata = typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata;
+          location = metadata.location || null;
+        }
+      } catch (e) {}
+      return { ...s, location };
+    });
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      count: sessions.length,
+      sessions: sessionsWithLocation
+    });
+  } catch (error) {
+    console.error('Error fetching recent sessions:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch recent sessions' });
   }
 });
 

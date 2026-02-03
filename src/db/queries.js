@@ -490,6 +490,38 @@ async function getActiveVisitorCount(withinSeconds = 60) {
   return parseInt(result.rows[0].count);
 }
 
+/**
+ * Get recent sessions that are no longer active
+ * Sessions with activity between inactiveAfter and recentWithin, but no activity in last inactiveAfter seconds
+ */
+async function getRecentInactiveSessions(inactiveAfterSeconds = 60, recentWithinSeconds = 600) {
+  const db = getDb();
+  const activeCutoff = new Date(Date.now() - (inactiveAfterSeconds * 1000)).toISOString();
+  const recentCutoff = new Date(Date.now() - (recentWithinSeconds * 1000)).toISOString();
+
+  const result = await db.query(
+    `SELECT
+       j.journey_id,
+       j.first_seen,
+       j.last_seen,
+       j.entry_page,
+       j.entry_referrer,
+       j.event_count,
+       j.outcome,
+       j.visitor_id,
+       j.visit_number,
+       (SELECT je.device_type FROM journey_events je WHERE je.journey_id = j.journey_id LIMIT 1) as device_type,
+       (SELECT je.metadata FROM journey_events je WHERE je.journey_id = j.journey_id AND je.event_type = 'page_view' AND je.metadata IS NOT NULL ORDER BY je.occurred_at DESC LIMIT 1) as metadata
+     FROM journeys j
+     WHERE j.last_seen < $1
+       AND j.last_seen >= $2
+     ORDER BY j.last_seen DESC
+     LIMIT 20`,
+    [activeCutoff, recentCutoff]
+  );
+  return result.rows;
+}
+
 module.exports = {
   // Events
   insertEvent,
@@ -521,5 +553,6 @@ module.exports = {
   // Real-time
   getActiveVisitors,
   getRecentNewJourneys,
-  getActiveVisitorCount
+  getActiveVisitorCount,
+  getRecentInactiveSessions
 };

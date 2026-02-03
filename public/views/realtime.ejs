@@ -119,8 +119,21 @@
   <% } %>
 </div>
 
+<!-- Recent Sessions (Ended in last 10 mins) -->
+<div class="card" id="recent-sessions-card">
+  <h2>Recent Sessions</h2>
+  <p class="text-muted text-small mb-4">Sessions that ended in the last 10 minutes</p>
+
+  <div id="recent-sessions-content">
+    <div class="empty-state">
+      <p class="text-muted">Loading recent sessions...</p>
+    </div>
+  </div>
+</div>
+
 <style>
-  #visitors-table tbody tr {
+  #visitors-table tbody tr,
+  #recent-sessions-table tbody tr {
     transition: background-color 0.3s;
   }
 
@@ -286,10 +299,90 @@
     }
   }
 
+  async function loadRecentSessions() {
+    try {
+      const response = await fetch('/realtime/api/recent-sessions');
+      const data = await response.json();
+
+      const container = document.getElementById('recent-sessions-content');
+
+      if (!data.success || data.sessions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p class="text-muted">No recent sessions in the last 10 minutes.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const tableHtml = `
+        <div style="overflow-x: auto;">
+          <table id="recent-sessions-table">
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Entry Page</th>
+                <th>Pages</th>
+                <th>Device</th>
+                <th>Visitor</th>
+                <th>Started</th>
+                <th>Ended</th>
+                <th>Journey</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.sessions.map(s => {
+                const location = s.location
+                  ? `<span class="text-small">${s.location.city || s.location.country || s.location.countryCode}</span>`
+                  : '<span class="text-muted">Unknown</span>';
+                const entryPage = s.entry_page
+                  ? `<span title="${s.entry_page}">${getPageIcon(s.entry_page)} ${getPageName(s.entry_page)}</span>`
+                  : '<span class="text-muted">Unknown</span>';
+                const deviceBadge = s.device_type === 'mobile' ? 'warning' : s.device_type === 'tablet' ? 'info' : 'neutral';
+                const visitorBadge = s.visit_number && s.visit_number > 1
+                  ? '<span class="badge badge-gold">Return</span>'
+                  : '<span class="badge badge-neutral">New</span>';
+                const outcomeBadge = s.outcome === 'enquiry_submitted' || s.outcome === 'visit_booked'
+                  ? `<span class="badge badge-success" style="margin-left: 4px;">✓</span>`
+                  : '';
+
+                return `
+                  <tr>
+                    <td>${location}</td>
+                    <td>${entryPage}</td>
+                    <td>${s.event_count || '-'}</td>
+                    <td><span class="badge badge-${deviceBadge}">${s.device_type || 'Unknown'}</span></td>
+                    <td>${visitorBadge}${outcomeBadge}</td>
+                    <td>${formatTime(s.first_seen)}</td>
+                    <td>${formatTime(s.last_seen)}</td>
+                    <td><a href="/journeys/${s.journey_id}" class="btn btn-outline btn-sm">View</a></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.innerHTML = tableHtml;
+    } catch (error) {
+      console.error('Error loading recent sessions:', error);
+      document.getElementById('recent-sessions-content').innerHTML = `
+        <div class="empty-state">
+          <p class="text-muted">Failed to load recent sessions.</p>
+        </div>
+      `;
+    }
+  }
+
   function startPolling() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(refreshData, 10000);
     setInterval(updateLastUpdated, 1000);
+
+    // Load recent sessions initially and refresh every 30 seconds
+    loadRecentSessions();
+    setInterval(loadRecentSessions, 30000);
   }
 
   document.addEventListener('visibilitychange', () => {
