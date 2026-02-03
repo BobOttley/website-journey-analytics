@@ -753,6 +753,430 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
 }
 
 // ============================================
+// UX ANALYTICS QUERIES
+// ============================================
+
+/**
+ * Get UX overview stats for KPI cards
+ */
+async function getUXOverview(siteId = null) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [];
+  let paramIndex = 1;
+
+  if (siteId) {
+    siteFilter = `AND site_id = $${paramIndex}`;
+    params.push(siteId);
+    paramIndex++;
+  }
+
+  // Dead clicks count (7 days)
+  const deadClicksResult = await db.query(`
+    SELECT COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'dead_click'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+  `, params);
+
+  // CTA hesitations - hovers without clicks
+  const hesitationsResult = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE event_type = 'cta_hover') as hovers,
+      COUNT(*) FILTER (WHERE event_type = 'cta_click') as clicks
+    FROM journey_events
+    WHERE event_type IN ('cta_hover', 'cta_click')
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+  `, params);
+
+  // Quick backs (back within 5 seconds)
+  const quickBacksResult = await db.query(`
+    SELECT COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'quick_back'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+  `, params);
+
+  // Scroll behaviour breakdown
+  const scrollResult = await db.query(`
+    SELECT
+      metadata->>'scroll_behaviour' as behaviour,
+      COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'scroll_depth'
+      AND metadata->>'scroll_behaviour' IS NOT NULL
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY metadata->>'scroll_behaviour'
+  `, params);
+
+  // Search queries count
+  const searchResult = await db.query(`
+    SELECT COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'site_search'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+  `, params);
+
+  // Calculate metrics
+  const deadClicks = parseInt(deadClicksResult.rows[0]?.count || 0);
+  const hovers = parseInt(hesitationsResult.rows[0]?.hovers || 0);
+  const clicks = parseInt(hesitationsResult.rows[0]?.clicks || 0);
+  const hesitationRate = hovers > 0 ? Math.round(((hovers - clicks) / hovers) * 100) : 0;
+  const quickBacks = parseInt(quickBacksResult.rows[0]?.count || 0);
+  const searches = parseInt(searchResult.rows[0]?.count || 0);
+
+  // Determine dominant scroll behaviour
+  let dominantScrollBehaviour = 'unknown';
+  let maxCount = 0;
+  const scrollBehaviours = {};
+  for (const row of scrollResult.rows) {
+    const count = parseInt(row.count);
+    scrollBehaviours[row.behaviour] = count;
+    if (count > maxCount) {
+      maxCount = count;
+      dominantScrollBehaviour = row.behaviour;
+    }
+  }
+
+  // Calculate friction score (0-100, lower is better)
+  // Weight: dead clicks heavily, hesitations medium, quick backs medium
+  const frictionScore = Math.min(100, Math.round(
+    (deadClicks * 2) +
+    (hesitationRate * 0.5) +
+    (quickBacks * 1.5)
+  ));
+
+  return {
+    frictionScore,
+    deadClicks,
+    hesitationRate,
+    quickBacks,
+    scrollBehaviour: dominantScrollBehaviour,
+    scrollBehaviours,
+    searches
+  };
+}
+
+/**
+ * Get dead click hotspots
+ */
+async function getDeadClicks(siteId = null, limit = 20) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'element', 'unknown') as element,
+      COALESCE(metadata->>'text', '') as text_clicked,
+      page_url,
+      COUNT(*) as click_count,
+      COUNT(DISTINCT journey_id) as unique_visitors
+    FROM journey_events
+    WHERE event_type = 'dead_click'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY metadata->>'element', metadata->>'text', page_url
+    ORDER BY click_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get CTA hesitation data
+ */
+async function getCTAHesitations(siteId = null, limit = 20) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get hover events with their durations
+  const result = await db.query(`
+    WITH hover_data AS (
+      SELECT
+        cta_label,
+        journey_id,
+        COALESCE((metadata->>'hover_duration')::numeric, 0) as hover_duration
+      FROM journey_events
+      WHERE event_type = 'cta_hover'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    ),
+    click_data AS (
+      SELECT DISTINCT cta_label, journey_id
+      FROM journey_events
+      WHERE event_type = 'cta_click'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    )
+    SELECT
+      h.cta_label,
+      COUNT(*) as hesitation_count,
+      ROUND(AVG(h.hover_duration)::numeric, 1) as avg_hover_time,
+      COUNT(DISTINCT h.journey_id) as unique_hovers,
+      COUNT(DISTINCT c.journey_id) as unique_clicks
+    FROM hover_data h
+    LEFT JOIN click_data c ON h.cta_label = c.cta_label AND h.journey_id = c.journey_id
+    WHERE h.cta_label IS NOT NULL AND h.cta_label != ''
+    GROUP BY h.cta_label
+    HAVING COUNT(*) >= 2
+    ORDER BY hesitation_count DESC
+    LIMIT $1
+  `, params);
+
+  // Calculate click rate for each CTA
+  return result.rows.map(row => ({
+    ...row,
+    click_rate: row.unique_hovers > 0
+      ? Math.round((row.unique_clicks / row.unique_hovers) * 100)
+      : 0
+  }));
+}
+
+/**
+ * Get scroll behaviour distribution
+ */
+async function getScrollBehaviour(siteId = null) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'scroll_behaviour', 'unknown') as behaviour,
+      COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'scroll_depth'
+      AND metadata->>'scroll_behaviour' IS NOT NULL
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY metadata->>'scroll_behaviour'
+    ORDER BY count DESC
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get section visibility times
+ */
+async function getSectionVisibility(siteId = null, limit = 15) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'section', cta_label) as section,
+      page_url,
+      ROUND(AVG((metadata->>'visibility_time')::numeric), 1) as avg_view_time,
+      COUNT(*) as view_count
+    FROM journey_events
+    WHERE event_type = 'section_visibility'
+      AND (metadata->>'section' IS NOT NULL OR cta_label IS NOT NULL)
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'section', cta_label), page_url
+    HAVING COUNT(*) >= 3
+    ORDER BY avg_view_time DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get quick back analysis
+ */
+async function getQuickBacks(siteId = null, limit = 20) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      page_url,
+      COUNT(*) as quick_back_count,
+      ROUND(AVG((metadata->>'time_on_page')::numeric), 1) as avg_time_before_back,
+      COUNT(DISTINCT journey_id) as unique_visitors
+    FROM journey_events
+    WHERE event_type = 'quick_back'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY page_url
+    ORDER BY quick_back_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get site search queries
+ */
+async function getSearchQueries(siteId = null, limit = 30) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'query', cta_label) as search_query,
+      COUNT(*) as search_count,
+      COUNT(DISTINCT journey_id) as unique_searchers
+    FROM journey_events
+    WHERE event_type = 'site_search'
+      AND (metadata->>'query' IS NOT NULL OR cta_label IS NOT NULL)
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'query', cta_label)
+    ORDER BY search_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get text selection data
+ */
+async function getTextSelections(siteId = null, limit = 20) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COALESCE(metadata->>'text', cta_label) as selected_text,
+      page_url,
+      COUNT(*) as selection_count,
+      COUNT(DISTINCT journey_id) as unique_selectors
+    FROM journey_events
+    WHERE event_type = 'text_selection'
+      AND (metadata->>'text' IS NOT NULL OR cta_label IS NOT NULL)
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY COALESCE(metadata->>'text', cta_label), page_url
+    ORDER BY selection_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get 30-day UX metrics trend
+ */
+async function getUXTrend(siteId = null) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+
+  let siteFilter = '';
+  const params = [];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      DATE(occurred_at) as date,
+      COUNT(*) FILTER (WHERE event_type = 'dead_click') as dead_clicks,
+      COUNT(*) FILTER (WHERE event_type = 'quick_back') as quick_backs,
+      COUNT(*) FILTER (WHERE event_type = 'cta_hover') as hesitations
+    FROM journey_events
+    WHERE occurred_at >= NOW() - INTERVAL '30 days'
+      AND event_type IN ('dead_click', 'quick_back', 'cta_hover')
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY DATE(occurred_at)
+    ORDER BY date ASC
+  `, params);
+
+  return result.rows;
+}
+
+// ============================================
 // SITE LOOKUP FUNCTIONS
 // ============================================
 
@@ -819,6 +1243,16 @@ module.exports = {
   getRecentNewJourneys,
   getActiveVisitorCount,
   getRecentInactiveSessions,
+  // UX Analytics
+  getUXOverview,
+  getDeadClicks,
+  getCTAHesitations,
+  getScrollBehaviour,
+  getSectionVisibility,
+  getQuickBacks,
+  getSearchQueries,
+  getTextSelections,
+  getUXTrend,
   // Sites
   getSiteByTrackingKey,
   getAllSites,
