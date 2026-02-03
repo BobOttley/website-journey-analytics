@@ -163,13 +163,13 @@ router.post('/', async (req, res) => {
      * New-visitor email logic
      * Only fire once per journey, on first page_view
      */
-    if (
-      event.event_type === 'page_view' &&
-      !notifiedJourneys.has(event.journey_id)
-    ) {
+    if (event.event_type === 'page_view') {
+      const alreadyNotified = notifiedJourneys.has(event.journey_id);
       const existing = await getEventsByJourneyId(event.journey_id);
 
-      if (existing.length <= 1) {
+      console.log(`[EMAIL DEBUG] journey=${event.journey_id.substring(0,8)}, alreadyNotified=${alreadyNotified}, existingEvents=${existing.length}`);
+
+      if (!alreadyNotified && existing.length <= 1) {
         notifiedJourneys.add(event.journey_id);
 
         // Keep memory bounded
@@ -180,6 +180,8 @@ router.post('/', async (req, res) => {
 
         const location = metadata.location || null;
 
+        console.log(`[EMAIL] Sending notification for journey ${event.journey_id.substring(0,8)}`);
+
         emailService.sendNewVisitorNotification({
           journey_id: event.journey_id,
           entry_page: event.page_url,
@@ -187,9 +189,13 @@ router.post('/', async (req, res) => {
           device_type: event.device_type,
           first_seen: event.occurred_at,
           location
+        }).then(result => {
+          console.log(`[EMAIL] Result:`, result);
         }).catch(err => {
-          console.error('Email notify failed:', err.message);
+          console.error('[EMAIL] Failed:', err.message);
         });
+      } else {
+        console.log(`[EMAIL] Skipped - alreadyNotified=${alreadyNotified}, existingEvents=${existing.length}`);
       }
     }
 
