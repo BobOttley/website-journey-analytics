@@ -1595,6 +1595,41 @@ async function getSiteById(siteId) {
   return result.rows[0] || null;
 }
 
+/**
+ * Save AI analysis for a journey
+ */
+async function saveJourneyAnalysis(journeyId, analysis) {
+  const db = getDb();
+  const result = await db.query(
+    `UPDATE journeys
+     SET ai_analysis = $2, ai_analysed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+     WHERE journey_id = $1
+     RETURNING journey_id, ai_analysed_at`,
+    [journeyId, JSON.stringify(analysis)]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Get AI analysis for a journey
+ */
+async function getJourneyAnalysis(journeyId) {
+  const db = getDb();
+  const result = await db.query(
+    `SELECT ai_analysis, ai_analysed_at FROM journeys WHERE journey_id = $1`,
+    [journeyId]
+  );
+  if (result.rows[0] && result.rows[0].ai_analysis) {
+    return {
+      analysis: typeof result.rows[0].ai_analysis === 'string'
+        ? JSON.parse(result.rows[0].ai_analysis)
+        : result.rows[0].ai_analysis,
+      analysed_at: result.rows[0].ai_analysed_at
+    };
+  }
+  return null;
+}
+
 module.exports = {
   // Events
   insertEvent,
@@ -1650,5 +1685,8 @@ module.exports = {
   // Sites
   getSiteByTrackingKey,
   getAllSites,
-  getSiteById
+  getSiteById,
+  // AI Analysis
+  saveJourneyAnalysis,
+  getJourneyAnalysis
 };

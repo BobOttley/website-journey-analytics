@@ -7,7 +7,7 @@
   </div>
   <div class="flex gap-2 items-center">
     <button class="btn btn-primary" onclick="analyseJourney()" id="analyseBtn">
-      Analyse with AI
+      <% if (existingAnalysis) { %>Re-analyse<% } else { %>Analyse with AI<% } %>
     </button>
     <% if (journey.visit_number && journey.visit_number > 1) { %>
       <span class="badge badge-gold">Return Visitor (Visit #<%= journey.visit_number %>)</span>
@@ -52,15 +52,29 @@
   </div>
 </div>
 
-<!-- AI Analysis Section (hidden until analysis is run) -->
-<div class="card mb-6" id="analysisSection" style="display: none;">
+<!-- AI Analysis Section -->
+<div class="card mb-6" id="analysisSection" style="<%= existingAnalysis ? '' : 'display: none;' %>">
   <div class="flex justify-between items-center mb-4">
-    <h2 style="margin-bottom: 0;">AI Analysis</h2>
-    <button class="btn btn-secondary btn-sm" onclick="hideAnalysis()">Hide</button>
+    <h2 style="margin-bottom: 0;">
+      AI Analysis
+      <% if (existingAnalysis) { %>
+        <span class="text-muted text-small" style="font-weight: normal; margin-left: 12px;">
+          Generated <%= new Date(existingAnalysis.analysed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %>
+        </span>
+      <% } %>
+    </h2>
+    <button class="btn btn-secondary btn-sm" onclick="toggleAnalysis()" id="toggleAnalysisBtn">Hide</button>
   </div>
   <div id="analysisContent">
-    <!-- Analysis will be inserted here -->
+    <!-- Analysis will be inserted here by JS -->
   </div>
+</div>
+
+<!-- Show Analysis button (appears when hidden) -->
+<div class="mb-6" id="showAnalysisBar" style="display: none;">
+  <button class="btn btn-outline" onclick="toggleAnalysis()" style="width: 100%;">
+    Show AI Analysis
+  </button>
 </div>
 
 <div class="grid-2 mb-6">
@@ -766,7 +780,26 @@
     content.innerHTML = html;
   }
 
-  function hideAnalysis() {
-    document.getElementById('analysisSection').style.display = 'none';
+  function toggleAnalysis() {
+    const section = document.getElementById('analysisSection');
+    const showBar = document.getElementById('showAnalysisBar');
+    const toggleBtn = document.getElementById('toggleAnalysisBtn');
+
+    if (section.style.display === 'none') {
+      section.style.display = 'block';
+      showBar.style.display = 'none';
+      toggleBtn.textContent = 'Hide';
+    } else {
+      section.style.display = 'none';
+      showBar.style.display = 'block';
+    }
   }
+
+  // Load existing analysis on page load
+  <% if (existingAnalysis) { %>
+  document.addEventListener('DOMContentLoaded', function() {
+    const existingAnalysisData = <%- JSON.stringify(existingAnalysis.analysis) %>;
+    displayAnalysis(existingAnalysisData);
+  });
+  <% } %>
 </script>

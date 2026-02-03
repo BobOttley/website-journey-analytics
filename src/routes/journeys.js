@@ -12,7 +12,9 @@ const {
   getScrollDepthDistribution,
   getConversionFunnel,
   getReturnVisitorStats,
-  getHourlyActivity
+  getHourlyActivity,
+  saveJourneyAnalysis,
+  getJourneyAnalysis
 } = require('../db/queries');
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
 const { getSiteId } = require('../middleware/auth');
@@ -145,8 +147,12 @@ router.get('/:id', async (req, res) => {
       return res.status(404).render('error', { error: 'Journey not found' });
     }
 
+    // Get existing AI analysis if any
+    const existingAnalysis = await getJourneyAnalysis(journeyId);
+
     res.render('journeyDetail', {
       journey,
+      existingAnalysis,
       currentPage: 'journeys',
       title: `Journey ${journeyId.substring(0, 8)} - SMART Journey`
     });
@@ -192,10 +198,14 @@ router.post('/:id/analyse', async (req, res) => {
       return res.status(500).json({ success: false, error: result.error });
     }
 
+    // Save the analysis to the database
+    await saveJourneyAnalysis(journeyId, result.analysis);
+
     res.json({
       success: true,
       journey_id: journeyId,
-      analysis: result.analysis
+      analysis: result.analysis,
+      analysed_at: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error analysing journey:', error);
