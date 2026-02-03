@@ -1,0 +1,241 @@
+<script>
+(function() {
+  'use strict';
+
+  var config = {
+    endpoint: 'https://website-journey-analytics.onrender.com/api/event',
+    tracking_key: 'tk_bsmart_52d1ba7d1c386040',
+    heartbeatInterval: 30000,
+    batchInterval: 5000,
+    maxBatchSize: 10
+  };
+
+  var visitorId = localStorage.getItem('sja_visitor_id');
+  if (!visitorId) {
+    visitorId = 'v_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    localStorage.setItem('sja_visitor_id', visitorId);
+  }
+
+  var journeyId = sessionStorage.getItem('sja_journey_id');
+  var isReturnVisitor = false;
+  if (!journeyId) {
+    journeyId = 'j_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    sessionStorage.setItem('sja_journey_id', journeyId);
+    var lastVisit = localStorage.getItem('sja_last_visit');
+    if (lastVisit) {
+      isReturnVisitor = true;
+    }
+    localStorage.setItem('sja_last_visit', Date.now().toString());
+  }
+
+  var eventQueue = [];
+  var maxScrollDepth = 0;
+
+  function sendEvent(eventType, data) {
+    var event = {
+      journey_id: journeyId,
+      visitor_id: visitorId,
+      event_type: eventType,
+      page_url: window.location.href,
+      referrer: document.referrer || null,
+      device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      tracking_key: config.tracking_key,
+      metadata: data || {},
+      occurred_at: new Date().toISOString()
+    };
+    eventQueue.push(event);
+    if (eventQueue.length >= config.maxBatchSize) {
+      flushEvents();
+    }
+  }
+
+  function flushEvents() {
+    if (eventQueue.length === 0) return;
+    var events = eventQueue.slice();
+    eventQueue = [];
+    var data = JSON.stringify({ events: events });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(config.endpoint + '/batch', data);
+    } else {
+      fetch(config.endpoint + '/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+        keepalive: true
+      });
+    }
+  }
+
+  sendEvent('page_view', { title: document.title });
+
+  if (isReturnVisitor) {
+    var visitCount = parseInt(localStorage.getItem('sja_visit_count') || '1', 10) + 1;
+    localStorage.setItem('sja_visit_count', visitCount.toString());
+    sendEvent('return_visitor', { visit_count: visitCount });
+  } else {
+    localStorage.setItem('sja_visit_count', '1');
+  }
+
+  var scrollTimeout;
+  window.addEventListener('scroll', function() {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(function() {
+      var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      var depth = docHeight > 0 ? Math.round((scrollTop / docHeight) * 100) : 0;
+      if (depth > maxScrollDepth) {
+        maxScrollDepth = depth;
+        if (depth >= 25 && depth < 50) {
+          sendEvent('scroll_depth', { depth: 25 });
+        } else if (depth >= 50 && depth < 75) {
+          sendEvent('scroll_depth', { depth: 50 });
+        } else if (depth >= 75 && depth < 90) {
+          sendEvent('scroll_depth', { depth: 75 });
+        } else if (depth >= 90) {
+          sendEvent('scroll_depth', { depth: 100 });
+        }
+      }
+    }, 100);
+  });
+
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    var tagName = target.tagName.toLowerCase();
+    var isClickable = tagName === 'a' || tagName === 'button' || target.onclick || target.closest('a') || target.closest('button');
+    if (!isClickable) {
+      sendEvent('dead_click', {
+        element: tagName,
+        text: (target.textContent || '').substring(0, 50),
+        className: target.className || ''
+      });
+    }
+  });
+
+  var ctaHoverTimeout;
+  document.querySelectorAll('a, button, [role="button"]').forEach(function(el) {
+    el.addEventListener('mouseenter', function() {
+      var element = this;
+      ctaHoverTimeout = setTimeout(function() {
+        sendEvent('cta_hover', {
+          element: element.tagName.toLowerCase(),
+          text: (element.textContent || '').substring(0, 50),
+          href: element.href || ''
+        });
+      }, 1000);
+    });
+    el.addEventListener('mouseleave', function() {
+      clearTimeout(ctaHoverTimeout);
+    });
+  });
+
+  var clickTimes = [];
+  document.addEventListener('click', function(e) {
+    var now = Date.now();
+    clickTimes.push(now);
+    clickTimes = clickTimes.filter(function(t) { return now - t < 2000; });
+    if (clickTimes.length >= 3) {
+      sendEvent('rage_click', {
+        element: e.target.tagName.toLowerCase(),
+        text: (e.target.textContent || '').substring(0, 50),
+        clicks: clickTimes.length
+      });
+      clickTimes = [];
+    }
+  });
+
+  var pageLoadTime = Date.now();
+  window.addEventListener('beforeunload', function() {
+    var timeOnPage = Date.now() - pageLoadTime;
+    if (timeOnPage < 10000 && document.referrer.includes(window.location.hostname)) {
+      sendEvent('quick_back', { time_on_page: timeOnPage });
+    }
+    flushEvents();
+  });
+
+  document.addEventListener('mouseup', function() {
+    var selection = window.getSelection().toString().trim();
+    if (selection.length > 3 && selection.length < 500) {
+      sendEvent('text_selection', { text: selection.substring(0, 100) });
+    }
+  });
+
+  if (window.location.search.includes('s=') || window.location.search.includes('q=') || window.location.search.includes('search=') || window.location.search.includes('query=')) {
+    var params = new URLSearchParams(window.location.search);
+    var query = params.get('s') || params.get('q') || params.get('search') || params.get('query');
+    if (query) {
+      sendEvent('site_search', { query: query });
+    }
+  }
+
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var section = entry.target;
+          var sectionId = section.id || section.className || section.tagName;
+          sendEvent('section_visibility', { section: sectionId.substring(0, 50) });
+          observer.unobserve(section);
+        }
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('section, [class*="section"], main > div').forEach(function(el) {
+      observer.observe(el);
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (link && link.href && link.href.toLowerCase().endsWith('.pdf')) {
+      sendEvent('pdf_download', { url: link.href, text: (link.textContent || '').substring(0, 50) });
+    }
+  });
+
+  document.querySelectorAll('form').forEach(function(form) {
+    var formId = form.id || form.name || 'unnamed_form';
+    var formStarted = false;
+    form.querySelectorAll('input, textarea, select').forEach(function(field) {
+      field.addEventListener('focus', function() {
+        if (!formStarted) {
+          formStarted = true;
+          sendEvent('form_start', { form_id: formId });
+        }
+        sendEvent('form_field_focus', { form_id: formId, field_name: field.name || field.id || 'unnamed' });
+      });
+      field.addEventListener('blur', function() {
+        sendEvent('form_field_blur', { form_id: formId, field_name: field.name || field.id || 'unnamed', has_value: !!field.value });
+      });
+    });
+    form.addEventListener('submit', function() {
+      sendEvent('form_submit', { form_id: formId });
+    });
+  });
+
+  document.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"]').forEach(function(video) {
+    if (video.tagName === 'VIDEO') {
+      video.addEventListener('play', function() {
+        sendEvent('video_play', { src: video.src || video.currentSrc });
+      });
+      video.addEventListener('ended', function() {
+        sendEvent('video_complete', { src: video.src || video.currentSrc });
+      });
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (link && link.href) {
+      if (link.href.startsWith('tel:')) {
+        sendEvent('cta_click', { intent_type: 'contact', cta_label: 'Phone click', action: 'phone_click' });
+      } else if (link.href.startsWith('mailto:')) {
+        sendEvent('cta_click', { intent_type: 'contact', cta_label: 'Email click', action: 'email_click' });
+      }
+    }
+  });
+
+  setInterval(function() {
+    sendEvent('heartbeat', { scroll_depth: maxScrollDepth });
+  }, config.heartbeatInterval);
+
+  setInterval(flushEvents, config.batchInterval);
+})();
+</script>

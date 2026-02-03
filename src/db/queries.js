@@ -722,8 +722,9 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
   const params = [activeCutoff];
   let paramIndex = 2;
 
+  // Filter by site_id using journey_events table (more reliable than journeys.site_id)
   if (siteId) {
-    whereClause += ` AND j.site_id = $${paramIndex}`;
+    whereClause += ` AND EXISTS (SELECT 1 FROM journey_events je2 WHERE je2.journey_id = j.journey_id AND je2.site_id = $${paramIndex})`;
     params.push(siteId);
     paramIndex++;
   }
