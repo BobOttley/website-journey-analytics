@@ -5,6 +5,8 @@ const {
   getDeadClicks,
   getCTAHesitations,
   getScrollBehaviour,
+  getScrollBehaviourByPage,
+  getScrollDepthByPage,
   getSectionVisibility,
   getQuickBacks,
   getSearchQueries,
@@ -20,11 +22,13 @@ router.get('/', async (req, res) => {
     const siteId = getSiteId(req);
 
     // Load all data for initial page render
-    const [overview, deadClicks, hesitations, scrollBehaviour, sectionVisibility, quickBacks, searches, selections, trend, exitPages] = await Promise.all([
+    const [overview, deadClicks, hesitations, scrollBehaviour, scrollByPage, scrollDepth, sectionVisibility, quickBacks, searches, selections, trend, exitPages] = await Promise.all([
       getUXOverview(siteId),
       getDeadClicks(siteId),
       getCTAHesitations(siteId),
       getScrollBehaviour(siteId),
+      getScrollBehaviourByPage(siteId),
+      getScrollDepthByPage(siteId),
       getSectionVisibility(siteId),
       getQuickBacks(siteId),
       getSearchQueries(siteId),
@@ -38,6 +42,8 @@ router.get('/', async (req, res) => {
       deadClicks,
       hesitations,
       scrollBehaviour,
+      scrollByPage,
+      scrollDepth,
       sectionVisibility,
       quickBacks,
       searches,

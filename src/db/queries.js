@@ -1003,6 +1003,79 @@ async function getScrollBehaviour(siteId = null) {
 }
 
 /**
+ * Get scroll behaviour by page
+ */
+async function getScrollBehaviourByPage(siteId = null, limit = 10) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      page_url,
+      COALESCE(metadata->>'scroll_behaviour', 'unknown') as behaviour,
+      COUNT(*) as count
+    FROM journey_events
+    WHERE event_type = 'scroll_depth'
+      AND metadata->>'scroll_behaviour' IS NOT NULL
+      AND page_url IS NOT NULL
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY page_url, metadata->>'scroll_behaviour'
+    ORDER BY page_url, count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get scroll depth percentages by page
+ */
+async function getScrollDepthByPage(siteId = null, limit = 10) {
+  const db = getDb();
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      page_url,
+      ROUND(AVG((metadata->>'max_scroll')::numeric)) as avg_scroll_depth,
+      MAX((metadata->>'max_scroll')::numeric) as max_scroll_depth,
+      COUNT(*) as visitors
+    FROM journey_events
+    WHERE event_type = 'scroll_depth'
+      AND metadata->>'max_scroll' IS NOT NULL
+      AND page_url IS NOT NULL
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+    GROUP BY page_url
+    ORDER BY visitors DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
  * Get section visibility times
  */
 async function getSectionVisibility(siteId = null, limit = 15) {
@@ -1308,6 +1381,8 @@ module.exports = {
   getDeadClicks,
   getCTAHesitations,
   getScrollBehaviour,
+  getScrollBehaviourByPage,
+  getScrollDepthByPage,
   getSectionVisibility,
   getQuickBacks,
   getSearchQueries,

@@ -388,14 +388,42 @@
   </div>
 
   <div class="section-card">
-    <h3>Scroll Behaviour</h3>
-    <% if (scrollBehaviour && scrollBehaviour.length > 0) { %>
+    <h3>Scroll Behaviour by Page</h3>
+    <% if (scrollByPage && scrollByPage.length > 0) { %>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
-        How visitors scroll: Reading (slow, engaged), Scanning (medium, looking for something), Skimming (fast, not reading).
+        How visitors scroll on each page. Skimming = not engaged, Reading = engaged.
       </p>
-      <div class="chart-wrap">
-        <canvas id="scrollChart"></canvas>
-      </div>
+      <%
+        function getPageNameSB(url) {
+          if (!url) return '-';
+          try {
+            const pathname = new URL(url).pathname;
+            let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+            if (name === '' || name === 'index') return 'Home';
+            name = name.split('/').pop();
+            name = name.replace(/-/g, ' ');
+            return name.charAt(0).toUpperCase() + name.slice(1);
+          } catch(e) { return url; }
+        }
+      %>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Page</th>
+            <th>Behaviour</th>
+            <th>Sessions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% scrollByPage.slice(0, 8).forEach(item => { %>
+            <tr>
+              <td title="<%= item.page_url %>"><%= getPageNameSB(item.page_url) %></td>
+              <td style="text-transform: capitalize;"><%= item.behaviour %></td>
+              <td class="number"><%= item.count %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
     <% } else { %>
       <div class="empty-state">
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -406,6 +434,55 @@
     <% } %>
   </div>
 </div>
+
+<!-- Scroll Depth by Page (only show if there's data) -->
+<% if (scrollDepth && scrollDepth.length > 0) { %>
+<div class="section-grid">
+  <div class="section-card full-width">
+    <h3>Scroll Depth by Page</h3>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      How far down visitors scroll on each page. Low % = content at top isn't engaging enough to keep scrolling.
+    </p>
+    <%
+      function getPageNameSD(url) {
+        if (!url) return '-';
+        try {
+          const pathname = new URL(url).pathname;
+          let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+          if (name === '' || name === 'index') return 'Home';
+          name = name.split('/').pop();
+          name = name.replace(/-/g, ' ');
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        } catch(e) { return url; }
+      }
+    %>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Page</th>
+          <th>Avg Scroll</th>
+          <th>Max Scroll</th>
+          <th>Visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% scrollDepth.forEach(item => { %>
+          <tr>
+            <td title="<%= item.page_url %>"><%= getPageNameSD(item.page_url) %></td>
+            <td>
+              <span class="rate-badge <%= item.avg_scroll_depth >= 75 ? 'low' : item.avg_scroll_depth >= 50 ? 'medium' : 'high' %>">
+                <%= item.avg_scroll_depth %>%
+              </span>
+            </td>
+            <td><%= item.max_scroll_depth %>%</td>
+            <td class="number"><%= item.visitors %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
 
 <!-- Section View Times + Quick Backs -->
 <div class="section-grid">
@@ -610,36 +687,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-
-  // Scroll Behaviour Doughnut
-  <% if (scrollBehaviour && scrollBehaviour.length > 0) { %>
-  const scrollData = <%- JSON.stringify(scrollBehaviour) %>;
-  const scrollCtx = document.getElementById('scrollChart');
-  if (scrollCtx) {
-    new Chart(scrollCtx, {
-      type: 'doughnut',
-      data: {
-        labels: scrollData.map(d => d.behaviour.charAt(0).toUpperCase() + d.behaviour.slice(1)),
-        datasets: [{
-          data: scrollData.map(d => parseInt(d.count)),
-          backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '60%',
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: { color: textColor, padding: 12, usePointStyle: true, pointStyle: 'circle' }
-          }
-        }
-      }
-    });
-  }
-  <% } %>
 
   // Section Visibility Bar
   <% if (sectionVisibility && sectionVisibility.length > 0) { %>
