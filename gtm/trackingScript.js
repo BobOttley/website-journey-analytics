@@ -849,13 +849,16 @@
   function trackSectionVisibilityTime() {
     if (!('IntersectionObserver' in window)) return;
 
-    const elementsToTrack = document.querySelectorAll('section, [data-track-time], .hero, .pricing, .features, .testimonials, .cta-section, article, .card, main > div');
+    // Only track elements with proper identifiers to avoid duplicates
+    const elementsToTrack = document.querySelectorAll('section[id], [data-track-time], [data-section]');
     const visibilityTimers = new Map();
+    const sentSections = new Set(); // Prevent duplicate sends
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const el = entry.target;
-        const id = el.id || el.dataset.section || getElementSelector(el);
+        const id = el.id || el.dataset.section || el.dataset.trackTime;
+        if (!id) return; // Skip elements without proper ID
 
         if (entry.isIntersecting) {
           // Element came into view - start timer
@@ -885,6 +888,9 @@
     // Send visibility times when leaving page
     window.addEventListener('beforeunload', function() {
       visibilityTimers.forEach((timer, id) => {
+        if (sentSections.has(id)) return; // Skip already sent
+        sentSections.add(id);
+
         let totalTime = timer.totalTime;
         if (timer.startTime) {
           totalTime += Date.now() - timer.startTime;
