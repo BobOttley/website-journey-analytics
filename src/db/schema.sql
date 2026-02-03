@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS journey_events (
   intent_type TEXT,
   cta_label TEXT,
   device_type TEXT,
+  metadata JSONB,  -- Extra event data (scroll %, element selector, UTM params, etc.)
   occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

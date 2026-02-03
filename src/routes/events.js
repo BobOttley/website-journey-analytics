@@ -3,13 +3,44 @@ const router = express.Router();
 const { insertEvent } = require('../db/queries');
 
 const VALID_EVENT_TYPES = [
+  // Core events
   'page_view',
-  'cta_click',
-  'form_start',
-  'form_submit',
+  'page_exit',
+  'heartbeat',
+
+  // Engagement
   'scroll_depth',
   'time_on_page',
-  'heartbeat'
+  'section_view',
+  'element_hover',
+  'rage_click',
+  'exit_intent',
+
+  // Interactions
+  'cta_click',
+  'link_click',
+  'download_click',
+  'external_link',
+  'accordion_open',
+  'tab_switch',
+  'copy_text',
+
+  // Forms
+  'form_start',
+  'form_field_focus',
+  'form_field_blur',
+  'form_abandon',
+  'form_submit',
+
+  // Media
+  'video_play',
+  'video_pause',
+  'video_complete',
+  'image_view',
+
+  // Technical
+  'page_load',
+  'error'
 ];
 
 const VALID_INTENT_TYPES = [
@@ -71,6 +102,7 @@ router.post('/', async (req, res) => {
       intent_type: req.body.intent_type,
       cta_label: req.body.cta_label,
       device_type: req.body.device_type,
+      metadata: req.body.metadata,
       occurred_at: req.body.occurred_at || new Date().toISOString()
     };
 
@@ -121,6 +153,7 @@ router.post('/batch', async (req, res) => {
           intent_type: eventData.intent_type,
           cta_label: eventData.cta_label,
           device_type: eventData.device_type,
+          metadata: eventData.metadata,
           occurred_at: eventData.occurred_at || new Date().toISOString()
         };
 

@@ -4,8 +4,8 @@ const { getDb } = require('./database');
 async function insertEvent(event) {
   const db = getDb();
   const result = await db.query(
-    `INSERT INTO journey_events (journey_id, visitor_id, event_type, page_url, referrer, intent_type, cta_label, device_type, occurred_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO journey_events (journey_id, visitor_id, event_type, page_url, referrer, intent_type, cta_label, device_type, metadata, occurred_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id`,
     [
       event.journey_id,
@@ -16,6 +16,7 @@ async function insertEvent(event) {
       event.intent_type || null,
       event.cta_label || null,
       event.device_type || null,
+      event.metadata ? JSON.stringify(event.metadata) : null,
       event.occurred_at || new Date().toISOString()
     ]
   );

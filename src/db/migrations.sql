@@ -9,3 +9,7 @@ CREATE INDEX IF NOT EXISTS idx_journey_events_visitor_id ON journey_events(visit
 ALTER TABLE journeys ADD COLUMN IF NOT EXISTS visitor_id TEXT;
 ALTER TABLE journeys ADD COLUMN IF NOT EXISTS visit_number INTEGER DEFAULT 1;
 CREATE INDEX IF NOT EXISTS idx_journeys_visitor_id ON journeys(visitor_id);
+
+-- Add metadata column for granular event data (scroll %, element info, UTM params, etc.)
+ALTER TABLE journey_events ADD COLUMN IF NOT EXISTS metadata JSONB;
+CREATE INDEX IF NOT EXISTS idx_journey_events_metadata ON journey_events USING GIN (metadata);
