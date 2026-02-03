@@ -895,15 +895,14 @@ async function getDeadClicks(siteId = null, limit = 20) {
       COALESCE(metadata->>'text', '') as text_clicked,
       page_url,
       COUNT(*) as click_count,
-      COUNT(DISTINCT journey_id) as unique_visitors,
-      MAX(occurred_at) as last_clicked
+      COUNT(DISTINCT journey_id) as unique_visitors
     FROM journey_events
     WHERE event_type = 'dead_click'
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
     GROUP BY metadata->>'element', metadata->>'text', page_url
-    ORDER BY last_clicked DESC
+    ORDER BY click_count DESC
     LIMIT $1
   `, params);
 
