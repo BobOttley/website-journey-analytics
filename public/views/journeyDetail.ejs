@@ -449,7 +449,29 @@
 <div class="card">
   <h2>Journey Flow</h2>
   <div class="journey-flow" id="journeyFlow">
-    <% journey.page_sequence.forEach((page, index) => { %>
+    <%
+      let flowSessionNum = 1;
+      let totalActiveTime = 0;
+      journey.page_sequence.forEach((page, index) => {
+        let flowGapSeconds = 0;
+        let isFlowNewSession = false;
+        if (index > 0) {
+          const prevTime = new Date(journey.page_sequence[index-1].timestamp).getTime();
+          const currTime = new Date(page.timestamp).getTime();
+          flowGapSeconds = Math.round((currTime - prevTime) / 1000);
+          if (flowGapSeconds > 300) {
+            isFlowNewSession = true;
+            flowSessionNum++;
+          } else {
+            totalActiveTime += flowGapSeconds;
+          }
+        }
+    %>
+      <% if (isFlowNewSession) { %>
+        <div class="journey-flow-break">
+          <span class="journey-flow-break-label">Session <%= flowSessionNum %></span>
+        </div>
+      <% } %>
       <div class="journey-flow-item">
         <div class="journey-flow-page <%= index === journey.page_sequence.length - 1 && (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked') ? 'conversion' : '' %>"
              data-url="<%= page.url || '' %>"
@@ -457,20 +479,14 @@
           <span class="page-icon"></span>
           <span class="page-name"></span>
         </div>
-        <% if (index < journey.page_sequence.length - 1) { %>
+        <% if (index < journey.page_sequence.length - 1 && flowGapSeconds <= 300) { %>
           <span class="journey-flow-arrow">→</span>
         <% } %>
       </div>
-    <% }) %>
+    <% }); %>
   </div>
   <p class="text-small text-muted mt-4" style="text-align: center;">
-    <%= journey.page_sequence.length %> page<%= journey.page_sequence.length !== 1 ? 's' : '' %> visited •
-    <%
-      const firstTime = new Date(journey.page_sequence[0].timestamp).getTime();
-      const lastTime = new Date(journey.page_sequence[journey.page_sequence.length - 1].timestamp).getTime();
-      const totalSeconds = Math.round((lastTime - firstTime) / 1000);
-    %>
-    Total time: <%= totalSeconds < 60 ? totalSeconds + 's' : Math.floor(totalSeconds / 60) + 'm ' + (totalSeconds % 60) + 's' %>
+    <%= journey.page_sequence.length %> pages across <%= flowSessionNum %> session<%= flowSessionNum !== 1 ? 's' : '' %>
   </p>
 </div>
 <% } %>
