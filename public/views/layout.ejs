@@ -171,32 +171,48 @@
       background: rgba(255, 159, 28, 0.15);
     }
 
-    .theme-toggle {
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      color: var(--white);
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      transition: all 0.2s;
-      backdrop-filter: blur(10px);
+    .theme-switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
       margin-left: 1rem;
+      cursor: pointer;
     }
 
-    .theme-toggle:hover {
-      background: rgba(255, 159, 28, 0.2);
-      border-color: var(--award-gold);
+    .theme-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
 
-    [data-theme="light"] .icon-sun { display: none; }
-    [data-theme="light"] .icon-moon { display: block; }
-    [data-theme="dark"] .icon-sun { display: block; }
-    [data-theme="dark"] .icon-moon { display: none; }
+    .theme-slider {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      transition: 0.3s;
+    }
+
+    .theme-slider::before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .theme-switch input:checked + .theme-slider {
+      background: var(--award-gold);
+    }
+
+    .theme-switch input:checked + .theme-slider::before {
+      transform: translateX(16px);
+    }
 
     /* ===== HERO SECTION ===== */
     .hero {
@@ -996,10 +1012,10 @@
           <a href="/realtime" class="<%= typeof currentPage !== 'undefined' && currentPage === 'realtime' ? 'active' : '' %>">Real-time</a>
           <a href="/insights" class="<%= typeof currentPage !== 'undefined' && currentPage === 'insights' ? 'active' : '' %>">AI Insights</a>
         </nav>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
-          <span class="icon-sun">Light</span>
-          <span class="icon-moon">Dark</span>
-        </button>
+        <label class="theme-switch" title="Toggle dark mode">
+          <input type="checkbox" onchange="toggleTheme()" id="theme-checkbox">
+          <span class="theme-slider"></span>
+        </label>
       </div>
     </div>
   </header>
@@ -1022,6 +1038,9 @@
       html.setAttribute('data-theme', newTheme);
       localStorage.setItem('theme', newTheme);
 
+      const checkbox = document.getElementById('theme-checkbox');
+      if (checkbox) checkbox.checked = newTheme === 'dark';
+
       if (typeof Chart !== 'undefined') {
         Chart.helpers.each(Chart.instances, (chart) => {
           updateChartTheme(chart, newTheme);
@@ -1032,6 +1051,11 @@
     (function() {
       const savedTheme = localStorage.getItem('theme') || 'light';
       document.documentElement.setAttribute('data-theme', savedTheme);
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const checkbox = document.getElementById('theme-checkbox');
+        if (checkbox) checkbox.checked = savedTheme === 'dark';
+      });
     })();
 
     function updateChartTheme(chart, theme) {
