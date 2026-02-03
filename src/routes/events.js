@@ -82,7 +82,16 @@ const VALID_EVENT_TYPES = [
   'video_pause',
   'video_complete',
   'page_load',
-  'error'
+  'error',
+
+  // Advanced UX tracking
+  'dead_click',
+  'element_visibility_time',
+  'search_query',
+  'scroll_velocity',
+  'text_selection',
+  'cursor_hesitation',
+  'back_button'
 ];
 
 /**

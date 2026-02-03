@@ -819,6 +819,259 @@
     });
   }
 
+  // ============ DEAD CLICKS (clicks on non-interactive elements) ============
+  function trackDeadClicks() {
+    document.addEventListener('click', function(e) {
+      const target = e.target;
+
+      // Check if click was on an interactive element
+      const isInteractive = target.closest('a, button, input, select, textarea, [role="button"], [onclick], label, summary, details');
+
+      if (!isInteractive) {
+        // This is a dead click - user clicked something non-interactive
+        const element = getElementSelector(target);
+        const text = getElementText(target);
+
+        sendEvent('dead_click', {
+          element: element,
+          text: text ? text.substring(0, 50) : null,
+          position: { x: e.clientX, y: e.clientY },
+          tag_name: target.tagName.toLowerCase(),
+        });
+      }
+    }, true);
+  }
+
+  // ============ ELEMENT VISIBILITY TIME ============
+  function trackElementVisibilityTime() {
+    if (!('IntersectionObserver' in window)) return;
+
+    const elementsToTrack = document.querySelectorAll('section, [data-track-time], .hero, .pricing, .features, .testimonials, .cta-section, article, .card');
+    const visibilityTimers = new Map();
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const el = entry.target;
+        const id = el.id || el.dataset.section || getElementSelector(el);
+
+        if (entry.isIntersecting) {
+          // Element came into view - start timer
+          if (!visibilityTimers.has(id)) {
+            visibilityTimers.set(id, {
+              startTime: Date.now(),
+              totalTime: 0,
+              element: el
+            });
+          } else {
+            // Resume timing
+            visibilityTimers.get(id).startTime = Date.now();
+          }
+        } else {
+          // Element left view - accumulate time
+          const timer = visibilityTimers.get(id);
+          if (timer && timer.startTime) {
+            timer.totalTime += Date.now() - timer.startTime;
+            timer.startTime = null;
+          }
+        }
+      });
+    }, { threshold: 0.5 });
+
+    elementsToTrack.forEach(el => observer.observe(el));
+
+    // Send visibility times when leaving page
+    window.addEventListener('beforeunload', function() {
+      visibilityTimers.forEach((timer, id) => {
+        let totalTime = timer.totalTime;
+        if (timer.startTime) {
+          totalTime += Date.now() - timer.startTime;
+        }
+
+        if (totalTime > 1000) { // Only report if viewed for more than 1 second
+          sendEvent('element_visibility_time', {
+            element_id: id,
+            element_text: getElementText(timer.element.querySelector('h1, h2, h3, h4')),
+            total_time_ms: totalTime,
+            tag_name: timer.element.tagName.toLowerCase(),
+          });
+        }
+      });
+    });
+  }
+
+  // ============ SEARCH QUERIES ============
+  function trackSearchQueries() {
+    // Track search form submissions
+    document.addEventListener('submit', function(e) {
+      const form = e.target;
+      const searchInput = form.querySelector('input[type="search"], input[name="q"], input[name="s"], input[name="search"], input[name="query"]');
+
+      if (searchInput && searchInput.value.trim()) {
+        sendEvent('search_query', {
+          query: searchInput.value.trim().substring(0, 100),
+          form_id: form.id || form.name || getElementSelector(form),
+        });
+      }
+    });
+
+    // Also track search inputs on Enter key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        const input = e.target;
+        if (input.type === 'search' || input.name === 'q' || input.name === 's' || input.name === 'search') {
+          if (input.value.trim()) {
+            sendEvent('search_query', {
+              query: input.value.trim().substring(0, 100),
+              triggered_by: 'enter_key',
+            });
+          }
+        }
+      }
+    });
+  }
+
+  // ============ SCROLL VELOCITY ============
+  function trackScrollVelocity() {
+    let lastScrollTop = 0;
+    let lastScrollTime = Date.now();
+    let scrollSamples = [];
+
+    window.addEventListener('scroll', function() {
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastScrollTime;
+
+      if (timeDiff > 50) { // Sample every 50ms minimum
+        const distance = Math.abs(currentScrollTop - lastScrollTop);
+        const velocity = distance / timeDiff * 1000; // pixels per second
+
+        scrollSamples.push(velocity);
+
+        // Keep last 20 samples
+        if (scrollSamples.length > 20) {
+          scrollSamples.shift();
+        }
+
+        lastScrollTop = currentScrollTop;
+        lastScrollTime = currentTime;
+      }
+    }, { passive: true });
+
+    // Report scroll behavior when leaving page
+    window.addEventListener('beforeunload', function() {
+      if (scrollSamples.length > 5) {
+        const avgVelocity = scrollSamples.reduce((a, b) => a + b, 0) / scrollSamples.length;
+        const maxVelocity = Math.max(...scrollSamples);
+
+        // Classify scroll behavior
+        let scrollBehavior = 'reading'; // slow, deliberate scrolling
+        if (avgVelocity > 2000) {
+          scrollBehavior = 'skimming'; // fast scrolling
+        } else if (avgVelocity > 1000) {
+          scrollBehavior = 'scanning'; // medium speed
+        }
+
+        sendEvent('scroll_velocity', {
+          avg_velocity: Math.round(avgVelocity),
+          max_velocity: Math.round(maxVelocity),
+          scroll_behavior: scrollBehavior,
+          samples: scrollSamples.length,
+        });
+      }
+    });
+  }
+
+  // ============ TEXT SELECTION ============
+  function trackTextSelection() {
+    let selectionTimeout;
+
+    document.addEventListener('selectionchange', function() {
+      clearTimeout(selectionTimeout);
+
+      selectionTimeout = setTimeout(function() {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        if (selectedText.length > 10) { // Only track meaningful selections
+          // Find what element contains the selection
+          let container = null;
+          if (selection.rangeCount > 0) {
+            container = selection.getRangeAt(0).commonAncestorContainer;
+            if (container.nodeType === 3) { // Text node
+              container = container.parentElement;
+            }
+          }
+
+          sendEvent('text_selection', {
+            text_length: selectedText.length,
+            text_preview: selectedText.substring(0, 100),
+            container_element: container ? getElementSelector(container) : null,
+          });
+        }
+      }, 500); // Debounce - wait 500ms after selection stops changing
+    });
+  }
+
+  // ============ CURSOR HESITATION (hover without click) ============
+  function trackCursorHesitation() {
+    const hesitationThreshold = 2000; // 2 seconds
+    const trackedHesitations = new Set();
+
+    document.addEventListener('mouseenter', function(e) {
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
+      if (!el) return;
+
+      const id = el.id || getElementSelector(el);
+      if (trackedHesitations.has(id)) return; // Only track once per element per session
+
+      el._hesitationTimer = setTimeout(function() {
+        // They hovered for 2+ seconds without clicking
+        trackedHesitations.add(id);
+        sendEvent('cursor_hesitation', {
+          element: id,
+          text: getElementText(el),
+          hover_duration_ms: hesitationThreshold,
+        });
+      }, hesitationThreshold);
+    }, true);
+
+    document.addEventListener('mouseleave', function(e) {
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
+      if (el && el._hesitationTimer) {
+        clearTimeout(el._hesitationTimer);
+        el._hesitationTimer = null;
+      }
+    }, true);
+
+    document.addEventListener('click', function(e) {
+      const el = e.target.closest('button, a.btn, .btn, [role="button"], .cta, input[type="submit"]');
+      if (el && el._hesitationTimer) {
+        clearTimeout(el._hesitationTimer);
+        el._hesitationTimer = null;
+      }
+    }, true);
+  }
+
+  // ============ BACK BUTTON USAGE ============
+  function trackBackButton() {
+    let lastUrl = window.location.href;
+    let pageLoadTime = Date.now();
+
+    window.addEventListener('popstate', function(e) {
+      const timeOnPage = Date.now() - pageLoadTime;
+
+      sendEvent('back_button', {
+        from_url: lastUrl,
+        to_url: window.location.href,
+        time_on_page_ms: timeOnPage,
+        quick_back: timeOnPage < 5000, // Left within 5 seconds = quick back
+      });
+
+      lastUrl = window.location.href;
+      pageLoadTime = Date.now();
+    });
+  }
+
   // ============ INITIALIZATION ============
   function init() {
     // Core tracking
@@ -846,6 +1099,15 @@
     // Technical tracking
     trackErrors();
     trackTabSwitches();
+
+    // NEW: Advanced UX tracking
+    trackDeadClicks();
+    trackElementVisibilityTime();
+    trackSearchQueries();
+    trackScrollVelocity();
+    trackTextSelection();
+    trackCursorHesitation();
+    trackBackButton();
   }
 
   // Run when DOM is ready
