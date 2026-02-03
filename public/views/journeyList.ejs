@@ -205,9 +205,13 @@
 </div>
 
 <script>
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#ffffff' : '#2C3E50';
-  const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)';
+  function getChartColors() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+      text: isDark ? '#ffffff' : '#2C3E50',
+      grid: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+    };
+  }
 
   const brandColors = {
     gold: '#FF9F1C',
@@ -231,6 +235,7 @@
       }
 
       const data = result.data;
+      const colors = getChartColors();
 
       // Conversion Funnel
       if (data.conversionFunnel && data.conversionFunnel.length > 0) {
@@ -258,8 +263,8 @@
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { color: gridColor }, ticks: { color: textColor } },
-              y: { grid: { display: false }, ticks: { color: textColor, font: { weight: 600 } } }
+              x: { grid: { color: colors.grid }, ticks: { color: colors.text } },
+              y: { grid: { display: false }, ticks: { color: colors.text, font: { weight: 600 } } }
             }
           }
         });
@@ -286,8 +291,8 @@
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { display: false }, ticks: { color: textColor, maxRotation: 45, font: { weight: 600 } } },
-              y: { grid: { color: gridColor }, ticks: { color: textColor } }
+              x: { grid: { display: false }, ticks: { color: colors.text, maxRotation: 45, font: { weight: 600 } } },
+              y: { grid: { color: colors.grid }, ticks: { color: colors.text } }
             }
           }
         });
@@ -312,7 +317,7 @@
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 16, usePointStyle: true } } }
+            plugins: { legend: { position: 'bottom', labels: { color: colors.text, padding: 16, usePointStyle: true } } }
           }
         });
       }
@@ -336,7 +341,7 @@
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%',
-            plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 16, usePointStyle: true } } }
+            plugins: { legend: { position: 'bottom', labels: { color: colors.text, padding: 16, usePointStyle: true } } }
           }
         });
       }
@@ -379,10 +384,10 @@
             responsive: true,
             maintainAspectRatio: false,
             interaction: { intersect: false, mode: 'index' },
-            plugins: { legend: { position: 'top', labels: { color: textColor, usePointStyle: true, padding: 20 } } },
+            plugins: { legend: { position: 'top', labels: { color: colors.text, usePointStyle: true, padding: 20 } } },
             scales: {
-              x: { grid: { color: gridColor }, ticks: { color: textColor } },
-              y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
+              x: { grid: { color: colors.grid }, ticks: { color: colors.text } },
+              y: { grid: { color: colors.grid }, ticks: { color: colors.text }, beginAtZero: true }
             }
           }
         });
