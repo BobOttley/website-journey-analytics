@@ -158,6 +158,45 @@
   let lastPollTime = Date.now();
   let previousJourneyIds = new Set(<%= JSON.stringify(visitors.map(v => v.journey_id)) %>);
 
+  // Page name helpers (local copy to avoid any scoping issues)
+  const PAGE_NAMES_LOCAL = {
+    '/': 'Home',
+    '/index.html': 'Home',
+    '/crm.html': 'SMART CRM',
+    '/prospectus.html': 'SMART Prospectus',
+    '/chatbot.html': 'Emily',
+    '/voice.html': 'SMART Voice',
+    '/booking.html': 'SMART Booking',
+    '/email.html': 'SMART Email',
+    '/contact.html': 'Contact',
+    '/smart-benefits-calculator.html': 'ROI Calculator',
+    '/privacy.html': 'Privacy Policy'
+  };
+
+  function getPageNameLocal(url) {
+    if (!url) return 'Unknown';
+    let path = url;
+    try {
+      if (url.startsWith('http')) {
+        path = new URL(url).pathname;
+      }
+    } catch (e) {
+      path = url.replace(/https?:\/\/[^\/]+/, '');
+    }
+    path = path.split('?')[0].toLowerCase();
+    return PAGE_NAMES_LOCAL[path] || PAGE_NAMES_LOCAL[path.replace(/^\//, '')] || formatPageNameLocal(path);
+  }
+
+  function formatPageNameLocal(path) {
+    let name = path.replace(/^\//, '').replace('.html', '').replace(/-/g, ' ');
+    if (!name || name === '/') return 'Home';
+    return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function getPageIconLocal(url) {
+    return ''; // No icons for now
+  }
+
   function formatTime(date) {
     return new Date(date).toLocaleTimeString('en-GB', {
       hour: '2-digit',
@@ -311,16 +350,30 @@
 
   async function loadRecentSessions() {
     const container = document.getElementById('recent-sessions-content');
+    if (!container) {
+      console.error('Recent sessions container not found');
+      return;
+    }
+
     try {
+      console.log('Fetching recent sessions...');
       const response = await fetch('/realtime/api/recent-sessions?_t=' + Date.now());
 
       if (!response.ok) {
+        const text = await response.text();
+        console.error('API error response:', text.substring(0, 200));
         throw new Error('Server returned ' + response.status);
       }
 
       const data = await response.json();
+      console.log('Recent sessions data:', data);
 
-      if (!data.success || !data.sessions || data.sessions.length === 0) {
+      if (!data.success) {
+        console.error('API returned success=false:', data.error);
+        throw new Error(data.error || 'API error');
+      }
+
+      if (!data.sessions || data.sessions.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <p class="text-muted">No completed sessions yet.</p>
@@ -350,7 +403,7 @@
                   ? `<span class="text-small">${s.location.city || s.location.country || s.location.countryCode}</span>`
                   : '<span class="text-muted">Unknown</span>';
                 const entryPage = s.entry_page
-                  ? `<span title="${s.entry_page}">${getPageIcon(s.entry_page)} ${getPageName(s.entry_page)}</span>`
+                  ? `<span title="${s.entry_page}">${getPageNameLocal(s.entry_page)}</span>`
                   : '<span class="text-muted">Unknown</span>';
                 const deviceBadge = s.device_type === 'mobile' ? 'warning' : s.device_type === 'tablet' ? 'info' : 'neutral';
                 const visitorBadge = s.visit_number && s.visit_number > 1
@@ -381,9 +434,11 @@
       container.innerHTML = tableHtml;
     } catch (error) {
       console.error('Error loading recent sessions:', error);
-      document.getElementById('recent-sessions-content').innerHTML = `
+      console.error('Error stack:', error.stack);
+      container.innerHTML = `
         <div class="empty-state">
           <p class="text-muted">Failed to load recent sessions.</p>
+          <p class="text-muted text-small" style="margin-top: 8px; opacity: 0.7;">${error.message}</p>
         </div>
       `;
     }
