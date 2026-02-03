@@ -259,9 +259,10 @@
           <tr>
             <th style="width: 120px;">Type</th>
             <th>Text Clicked</th>
-            <th style="width: 220px;">Page</th>
+            <th style="width: 150px;">Page</th>
             <th style="width: 70px;">Clicks</th>
             <th style="width: 70px;">Users</th>
+            <th style="width: 140px;">Last Clicked</th>
           </tr>
         </thead>
         <tbody>
@@ -328,6 +329,9 @@
               </td>
               <td class="number"><%= item.click_count %></td>
               <td class="number"><%= item.unique_visitors %></td>
+              <td style="font-size: 0.85rem; color: var(--text-muted);">
+                <%= item.last_clicked ? new Date(item.last_clicked).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-' %>
+              </td>
             </tr>
           <% }) %>
         </tbody>
