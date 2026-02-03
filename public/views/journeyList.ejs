@@ -119,16 +119,14 @@
           <% journeys.forEach(journey => { %>
             <tr>
               <td>
-                <code style="font-size: 0.8rem; background: var(--paper); padding: 4px 8px; border-radius: 4px;">
-                  <%= journey.journey_id.substring(0, 8) %>...
-                </code>
+                <span class="journey-id">
+                  #<%= journey.journey_id.substring(4, 12) %>
+                </span>
               </td>
               <td class="text-small"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) %></td>
-              <td class="text-small">
+              <td class="text-small entry-page-cell" data-url="<%= journey.entry_page || '' %>">
                 <% if (journey.entry_page) { %>
-                  <span title="<%= journey.entry_page %>">
-                    <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '').substring(0, 30) %><%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '').length > 30 ? '...' : '' %>
-                  </span>
+                  <span class="entry-page-name"></span>
                 <% } else { %>
                   <span class="text-muted">-</span>
                 <% } %>
@@ -267,13 +265,10 @@
         });
       }
 
-      // Top Pages
+      // Top Pages - with friendly names
       if (data.topPages && data.topPages.length > 0) {
         const pagesCtx = document.getElementById('pagesChart').getContext('2d');
-        const pageLabels = data.topPages.map(p => {
-          const path = p.page_url ? p.page_url.replace(/https?:\/\/[^\/]+/, '') : '/';
-          return path.length > 20 ? path.substring(0, 20) + '...' : path;
-        });
+        const pageLabels = data.topPages.map(p => getPageName(p.page_url));
 
         new Chart(pagesCtx, {
           type: 'bar',
@@ -291,7 +286,7 @@
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { display: false }, ticks: { color: textColor, maxRotation: 45 } },
+              x: { grid: { display: false }, ticks: { color: textColor, maxRotation: 45, font: { weight: 600 } } },
               y: { grid: { color: gridColor }, ticks: { color: textColor } }
             }
           }
@@ -398,5 +393,19 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', loadCharts);
+  document.addEventListener('DOMContentLoaded', () => {
+    loadCharts();
+
+    // Populate friendly page names in table
+    document.querySelectorAll('.entry-page-cell').forEach(cell => {
+      const url = cell.dataset.url;
+      const nameEl = cell.querySelector('.entry-page-name');
+      if (url && nameEl) {
+        const icon = getPageIcon(url);
+        const name = getPageName(url);
+        nameEl.innerHTML = `<span style="margin-right: 6px;">${icon}</span>${name}`;
+        nameEl.title = url;
+      }
+    });
+  });
 </script>

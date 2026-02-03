@@ -48,6 +48,7 @@
     [data-theme="dark"] {
       --bg-body: #0a1628;
       --bg-card: #0d2137;
+      --paper: #132f4c;
       --text-primary: #f1f5f9;
       --text-muted: #94a3b8;
       --border-grey: #1e3a5f;
@@ -476,7 +477,92 @@
     [data-theme="dark"] .alert-danger { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #F87171; }
     [data-theme="dark"] .alert-info { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA; }
 
-    /* ===== TIMELINE ===== */
+    /* ===== CODE / JOURNEY ID ===== */
+    code, .journey-id {
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+      font-size: 0.8rem;
+      background: var(--border-grey);
+      color: var(--text-primary);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-grey);
+    }
+
+    [data-theme="dark"] code,
+    [data-theme="dark"] .journey-id {
+      background: rgba(255, 159, 28, 0.15);
+      border-color: rgba(255, 159, 28, 0.3);
+      color: var(--award-gold);
+    }
+
+    /* ===== HORIZONTAL JOURNEY FLOW ===== */
+    .journey-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 1.5rem;
+      background: var(--paper);
+      border-radius: 12px;
+    }
+
+    [data-theme="dark"] .journey-flow {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .journey-flow-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .journey-flow-page {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-grey);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: all 0.2s;
+    }
+
+    .journey-flow-page:hover {
+      border-color: var(--award-gold);
+      transform: translateY(-2px);
+    }
+
+    .journey-flow-page.conversion {
+      background: var(--success-light);
+      border-color: var(--success);
+      color: #065F46;
+    }
+
+    [data-theme="dark"] .journey-flow-page.conversion {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34D399;
+    }
+
+    .journey-flow-page .page-icon {
+      font-size: 1rem;
+    }
+
+    .journey-flow-arrow {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .journey-flow-time {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* ===== VERTICAL TIMELINE (for detailed events) ===== */
     .timeline {
       position: relative;
       padding-left: 2rem;
@@ -522,6 +608,15 @@
       font-size: 0.75rem;
       color: var(--text-muted);
       font-weight: 600;
+    }
+
+    /* ===== TABLE DARK MODE FIX ===== */
+    [data-theme="dark"] td {
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .text-muted {
+      color: var(--text-muted);
     }
 
     /* ===== PAGINATION ===== */
@@ -826,6 +921,66 @@
       const savedTheme = localStorage.getItem('theme') || 'light';
       document.documentElement.setAttribute('data-theme', savedTheme);
     })();
+
+    // Page name mapping helper
+    const PAGE_NAMES = {
+      '/': 'Home',
+      '/index.html': 'Home',
+      '/crm.html': 'SMART CRM',
+      '/prospectus.html': 'SMART Prospectus',
+      '/chatbot.html': 'Emily',
+      '/voice.html': 'SMART Voice',
+      '/booking.html': 'SMART Booking',
+      '/email.html': 'SMART Email',
+      '/contact.html': 'Contact',
+      '/smart-benefits-calculator.html': 'ROI Calculator',
+      '/privacy.html': 'Privacy Policy'
+    };
+
+    const PAGE_ICONS = {
+      '/': '🏠',
+      '/index.html': '🏠',
+      '/crm.html': '📊',
+      '/prospectus.html': '📖',
+      '/chatbot.html': '🤖',
+      '/voice.html': '🎙️',
+      '/booking.html': '📅',
+      '/email.html': '✉️',
+      '/contact.html': '📞',
+      '/smart-benefits-calculator.html': '🧮',
+      '/privacy.html': '🔒'
+    };
+
+    function getPageName(url) {
+      if (!url) return 'Unknown';
+      // Extract path from full URL
+      let path = url;
+      try {
+        if (url.startsWith('http')) {
+          path = new URL(url).pathname;
+        }
+      } catch (e) {
+        path = url.replace(/https?:\/\/[^\/]+/, '');
+      }
+      // Remove query params
+      path = path.split('?')[0];
+      // Return friendly name or cleaned path
+      return PAGE_NAMES[path] || path.replace('.html', '').replace(/\//g, '') || 'Home';
+    }
+
+    function getPageIcon(url) {
+      if (!url) return '📄';
+      let path = url;
+      try {
+        if (url.startsWith('http')) {
+          path = new URL(url).pathname;
+        }
+      } catch (e) {
+        path = url.replace(/https?:\/\/[^\/]+/, '');
+      }
+      path = path.split('?')[0];
+      return PAGE_ICONS[path] || '📄';
+    }
 
     function updateChartTheme(chart, theme) {
       const isDark = theme === 'dark';

@@ -1,8 +1,8 @@
 <div class="flex justify-between items-center mb-4">
   <div>
-    <a href="/journeys" class="text-muted text-small">Back to Journeys</a>
-    <h2 class="mt-4" style="font-size: 1.5rem;">
-      Journey: <code style="font-size: 1rem; background: var(--paper); padding: 4px 10px; border-radius: 6px;"><%= journey.journey_id.substring(0, 12) %>...</code>
+    <a href="/journeys" class="text-muted text-small">← Back to Journeys</a>
+    <h2 class="mt-4" style="font-size: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+      Journey <span class="journey-id">#<%= journey.journey_id.substring(4, 16) %></span>
     </h2>
   </div>
   <div class="flex gap-2 items-center">
@@ -58,8 +58,8 @@
         <th style="width: 140px; background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Entry Page</th>
         <td>
           <% if (journey.entry_page) { %>
-            <a href="<%= journey.entry_page %>" target="_blank" title="<%= journey.entry_page %>">
-              <%= journey.entry_page.replace(/https?:\/\/[^\/]+/, '') %>
+            <a href="<%= journey.entry_page %>" target="_blank" class="entry-page-link" data-url="<%= journey.entry_page %>">
+              <span class="page-display"></span>
             </a>
           <% } else { %>
             <span class="text-muted">Unknown</span>
@@ -263,32 +263,33 @@
 </div>
 
 <% if (journey.page_sequence && journey.page_sequence.length > 0) { %>
-<!-- Page Sequence / Journey Map -->
+<!-- Page Sequence / Journey Flow -->
 <div class="card">
-  <h2>Journey Map</h2>
-  <div style="display: flex; flex-direction: column; gap: 8px;">
+  <h2>Journey Flow</h2>
+  <div class="journey-flow" id="journeyFlow">
     <% journey.page_sequence.forEach((page, index) => { %>
-      <div class="journey-node <%= index === journey.page_sequence.length - 1 && (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked') ? 'conversion' : '' %>">
-        <div class="node-icon">
-          <%= index + 1 %>
+      <div class="journey-flow-item">
+        <div class="journey-flow-page <%= index === journey.page_sequence.length - 1 && (journey.outcome === 'enquiry_submitted' || journey.outcome === 'visit_booked') ? 'conversion' : '' %>"
+             data-url="<%= page.url || '' %>"
+             title="<%= new Date(page.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>">
+          <span class="page-icon"></span>
+          <span class="page-name"></span>
         </div>
-        <div style="flex: 1;">
-          <div style="font-weight: 600;">
-            <%= page.url?.replace(/https?:\/\/[^\/]+/, '') || 'Unknown' %>
-          </div>
-          <div class="text-small text-muted">
-            <%= new Date(page.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>
-            <% if (index > 0) { %>
-              <% const prevTime = new Date(journey.page_sequence[index-1].timestamp).getTime(); %>
-              <% const currTime = new Date(page.timestamp).getTime(); %>
-              <% const diff = Math.round((currTime - prevTime) / 1000); %>
-              — <%= diff < 60 ? diff + 's' : Math.floor(diff / 60) + 'm ' + (diff % 60) + 's' %> from previous
-            <% } %>
-          </div>
-        </div>
+        <% if (index < journey.page_sequence.length - 1) { %>
+          <span class="journey-flow-arrow">→</span>
+        <% } %>
       </div>
     <% }) %>
   </div>
+  <p class="text-small text-muted mt-4" style="text-align: center;">
+    <%= journey.page_sequence.length %> page<%= journey.page_sequence.length !== 1 ? 's' : '' %> visited •
+    <%
+      const firstTime = new Date(journey.page_sequence[0].timestamp).getTime();
+      const lastTime = new Date(journey.page_sequence[journey.page_sequence.length - 1].timestamp).getTime();
+      const totalSeconds = Math.round((lastTime - firstTime) / 1000);
+    %>
+    Total time: <%= totalSeconds < 60 ? totalSeconds + 's' : Math.floor(totalSeconds / 60) + 'm ' + (totalSeconds % 60) + 's' %>
+  </p>
 </div>
 <% } %>
 
@@ -304,5 +305,31 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     toggleHeartbeats();
+
+    // Populate friendly page names in journey flow
+    document.querySelectorAll('.journey-flow-page').forEach(el => {
+      const url = el.dataset.url;
+      const iconEl = el.querySelector('.page-icon');
+      const nameEl = el.querySelector('.page-name');
+      if (iconEl) iconEl.textContent = getPageIcon(url);
+      if (nameEl) nameEl.textContent = getPageName(url);
+    });
+
+    // Populate entry page link
+    document.querySelectorAll('.entry-page-link').forEach(el => {
+      const url = el.dataset.url;
+      const displayEl = el.querySelector('.page-display');
+      if (displayEl) {
+        displayEl.innerHTML = `<span style="margin-right: 6px;">${getPageIcon(url)}</span>${getPageName(url)}`;
+      }
+    });
+
+    // Populate timeline page URLs with friendly names
+    document.querySelectorAll('.timeline-item a[target="_blank"]').forEach(el => {
+      const url = el.getAttribute('href');
+      if (url) {
+        el.innerHTML = `${getPageIcon(url)} ${getPageName(url)}`;
+      }
+    });
   });
 </script>
