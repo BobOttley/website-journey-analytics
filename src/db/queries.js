@@ -209,7 +209,7 @@ async function getJourneysInDateRange(startDate, endDate, siteId = null) {
   const startDateTime = startDate.includes('T') ? startDate : startDate + 'T00:00:00.000Z';
   const endDateTime = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
 
-  let query = `SELECT * FROM journeys WHERE first_seen >= $1 AND first_seen <= $2`;
+  let query = `SELECT * FROM journeys WHERE first_seen >= $1 AND first_seen <= $2 AND (entry_page IS NULL OR entry_page NOT LIKE '%gtm-msr.appspot.com%')`;
   const params = [startDateTime, endDateTime];
 
   if (siteId) {
@@ -661,7 +661,7 @@ async function getRecentNewJourneys(sinceSeconds = 300, siteId = null) {
   const db = getDb();
   const cutoffTime = new Date(Date.now() - (sinceSeconds * 1000)).toISOString();
 
-  let whereClause = "WHERE je.event_type = 'page_view'";
+  let whereClause = "WHERE je.event_type = 'page_view' AND je.page_url NOT LIKE '%gtm-msr.appspot.com%'";
   const params = [cutoffTime];
 
   if (siteId) {
@@ -675,7 +675,7 @@ async function getRecentNewJourneys(sinceSeconds = 300, siteId = null) {
     `SELECT
        je.journey_id,
        MIN(je.occurred_at) as first_seen,
-       (SELECT je2.page_url FROM journey_events je2 WHERE je2.journey_id = je.journey_id ORDER BY je2.occurred_at ASC LIMIT 1) as entry_page,
+       (SELECT je2.page_url FROM journey_events je2 WHERE je2.journey_id = je.journey_id AND je2.page_url NOT LIKE '%gtm-msr.appspot.com%' ORDER BY je2.occurred_at ASC LIMIT 1) as entry_page,
        (SELECT je3.referrer FROM journey_events je3 WHERE je3.journey_id = je.journey_id AND je3.referrer IS NOT NULL ORDER BY je3.occurred_at ASC LIMIT 1) as referrer,
        (SELECT je4.device_type FROM journey_events je4 WHERE je4.journey_id = je.journey_id ORDER BY je4.occurred_at ASC LIMIT 1) as device_type
      FROM journey_events je
@@ -718,7 +718,7 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
   const db = getDb();
   const activeCutoff = new Date(Date.now() - (inactiveAfterSeconds * 1000)).toISOString();
 
-  let whereClause = 'WHERE j.last_seen < $1';
+  let whereClause = "WHERE j.last_seen < $1 AND (j.entry_page IS NULL OR j.entry_page NOT LIKE '%gtm-msr.appspot.com%')";
   const params = [activeCutoff];
   let paramIndex = 2;
 
@@ -1276,6 +1276,7 @@ async function getExitPages(siteId = null, limit = 15) {
         page_url as exit_page
       FROM journey_events
       WHERE event_type = 'page_view'
+        AND page_url NOT LIKE '%gtm-msr.appspot.com%'
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
