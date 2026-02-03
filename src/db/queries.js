@@ -1031,7 +1031,7 @@ async function getSectionVisibility(siteId = null, limit = 15) {
       AND ${botFilter}
       ${siteFilter}
     GROUP BY COALESCE(metadata->>'section', cta_label), page_url
-    HAVING COUNT(*) >= 3
+    HAVING COUNT(*) >= 1
     ORDER BY avg_view_time DESC
     LIMIT $1
   `, params);

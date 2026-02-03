@@ -531,27 +531,20 @@
   </div>
 </div>
 
-<!-- 30-Day Trend (full width) -->
+<!-- 30-Day Trend (full width) - only show if we have at least 3 days of data -->
+<% if (trend && trend.length >= 3) { %>
 <div class="section-grid">
   <div class="section-card full-width">
     <h3>30-Day UX Trend</h3>
-    <% if (trend && trend.length > 0) { %>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
-        Track friction metrics over time. Decreasing trends = UX improvements working.
-      </p>
-      <div class="chart-wrap tall">
-        <canvas id="trendChart"></canvas>
-      </div>
-    <% } else { %>
-      <div class="empty-state">
-        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-        </svg>
-        <p>Not enough data for trends yet</p>
-      </div>
-    <% } %>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: -0.5rem 0 1rem 0;">
+      Track friction metrics over time. Decreasing trends = UX improvements working.
+    </p>
+    <div class="chart-wrap tall">
+      <canvas id="trendChart"></canvas>
+    </div>
   </div>
 </div>
+<% } %>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -619,8 +612,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   <% } %>
 
-  // 30-Day Trend Line
-  <% if (trend && trend.length > 0) { %>
+  // 30-Day Trend Line (only show if we have at least 3 days of data)
+  <% if (trend && trend.length >= 3) { %>
   const trendData = <%- JSON.stringify(trend) %>;
   const trendCtx = document.getElementById('trendChart');
   if (trendCtx) {
