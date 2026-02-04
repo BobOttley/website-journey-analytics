@@ -240,8 +240,11 @@ router.post('/', async (req, res) => {
      * Visitor email logic
      * Fire once per journey per server session (covers new AND returning visitors)
      */
+    console.log(`[EVENT] Received: ${event.event_type} for journey ${event.journey_id.substring(0,8)}, notified=${notifiedJourneys.has(event.journey_id)}, setSize=${notifiedJourneys.size}`);
+
     if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
       notifiedJourneys.add(event.journey_id);
+      console.log(`[EMAIL] TRIGGERING for journey ${event.journey_id.substring(0,8)}`);
 
       // Keep memory bounded
       if (notifiedJourneys.size > 5000) {
@@ -253,7 +256,7 @@ router.post('/', async (req, res) => {
       const existing = await getEventsByJourneyId(event.journey_id);
       const isReturn = existing.length > 1;
 
-      console.log(`[EMAIL] Sending for journey ${event.journey_id.substring(0,8)} (${isReturn ? 'returning' : 'new'})`);
+      console.log(`[EMAIL] Sending for journey ${event.journey_id.substring(0,8)} (${isReturn ? 'returning' : 'new'}), location=${location ? location.city : 'none'}`);
 
       emailService.sendNewVisitorNotification({
         journey_id: event.journey_id,
@@ -264,10 +267,12 @@ router.post('/', async (req, res) => {
         location,
         isReturn
       }).then(result => {
-        console.log(`[EMAIL] Result:`, result);
+        console.log(`[EMAIL] SUCCESS for ${event.journey_id.substring(0,8)}:`, result);
       }).catch(err => {
-        console.error('[EMAIL] Failed:', err.message);
+        console.error(`[EMAIL] FAILED for ${event.journey_id.substring(0,8)}:`, err.message);
       });
+    } else if (event.event_type === 'page_view') {
+      console.log(`[EMAIL] SKIPPED for ${event.journey_id.substring(0,8)} - already notified`);
     }
 
     res.status(201).json({
