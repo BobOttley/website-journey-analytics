@@ -283,6 +283,39 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Email debug endpoint
+const emailService = require('./services/emailService');
+app.get('/debug-email', async (req, res) => {
+  const configured = emailService.isConfigured();
+  const envCheck = {
+    MS_CLIENT_ID: !!process.env.MS_CLIENT_ID,
+    MS_CLIENT_SECRET: !!process.env.MS_CLIENT_SECRET,
+    MS_TENANT_ID: !!process.env.MS_TENANT_ID,
+    SENDER_EMAIL: !!process.env.SENDER_EMAIL,
+    EMAIL_NOTIFY: !!process.env.EMAIL_NOTIFY
+  };
+
+  // If ?send=1 is passed, try to send a test email
+  if (req.query.send === '1' && configured) {
+    try {
+      const result = await emailService.sendNewVisitorNotification({
+        journey_id: 'debug_test_' + Date.now(),
+        entry_page: 'https://debug-test.com/test-page',
+        referrer: 'Debug test',
+        device_type: 'debug',
+        first_seen: new Date().toISOString(),
+        location: { city: 'Debug City', country: 'Test Land', flag: '🔧' },
+        isReturn: false
+      });
+      return res.json({ configured, envCheck, testEmail: result });
+    } catch (err) {
+      return res.json({ configured, envCheck, testEmail: { error: err.message } });
+    }
+  }
+
+  res.json({ configured, envCheck, hint: 'Add ?send=1 to send a test email' });
+});
+
 // Debug endpoint to check event count
 app.get('/debug', async (req, res) => {
   try {
