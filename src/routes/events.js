@@ -266,9 +266,12 @@ router.post('/', async (req, res) => {
      */
     logEmail(`EVENT: ${event.event_type} for ${event.journey_id.substring(0,8)}, notified=${notifiedJourneys.has(event.journey_id)}, size=${notifiedJourneys.size}`);
 
-    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
+    const location = metadata.location || null;
+
+    // Only send email if we have location data (skip empty notifications)
+    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id) && location) {
       notifiedJourneys.add(event.journey_id);
-      logEmail(`TRIGGER: ${event.journey_id.substring(0,8)}`);
+      logEmail(`TRIGGER: ${event.journey_id.substring(0,8)} with location`);
 
       // Keep memory bounded
       if (notifiedJourneys.size > 5000) {
@@ -276,7 +279,6 @@ router.post('/', async (req, res) => {
           .forEach(id => notifiedJourneys.delete(id));
       }
 
-      const location = metadata.location || null;
       const existing = await getEventsByJourneyId(event.journey_id);
       const isReturn = existing.length > 1;
 
@@ -377,11 +379,12 @@ router.post('/batch', async (req, res) => {
         });
 
         // Email notification for batch events (same logic as single endpoint)
-        if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id)) {
-          notifiedJourneys.add(e.journey_id);
-          logEmail(`BATCH TRIGGER: ${e.journey_id.substring(0,8)}`);
+        const location = metadata.location || null;
 
-          const location = metadata.location || null;
+        // Only send email if we have location data (skip empty notifications)
+        if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id) && location) {
+          notifiedJourneys.add(e.journey_id);
+          logEmail(`BATCH TRIGGER: ${e.journey_id.substring(0,8)} with location`);
           const existing = await getEventsByJourneyId(e.journey_id);
           const isReturn = existing.length > 1;
 
