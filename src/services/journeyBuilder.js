@@ -461,7 +461,9 @@ async function reconstructJourney(journeyId, siteId = null) {
     is_bot: botResult.isBot,
     bot_score: botResult.botScore,
     bot_type: botResult.botType,
-    bot_signals: botResult.signals
+    bot_signals: botResult.signals,
+    // Site ID for multi-tenant filtering
+    site_id: firstEvent.site_id || null
   };
 }
 
