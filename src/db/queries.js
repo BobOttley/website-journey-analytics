@@ -1632,6 +1632,57 @@ async function getJourneyAnalysis(journeyId) {
 }
 
 // ============================================
+// VISITOR JOURNEY COUNT
+// ============================================
+
+/**
+ * Count how many journeys a visitor has (for return visitor detection)
+ * Returns the visit number for a specific journey based on first event time
+ * Uses raw events table so it works during rebuild
+ */
+async function getVisitorJourneyNumber(visitorId, journeyFirstSeen, siteId = null) {
+  if (!visitorId) return 1;
+
+  const db = getDb();
+
+  // Count distinct journey_ids for this visitor that started before or at the same time
+  let query = `
+    SELECT COUNT(DISTINCT journey_id) as visit_number
+    FROM journey_events
+    WHERE visitor_id = $1
+      AND occurred_at <= $2
+  `;
+  const params = [visitorId, journeyFirstSeen];
+
+  if (siteId) {
+    query += ` AND site_id = $3`;
+    params.push(siteId);
+  }
+
+  const result = await db.query(query, params);
+  return parseInt(result.rows[0]?.visit_number || 1);
+}
+
+/**
+ * Get total journey count for a visitor
+ */
+async function getVisitorTotalJourneys(visitorId, siteId = null) {
+  if (!visitorId) return 1;
+
+  const db = getDb();
+  let query = `SELECT COUNT(DISTINCT journey_id) as total FROM journey_events WHERE visitor_id = $1`;
+  const params = [visitorId];
+
+  if (siteId) {
+    query += ` AND site_id = $2`;
+    params.push(siteId);
+  }
+
+  const result = await db.query(query, params);
+  return parseInt(result.rows[0]?.total || 1);
+}
+
+// ============================================
 // PIXEL TRACKING ANALYTICS
 // ============================================
 
@@ -1883,5 +1934,8 @@ module.exports = {
   getPixelVsJsTrend,
   getPixelPageStats,
   getPixelHourlyDistribution,
-  getCombinedVisitorStats
+  getCombinedVisitorStats,
+  // Visitor Journey Count
+  getVisitorJourneyNumber,
+  getVisitorTotalJourneys
 };

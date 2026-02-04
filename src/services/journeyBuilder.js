@@ -1,4 +1,4 @@
-const { getEventsByJourneyId, getUniqueJourneyIds, upsertJourney } = require('../db/queries');
+const { getEventsByJourneyId, getUniqueJourneyIds, upsertJourney, getVisitorJourneyNumber } = require('../db/queries');
 const { calculateJourneyBotScore } = require('./botDetection');
 
 /**
@@ -426,13 +426,13 @@ async function reconstructJourney(journeyId, siteId = null) {
   // Calculate bot score for the entire journey
   const botResult = calculateJourneyBotScore(events);
 
-  // Extract visit_number from metadata (sent by tracking script)
-  // Handle both parsed JSON and string formats
-  let metadata = firstEvent.metadata;
-  if (typeof metadata === 'string') {
-    try { metadata = JSON.parse(metadata); } catch (e) { metadata = {}; }
-  }
-  const visitNumber = metadata?.visit_number || 1;
+  // Calculate visit_number by counting this visitor's journeys from the database
+  // This works for all data, not just events with visit_number in metadata
+  const visitNumber = await getVisitorJourneyNumber(
+    firstEvent.visitor_id,
+    firstEvent.occurred_at,
+    firstEvent.site_id
+  );
 
   return {
     journey_id: journeyId,
