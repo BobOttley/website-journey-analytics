@@ -40,6 +40,81 @@
   </div>
 </div>
 
+<!-- Pixel vs JavaScript Tracking Comparison (Last 30 Days) -->
+<% if (pixelStats && (pixelStats.pixel.total > 0 || pixelStats.javascript.total > 0)) { %>
+<div class="card mb-6" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(255,255,255,0.1);">
+  <div class="flex justify-between items-center mb-4">
+    <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+      <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
+      Pixel vs JavaScript Tracking
+      <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(Last 30 Days)</span>
+    </h2>
+    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.7rem;">NEW</span>
+  </div>
+
+  <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <!-- Raw Visitors (Pixel) -->
+    <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #60a5fa;">Raw Visitors</h3>
+      <div class="value" style="color: #3b82f6;"><%= pixelStats.pixel.total %></div>
+      <div class="subtitle" style="font-size: 0.7rem;">
+        Pixel tracked (all requests)
+      </div>
+    </div>
+
+    <!-- Engaged Visitors (JS) -->
+    <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #34d399;">Engaged Visitors</h3>
+      <div class="value" style="color: #10b981;"><%= pixelStats.javascript.total %></div>
+      <div class="subtitle" style="font-size: 0.7rem;">
+        JavaScript tracked (real engagement)
+      </div>
+    </div>
+
+    <!-- Engagement Rate -->
+    <div class="stat-card" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #a78bfa;">Engagement Rate</h3>
+      <div class="value" style="color: #8b5cf6;"><%= pixelStats.engagementRate %>%</div>
+      <div class="subtitle" style="font-size: 0.7rem;">
+        JS tracked / Pixel tracked
+      </div>
+    </div>
+
+    <!-- Untracked (Pixel-only) -->
+    <div class="stat-card" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #fb923c;">Untracked by JS</h3>
+      <div class="value" style="color: #f97316;"><%= pixelStats.untracked %></div>
+      <div class="subtitle" style="font-size: 0.7rem;">
+        Visitors JS never saw (bots, bounces)
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 0.75rem; color: #94a3b8;">
+    <strong style="color: #60a5fa;">Pixel tracking</strong> captures ALL visitors including bots, ad-blocker users, and fast bounces.
+    <strong style="color: #34d399;">JavaScript tracking</strong> captures only visitors who fully load your page and engage.
+    The difference shows traffic that never executed JavaScript.
+  </div>
+</div>
+<% } else { %>
+<!-- Pixel Tracking Setup Prompt -->
+<div class="card mb-6" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px dashed rgba(255,255,255,0.2);">
+  <h2 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+    <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; display: inline-block;"></span>
+    Enable Pixel Tracking
+  </h2>
+  <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;">
+    Add pixel tracking to capture visitors that JavaScript misses (bots, ad-blockers, fast bounces).
+  </p>
+  <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.8rem; color: #e2e8f0; overflow-x: auto;">
+    &lt;img src="https://website-journey-analytics.onrender.com/p.gif?k=YOUR_TRACKING_KEY" style="position:absolute;width:1px;height:1px;opacity:0" /&gt;
+  </div>
+  <p style="color: #64748b; font-size: 0.75rem; margin-top: 0.5rem;">
+    Add this to your website's HTML just before &lt;/body&gt;
+  </p>
+</div>
+<% } %>
+
 <!-- Charts Section -->
 <div class="grid-2 mb-6">
   <!-- Conversion Funnel -->

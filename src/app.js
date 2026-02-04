@@ -22,7 +22,44 @@ const { requireAuth, attachUserContext } = require('./middleware/auth');
 
 // Import journey builder for background sync
 const { reconstructJourney } = require('./services/journeyBuilder');
-const { upsertJourney, getUniqueJourneyIds } = require('./db/queries');
+const { upsertJourney, getUniqueJourneyIds, insertEvent, getSiteByTrackingKey } = require('./db/queries');
+const { getClientIP, lookupIP, isPrivateIP } = require('./services/geoService');
+const { detectBotForEvent } = require('./services/botDetection');
+
+// 1x1 transparent GIF (smallest valid GIF - 43 bytes)
+const PIXEL_GIF = Buffer.from(
+  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+  'base64'
+);
+
+// Cache for tracking key lookups (pixel endpoint)
+const pixelTrackingKeyCache = new Map();
+const PIXEL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function resolvePixelSiteId(trackingKey) {
+  if (!trackingKey) return null;
+
+  const cached = pixelTrackingKeyCache.get(trackingKey);
+  if (cached && Date.now() - cached.timestamp < PIXEL_CACHE_TTL) {
+    return cached.siteId;
+  }
+
+  const site = await getSiteByTrackingKey(trackingKey);
+  const siteId = site ? site.id : null;
+
+  pixelTrackingKeyCache.set(trackingKey, { siteId, timestamp: Date.now() });
+
+  if (pixelTrackingKeyCache.size > 100) {
+    const now = Date.now();
+    for (const [key, value] of pixelTrackingKeyCache) {
+      if (now - value.timestamp > PIXEL_CACHE_TTL) {
+        pixelTrackingKeyCache.delete(key);
+      }
+    }
+  }
+
+  return siteId;
+}
 
 // Initialize Express app
 const app = express();
@@ -129,6 +166,108 @@ app.get('/tracking.js', (req, res) => {
   res.send(script);
 });
 
+/**
+ * Pixel Tracking Endpoint
+ *
+ * Usage: <img src="https://website-journey-analytics.onrender.com/p.gif?k=TRACKING_KEY&p=PAGE_URL" />
+ *
+ * Query params:
+ *   k  = tracking key (required for multi-tenant)
+ *   p  = page URL (defaults to referrer)
+ *   r  = referrer URL
+ *   t  = title (optional page title)
+ *   v  = visitor ID (optional, for linking to JS tracking)
+ *   j  = journey ID (optional, for linking to JS tracking)
+ *
+ * This captures visitors who:
+ * - Have JavaScript disabled
+ * - Use ad blockers that block tracking scripts
+ * - Leave before JavaScript loads
+ * - Are bots that don't execute JavaScript
+ */
+app.get('/p.gif', async (req, res) => {
+  // Always return the pixel immediately (non-blocking)
+  res.setHeader('Content-Type', 'image/gif');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.send(PIXEL_GIF);
+
+  // Process the tracking asynchronously (don't delay the image response)
+  setImmediate(async () => {
+    try {
+      const trackingKey = req.query.k || req.query.key || null;
+      const pageUrl = req.query.p || req.query.page || req.get('Referer') || 'unknown';
+      const referrer = req.query.r || req.query.ref || null;
+      const pageTitle = req.query.t || req.query.title || null;
+      const visitorId = req.query.v || req.query.visitor || `pxl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const journeyId = req.query.j || req.query.journey || `pxl_jrn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Get client info
+      const userAgent = req.get('User-Agent') || 'Unknown';
+      const clientIP = getClientIP(req);
+
+      // Detect device type from user agent
+      let deviceType = 'desktop';
+      if (/mobile|android|iphone|ipad|ipod/i.test(userAgent)) {
+        deviceType = /ipad|tablet/i.test(userAgent) ? 'tablet' : 'mobile';
+      }
+
+      // Run bot detection
+      const botDetection = detectBotForEvent({
+        userAgent,
+        ipAddress: clientIP,
+        metadata: {}
+      });
+
+      // Resolve site ID
+      const siteId = await resolvePixelSiteId(trackingKey);
+
+      // Get geolocation for the IP
+      let location = null;
+      if (clientIP && !isPrivateIP(clientIP)) {
+        try {
+          location = await lookupIP(clientIP);
+        } catch (err) {
+          // Silently ignore geo lookup failures
+        }
+      }
+
+      // Build metadata
+      const metadata = {
+        tracking_method: 'pixel',
+        page_title: pageTitle,
+        location: location,
+        ip_address: clientIP
+      };
+
+      // Insert the pixel view event
+      await insertEvent({
+        journey_id: journeyId,
+        visitor_id: visitorId,
+        event_type: 'pixel_view',
+        page_url: pageUrl,
+        referrer: referrer,
+        intent_type: null,
+        cta_label: null,
+        device_type: deviceType,
+        metadata: metadata,
+        occurred_at: new Date().toISOString(),
+        user_agent: userAgent,
+        ip_address: clientIP,
+        is_bot: botDetection.isBot,
+        bot_score: botDetection.botScore,
+        bot_signals: botDetection.signals,
+        site_id: siteId
+      });
+
+      console.log(`[PIXEL] Tracked: ${pageUrl} (${botDetection.isBot ? 'bot' : 'human'}, score: ${botDetection.botScore})`);
+    } catch (err) {
+      console.error('[PIXEL] Tracking error:', err.message);
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -230,6 +369,7 @@ async function start() {
 ║  UX:         http://localhost:${PORT}/ux                  ║
 ║  Insights:   http://localhost:${PORT}/insights            ║
 ║  API:        http://localhost:${PORT}/api/event           ║
+║  Pixel:      http://localhost:${PORT}/p.gif               ║
 ║  Health:     http://localhost:${PORT}/health              ║
 ╚═══════════════════════════════════════════════════════╝
       `);

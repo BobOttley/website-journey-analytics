@@ -93,7 +93,10 @@ const VALID_EVENT_TYPES = [
   'section_visibility',
   'pdf_download',
   'rage_click',
-  'return_visitor'
+  'return_visitor',
+
+  // Pixel tracking (server-side, no JavaScript required)
+  'pixel_view'
 ];
 
 /**

@@ -1631,6 +1631,194 @@ async function getJourneyAnalysis(journeyId) {
   return null;
 }
 
+// ============================================
+// PIXEL TRACKING ANALYTICS
+// ============================================
+
+/**
+ * Get pixel tracking statistics
+ * Compares pixel_view events vs page_view events (JS tracked)
+ */
+async function getPixelStats(siteId = null, days = 30) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let siteFilter = '';
+  const params = [cutoff];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get counts for both tracking methods
+  const result = await db.query(`
+    SELECT
+      COUNT(DISTINCT CASE WHEN event_type = 'pixel_view' THEN journey_id END) as pixel_visitors,
+      COUNT(DISTINCT CASE WHEN event_type = 'page_view' THEN journey_id END) as js_visitors,
+      COUNT(DISTINCT CASE WHEN event_type = 'pixel_view' AND is_bot = true THEN journey_id END) as pixel_bots,
+      COUNT(DISTINCT CASE WHEN event_type = 'pixel_view' AND is_bot = false THEN journey_id END) as pixel_humans,
+      COUNT(DISTINCT CASE WHEN event_type = 'page_view' AND is_bot = true THEN journey_id END) as js_bots,
+      COUNT(DISTINCT CASE WHEN event_type = 'page_view' AND is_bot = false THEN journey_id END) as js_humans
+    FROM journey_events
+    WHERE occurred_at >= $1 ${siteFilter}
+  `, params);
+
+  const stats = result.rows[0];
+
+  // Calculate engagement rate (JS tracked / Pixel tracked)
+  const pixelTotal = parseInt(stats.pixel_visitors || 0);
+  const jsTotal = parseInt(stats.js_visitors || 0);
+  const engagementRate = pixelTotal > 0 ? Math.round((jsTotal / pixelTotal) * 100) : 0;
+
+  return {
+    pixel: {
+      total: pixelTotal,
+      bots: parseInt(stats.pixel_bots || 0),
+      humans: parseInt(stats.pixel_humans || 0)
+    },
+    javascript: {
+      total: jsTotal,
+      bots: parseInt(stats.js_bots || 0),
+      humans: parseInt(stats.js_humans || 0)
+    },
+    engagementRate: engagementRate,
+    untracked: Math.max(0, pixelTotal - jsTotal) // Visitors pixel caught that JS missed
+  };
+}
+
+/**
+ * Get daily pixel vs JS tracking comparison
+ */
+async function getPixelVsJsTrend(siteId = null, days = 30) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let siteFilter = '';
+  const params = [cutoff];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      DATE(occurred_at) as date,
+      COUNT(DISTINCT CASE WHEN event_type = 'pixel_view' THEN journey_id END) as pixel_count,
+      COUNT(DISTINCT CASE WHEN event_type = 'page_view' THEN journey_id END) as js_count
+    FROM journey_events
+    WHERE occurred_at >= $1 ${siteFilter}
+    GROUP BY DATE(occurred_at)
+    ORDER BY date ASC
+  `, params);
+
+  return result.rows.map(row => ({
+    date: row.date,
+    pixel: parseInt(row.pixel_count || 0),
+    javascript: parseInt(row.js_count || 0)
+  }));
+}
+
+/**
+ * Get pixel tracking by page URL
+ */
+async function getPixelPageStats(siteId = null, days = 30, limit = 20) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let siteFilter = '';
+  const params = [cutoff, limit];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $3';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      page_url,
+      COUNT(*) as pixel_views,
+      COUNT(DISTINCT journey_id) as unique_visitors,
+      SUM(CASE WHEN is_bot = true THEN 1 ELSE 0 END) as bot_views,
+      SUM(CASE WHEN is_bot = false THEN 1 ELSE 0 END) as human_views
+    FROM journey_events
+    WHERE event_type = 'pixel_view'
+      AND occurred_at >= $1 ${siteFilter}
+    GROUP BY page_url
+    ORDER BY pixel_views DESC
+    LIMIT $2
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get pixel tracking by hour of day
+ */
+async function getPixelHourlyDistribution(siteId = null, days = 30) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let siteFilter = '';
+  const params = [cutoff];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      EXTRACT(HOUR FROM occurred_at) as hour,
+      COUNT(DISTINCT CASE WHEN event_type = 'pixel_view' THEN journey_id END) as pixel_count,
+      COUNT(DISTINCT CASE WHEN event_type = 'page_view' THEN journey_id END) as js_count
+    FROM journey_events
+    WHERE occurred_at >= $1 ${siteFilter}
+    GROUP BY EXTRACT(HOUR FROM occurred_at)
+    ORDER BY hour ASC
+  `, params);
+
+  return result.rows.map(row => ({
+    hour: parseInt(row.hour),
+    pixel: parseInt(row.pixel_count || 0),
+    javascript: parseInt(row.js_count || 0)
+  }));
+}
+
+/**
+ * Get combined visitor stats (pixel + JS deduped)
+ */
+async function getCombinedVisitorStats(siteId = null, days = 30) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let siteFilter = '';
+  const params = [cutoff];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get unique visitors from either tracking method
+  const result = await db.query(`
+    SELECT
+      COUNT(DISTINCT journey_id) as total_visitors,
+      COUNT(DISTINCT CASE WHEN is_bot = false THEN journey_id END) as human_visitors,
+      COUNT(DISTINCT CASE WHEN is_bot = true THEN journey_id END) as bot_visitors
+    FROM journey_events
+    WHERE (event_type = 'pixel_view' OR event_type = 'page_view')
+      AND occurred_at >= $1 ${siteFilter}
+  `, params);
+
+  return {
+    total: parseInt(result.rows[0].total_visitors || 0),
+    humans: parseInt(result.rows[0].human_visitors || 0),
+    bots: parseInt(result.rows[0].bot_visitors || 0)
+  };
+}
+
 module.exports = {
   // Events
   insertEvent,
@@ -1689,5 +1877,11 @@ module.exports = {
   getSiteById,
   // AI Analysis
   saveJourneyAnalysis,
-  getJourneyAnalysis
+  getJourneyAnalysis,
+  // Pixel Tracking
+  getPixelStats,
+  getPixelVsJsTrend,
+  getPixelPageStats,
+  getPixelHourlyDistribution,
+  getCombinedVisitorStats
 };

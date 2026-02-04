@@ -14,7 +14,9 @@ const {
   getReturnVisitorStats,
   getHourlyActivity,
   saveJourneyAnalysis,
-  getJourneyAnalysis
+  getJourneyAnalysis,
+  getPixelStats,
+  getPixelVsJsTrend
 } = require('../db/queries');
 const { reconstructAllJourneys, getJourneyWithEvents } = require('../services/journeyBuilder');
 const { getSiteId } = require('../middleware/auth');
@@ -36,9 +38,12 @@ router.get('/', async (req, res) => {
       siteId: siteId
     };
 
-    const journeys = await getAllJourneys(limit, offset, filterOptions);
-    const totalCount = await getJourneyCount(filterOptions);
-    const rawStats = await getJourneyStats(siteId);
+    const [journeys, totalCount, rawStats, pixelStats] = await Promise.all([
+      getAllJourneys(limit, offset, filterOptions),
+      getJourneyCount(filterOptions),
+      getJourneyStats(siteId),
+      getPixelStats(siteId, 30) // Last 30 days
+    ]);
     const totalPages = Math.ceil(totalCount / limit);
 
     // Convert PostgreSQL string values to numbers
@@ -60,6 +65,7 @@ router.get('/', async (req, res) => {
     res.render('journeyList', {
       journeys: parsedJourneys,
       stats,
+      pixelStats,
       filter,
       pagination: {
         page,
@@ -102,7 +108,8 @@ router.get('/api/charts', async (req, res) => {
       scrollDepth,
       conversionFunnel,
       returnVisitors,
-      hourlyActivity
+      hourlyActivity,
+      pixelVsJs
     ] = await Promise.all([
       getTopPages(10, siteId),
       getDeviceBreakdown(siteId),
@@ -111,7 +118,8 @@ router.get('/api/charts', async (req, res) => {
       getScrollDepthDistribution(siteId),
       getConversionFunnel(siteId),
       getReturnVisitorStats(siteId),
-      getHourlyActivity(siteId)
+      getHourlyActivity(siteId),
+      getPixelVsJsTrend(siteId, 30)
     ]);
 
     res.json({
@@ -127,7 +135,8 @@ router.get('/api/charts', async (req, res) => {
           new: parseInt(returnVisitors.new_visitors) || 0,
           returning: parseInt(returnVisitors.return_visitors) || 0
         },
-        hourlyActivity
+        hourlyActivity,
+        pixelVsJs
       }
     });
   } catch (error) {
