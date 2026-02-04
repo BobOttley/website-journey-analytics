@@ -65,51 +65,61 @@
 </div>
 <% } %>
 
-<!-- Traffic Quality (Last 30 Days) -->
-<% if (pixelStats && (pixelStats.pixel.total > 0 || pixelStats.javascript.total > 0)) { %>
+<!-- Traffic Quality (Bot Detection) -->
+<%
+  const totalVisitors = stats.human_visitors + stats.bot_count;
+  const humanPercent = totalVisitors > 0 ? Math.round((stats.human_visitors / totalVisitors) * 100) : 0;
+  const botPercent = totalVisitors > 0 ? Math.round((stats.bot_count / totalVisitors) * 100) : 0;
+%>
+<% if (totalVisitors > 0) { %>
 <div class="card mb-6" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(255,255,255,0.1);">
   <div class="flex justify-between items-center mb-4">
     <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
       <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
       Traffic Quality
-      <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(Last 30 Days)</span>
+      <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(Bot Detection)</span>
     </h2>
+    <form action="/journeys/rebuild" method="POST" style="margin: 0;">
+      <button type="submit" class="btn btn-sm" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: none; font-size: 0.75rem;">
+        Recalculate
+      </button>
+    </form>
   </div>
 
   <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-    <!-- All Page Loads -->
+    <!-- Total Visitors -->
     <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #60a5fa;">All Page Loads</h3>
-      <div class="value" style="color: #3b82f6;"><%= pixelStats.pixel.total %></div>
+      <h3 style="font-size: 0.8rem; color: #60a5fa;">Total Visitors</h3>
+      <div class="value" style="color: #3b82f6;"><%= totalVisitors %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Total requests to your site
+        All tracked sessions
       </div>
     </div>
 
-    <!-- Real Humans -->
+    <!-- Humans -->
     <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
       <h3 style="font-size: 0.8rem; color: #34d399;">Real Humans</h3>
-      <div class="value" style="color: #10b981;"><%= pixelStats.javascript.total %></div>
+      <div class="value" style="color: #10b981;"><%= stats.human_visitors %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        People who actually browsed
+        Quality visitors
       </div>
     </div>
 
-    <!-- Traffic Quality -->
+    <!-- Quality Score -->
     <div class="stat-card" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);">
       <h3 style="font-size: 0.8rem; color: #a78bfa;">Quality Score</h3>
-      <div class="value" style="color: #8b5cf6;"><%= pixelStats.pixel.total > 0 ? Math.round((pixelStats.javascript.total / pixelStats.pixel.total) * 100) : 0 %>%</div>
+      <div class="value" style="color: #8b5cf6;"><%= humanPercent %>%</div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Real humans vs all traffic
+        Human visitor rate
       </div>
     </div>
 
-    <!-- Bots & Bounces -->
+    <!-- Bots Detected -->
     <div class="stat-card" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #fb923c;">Bots & Bounces</h3>
-      <div class="value" style="color: #f97316;"><%= pixelStats.untracked %></div>
+      <h3 style="font-size: 0.8rem; color: #fb923c;">Bots Detected</h3>
+      <div class="value" style="color: #f97316;"><%= stats.bot_count %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Filtered out junk traffic
+        <%= botPercent %>% of traffic
       </div>
     </div>
   </div>

@@ -590,6 +590,7 @@ function analyseJsChallenge(metadata) {
 
 /**
  * Analyse journey behaviour for bot patterns
+ * Uses session duration and engagement signals similar to Google Analytics bot filtering
  * @param {object[]} events - Array of journey events
  * @returns {{ isBot: boolean, confidence: number, signals: string[], botType: string|null }}
  */
@@ -606,8 +607,81 @@ function analyseJourneyBehaviour(events) {
     new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime()
   );
 
-  // 1. Check for impossibly fast navigation
-  const pageViews = sorted.filter(e => e.event_type === 'page_view');
+  // Calculate session duration in seconds
+  const sessionDuration = sorted.length >= 2 ?
+    (new Date(sorted[sorted.length - 1].occurred_at).getTime() -
+     new Date(sorted[0].occurred_at).getTime()) / 1000 : 0;
+
+  // Get event counts by type
+  const pageViews = sorted.filter(e => e.event_type === 'page_view' || e.event_type === 'pixel_view');
+  const scrollEvents = sorted.filter(e => e.event_type === 'scroll_depth');
+  const clickEvents = sorted.filter(e => e.event_type.includes('click'));
+  const heartbeats = sorted.filter(e => e.event_type === 'heartbeat');
+  const engagementEvents = sorted.filter(e =>
+    ['scroll_depth', 'section_view', 'element_hover', 'cta_click', 'form_field_focus'].includes(e.event_type)
+  );
+
+  // ============================================
+  // SESSION DURATION CHECKS (Google-style filtering)
+  // ============================================
+
+  // 1. Single event bounce - very likely bot or instant bounce
+  if (sorted.length === 1) {
+    signals.push('single_event_bounce');
+    score += 40;  // High score - single events are suspicious
+  }
+
+  // 2. Very short session (under 10 seconds) with no engagement
+  if (sessionDuration < 10 && sessionDuration > 0 && engagementEvents.length === 0) {
+    signals.push('very_short_session_no_engagement');
+    score += 35;
+  }
+
+  // 3. Short session (under 30 seconds) with no scroll
+  if (sessionDuration < 30 && sessionDuration > 0 && scrollEvents.length === 0) {
+    signals.push('short_session_no_scroll');
+    score += 25;
+  }
+
+  // 4. Medium session (under 60 seconds) with absolutely no engagement
+  if (sessionDuration >= 10 && sessionDuration < 60 && engagementEvents.length === 0) {
+    signals.push('medium_session_no_engagement');
+    score += 20;
+  }
+
+  // 5. Google-style threshold: session under 105 seconds with no meaningful engagement
+  if (sessionDuration < 105 && scrollEvents.length === 0 && clickEvents.length === 0) {
+    signals.push('below_quality_threshold');
+    score += 15;
+  }
+
+  // ============================================
+  // ENGAGEMENT CHECKS
+  // ============================================
+
+  // 6. No scroll events at all (humans almost always scroll)
+  if (sorted.length > 2 && scrollEvents.length === 0) {
+    signals.push('no_scroll_activity');
+    score += 20;
+  }
+
+  // 7. No clicks on a page with CTAs
+  if (pageViews.length >= 1 && clickEvents.length === 0 && sessionDuration > 30) {
+    signals.push('no_click_activity');
+    score += 10;
+  }
+
+  // 8. Page views but zero engagement events
+  if (pageViews.length >= 2 && engagementEvents.length === 0) {
+    signals.push('page_views_no_engagement');
+    score += 25;
+  }
+
+  // ============================================
+  // NAVIGATION PATTERN CHECKS
+  // ============================================
+
+  // 9. Check for impossibly fast navigation
   if (pageViews.length >= 2) {
     let superFastCount = 0;
     for (let i = 1; i < pageViews.length; i++) {
@@ -624,10 +698,9 @@ function analyseJourneyBehaviour(events) {
     }
   }
 
-  // 2. Check for sequential URL crawling pattern
+  // 10. Check for sequential URL crawling pattern
   const urls = pageViews.map(e => e.page_url).filter(Boolean);
   if (urls.length >= 5) {
-    // Check if URLs follow a pattern (alphabetical, numerical, sitemap order)
     const isSequential = checkSequentialPattern(urls);
     if (isSequential) {
       signals.push('sequential_crawling');
@@ -635,29 +708,13 @@ function analyseJourneyBehaviour(events) {
     }
   }
 
-  // 3. Check for no engagement events
-  const engagementEvents = sorted.filter(e =>
-    ['scroll_depth', 'section_view', 'element_hover', 'cta_click'].includes(e.event_type)
-  );
-
-  if (pageViews.length >= 3 && engagementEvents.length === 0) {
-    signals.push('no_engagement');
-    score += 15;
-  }
-
-  // 4. Check for no heartbeats despite long session
-  const heartbeats = sorted.filter(e => e.event_type === 'heartbeat');
-  const sessionDuration = sorted.length >= 2 ?
-    (new Date(sorted[sorted.length - 1].occurred_at).getTime() -
-     new Date(sorted[0].occurred_at).getTime()) / 1000 : 0;
-
-  // If session is > 2 minutes but no heartbeats, suspicious
+  // 11. Check for no heartbeats despite long session
   if (sessionDuration > 120 && heartbeats.length === 0) {
     signals.push('no_heartbeats_long_session');
     score += 20;
   }
 
-  // 5. Check for uniform timing between events
+  // 12. Check for uniform timing between events (automation signature)
   if (sorted.length >= 5) {
     const intervals = [];
     for (let i = 1; i < sorted.length; i++) {
@@ -667,7 +724,6 @@ function analyseJourneyBehaviour(events) {
       );
     }
 
-    // Calculate variance
     const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
     const variance = intervals.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / intervals.length;
     const stdDev = Math.sqrt(variance);
@@ -679,7 +735,7 @@ function analyseJourneyBehaviour(events) {
     }
   }
 
-  // 6. Check for high page count with low time
+  // 13. Check for high page count with low time
   const pagesPerMinute = pageViews.length / (sessionDuration / 60 || 1);
   if (pagesPerMinute > 10) {
     signals.push('high_crawl_rate');
@@ -693,6 +749,10 @@ function analyseJourneyBehaviour(events) {
       botType = 'scraper';
     } else if (signals.includes('uniform_timing') || signals.includes('impossibly_fast_navigation')) {
       botType = 'automation';
+    } else if (signals.includes('single_event_bounce') || signals.includes('very_short_session_no_engagement')) {
+      botType = 'bounce_bot';
+    } else if (signals.includes('no_scroll_activity') || signals.includes('no_engagement')) {
+      botType = 'low_engagement';
     } else {
       botType = 'unknown';
     }
