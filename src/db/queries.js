@@ -97,6 +97,8 @@ async function upsertJourney(journey) {
     `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, is_bot, bot_score, bot_type, site_id, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
      ON CONFLICT(journey_id) DO UPDATE SET
+       visitor_id = EXCLUDED.visitor_id,
+       visit_number = EXCLUDED.visit_number,
        last_seen = EXCLUDED.last_seen,
        page_sequence = EXCLUDED.page_sequence,
        event_count = EXCLUDED.event_count,
