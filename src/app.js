@@ -284,6 +284,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Cleanup test pixel data endpoint
+app.get('/cleanup-pixel-tests', async (req, res) => {
+  try {
+    const db = getDb();
+
+    // Delete pixel-only test journeys (journey_id starts with pxl_jrn_)
+    const events = await db.query("DELETE FROM journey_events WHERE journey_id LIKE 'pxl_jrn_%' RETURNING journey_id");
+    const journeys = await db.query("DELETE FROM journeys WHERE journey_id LIKE 'pxl_jrn_%' RETURNING journey_id");
+
+    res.json({
+      success: true,
+      deleted: {
+        events: events.rowCount,
+        journeys: journeys.rowCount
+      }
+    });
+  } catch (err) {
+    console.error('[CLEANUP] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Email debug endpoint
 const emailService = require('./services/emailService');
 app.get('/debug-email', async (req, res) => {
