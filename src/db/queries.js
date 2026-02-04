@@ -1789,6 +1789,7 @@ async function deleteAllJourneys(siteId = null) {
 
 /**
  * Get ALL unique IPs that have events (simple version)
+ * Excludes GTM preview URLs (gtm-msr.appspot.com)
  */
 async function getAllUniqueIPs(siteId = null) {
   const db = getDb();
@@ -1796,6 +1797,7 @@ async function getAllUniqueIPs(siteId = null) {
     SELECT DISTINCT ip_address
     FROM journey_events
     WHERE ip_address IS NOT NULL AND ip_address != ''
+      AND (page_url IS NULL OR page_url NOT LIKE '%gtm-msr.appspot.com%')
   `;
   const params = [];
 

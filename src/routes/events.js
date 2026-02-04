@@ -142,6 +142,11 @@ function validateEvent(body) {
     errors.push('page_url must be a string');
   }
 
+  // Reject GTM preview/debug mode URLs - these are not real visitors
+  if (body.page_url && body.page_url.includes('gtm-msr.appspot.com')) {
+    errors.push('GTM preview URL rejected');
+  }
+
   return errors;
 }
 
