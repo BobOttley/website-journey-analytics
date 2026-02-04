@@ -49,6 +49,9 @@ router.get('/', async (req, res) => {
     // Convert PostgreSQL string values to numbers
     const stats = {
       total_journeys: parseInt(rawStats.total_journeys) || 0,
+      human_visitors: parseInt(rawStats.human_visitors) || 0,
+      bot_count: parseInt(rawStats.bot_count) || 0,
+      return_visitors: parseInt(rawStats.return_visitors) || 0,
       enquiries: parseInt(rawStats.enquiries) || 0,
       visits_booked: parseInt(rawStats.visits_booked) || 0,
       no_action: parseInt(rawStats.no_action) || 0,

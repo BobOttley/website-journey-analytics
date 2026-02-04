@@ -170,7 +170,16 @@ async function getAllJourneys(limit = 100, offset = 0, options = {}) {
 
 async function getJourneyById(journeyId, siteId = null) {
   const db = getDb();
-  let query = 'SELECT * FROM journeys WHERE journey_id = $1';
+  let query = `SELECT *,
+    COALESCE(entry_page, (
+      SELECT je.page_url FROM journey_events je
+      WHERE je.journey_id = journeys.journey_id
+      AND je.event_type = 'page_view'
+      AND je.page_url IS NOT NULL
+      AND je.page_url NOT LIKE '%gtm-msr.appspot.com%'
+      ORDER BY je.occurred_at ASC LIMIT 1
+    )) as entry_page
+    FROM journeys WHERE journey_id = $1`;
   const params = [journeyId];
 
   if (siteId) {
@@ -723,7 +732,13 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
   const db = getDb();
   const activeCutoff = new Date(Date.now() - (inactiveAfterSeconds * 1000)).toISOString();
 
-  let whereClause = "WHERE j.last_seen < $1 AND (j.entry_page IS NULL OR j.entry_page NOT LIKE '%gtm-msr.appspot.com%')";
+  let whereClause = `WHERE j.last_seen < $1
+    AND (j.entry_page IS NULL OR j.entry_page NOT LIKE '%gtm-msr.appspot.com%')
+    AND EXISTS (
+      SELECT 1 FROM journey_events je3
+      WHERE je3.journey_id = j.journey_id
+      AND (je3.page_url IS NULL OR je3.page_url NOT LIKE '%gtm-msr.appspot.com%')
+    )`;
   const params = [activeCutoff];
   let paramIndex = 2;
 
@@ -741,7 +756,7 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
        j.journey_id,
        j.first_seen,
        j.last_seen,
-       j.entry_page,
+       COALESCE(j.entry_page, (SELECT je.page_url FROM journey_events je WHERE je.journey_id = j.journey_id AND je.event_type = 'page_view' AND je.page_url IS NOT NULL ORDER BY je.occurred_at ASC LIMIT 1)) as entry_page,
        j.entry_referrer,
        j.event_count,
        j.outcome,

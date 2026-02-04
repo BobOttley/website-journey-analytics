@@ -175,7 +175,7 @@
   };
 
   function getPageNameLocal(url) {
-    if (!url) return 'Unknown';
+    if (!url) return 'Direct / Unknown';
     let path = url;
     try {
       if (url.startsWith('http')) {
@@ -189,9 +189,26 @@
   }
 
   function formatPageNameLocal(path) {
-    let name = path.replace(/^\//, '').replace('.html', '').replace(/-/g, ' ');
-    if (!name || name === '/') return 'Home';
-    return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    if (!path || path === '/') return 'Home';
+
+    // Get just the filename from the path (last segment)
+    let name = path.split('/').filter(Boolean).pop() || 'Home';
+
+    // Remove file extensions
+    name = name.replace(/\.(html?|pdf|php|aspx?)$/i, '');
+
+    // Replace hyphens/underscores with spaces
+    name = name.replace(/[-_]/g, ' ');
+
+    // Title case
+    name = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    // Add PDF indicator if it was a PDF
+    if (path.toLowerCase().endsWith('.pdf')) {
+      name = '📄 ' + name;
+    }
+
+    return name;
   }
 
   function getPageIconLocal(url) {
