@@ -10,6 +10,14 @@
     maxBatchSize: 10
   };
 
+  // Inject tracking pixel immediately (captures raw visitors including fast bounces)
+  (function() {
+    var pixel = document.createElement('img');
+    pixel.src = 'https://website-journey-analytics.onrender.com/p.gif?k=' + config.tracking_key + '&p=' + encodeURIComponent(window.location.href) + '&r=' + encodeURIComponent(document.referrer || '') + '&t=' + Date.now();
+    pixel.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+    (document.body || document.documentElement).appendChild(pixel);
+  })();
+
   var visitorId = localStorage.getItem('sja_visitor_id');
   if (!visitorId) {
     visitorId = 'v_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
