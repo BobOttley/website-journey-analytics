@@ -65,60 +65,53 @@
 </div>
 <% } %>
 
-<!-- Pixel vs JavaScript Tracking Comparison (Last 30 Days) -->
+<!-- Traffic Quality (Last 30 Days) -->
 <% if (pixelStats && (pixelStats.pixel.total > 0 || pixelStats.javascript.total > 0)) { %>
 <div class="card mb-6" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(255,255,255,0.1);">
   <div class="flex justify-between items-center mb-4">
     <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
       <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
-      Pixel vs JavaScript Tracking
+      Traffic Quality
       <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(Last 30 Days)</span>
     </h2>
-    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.7rem;">NEW</span>
   </div>
 
   <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-    <!-- Raw Visitors (Pixel) -->
+    <!-- All Page Loads -->
     <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #60a5fa;">Raw Visitors</h3>
+      <h3 style="font-size: 0.8rem; color: #60a5fa;">All Page Loads</h3>
       <div class="value" style="color: #3b82f6;"><%= pixelStats.pixel.total %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Pixel tracked (all requests)
+        Total requests to your site
       </div>
     </div>
 
-    <!-- Engaged Visitors (JS) -->
+    <!-- Real Humans -->
     <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #34d399;">Engaged Visitors</h3>
+      <h3 style="font-size: 0.8rem; color: #34d399;">Real Humans</h3>
       <div class="value" style="color: #10b981;"><%= pixelStats.javascript.total %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        JavaScript tracked (real engagement)
+        People who actually browsed
       </div>
     </div>
 
-    <!-- Engagement Rate -->
+    <!-- Traffic Quality -->
     <div class="stat-card" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #a78bfa;">Engagement Rate</h3>
-      <div class="value" style="color: #8b5cf6;"><%= pixelStats.engagementRate %>%</div>
+      <h3 style="font-size: 0.8rem; color: #a78bfa;">Quality Score</h3>
+      <div class="value" style="color: #8b5cf6;"><%= pixelStats.pixel.total > 0 ? Math.round((pixelStats.javascript.total / pixelStats.pixel.total) * 100) : 0 %>%</div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        JS tracked / Pixel tracked
+        Real humans vs all traffic
       </div>
     </div>
 
-    <!-- Untracked (Pixel-only) -->
+    <!-- Bots & Bounces -->
     <div class="stat-card" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #fb923c;">Untracked by JS</h3>
+      <h3 style="font-size: 0.8rem; color: #fb923c;">Bots & Bounces</h3>
       <div class="value" style="color: #f97316;"><%= pixelStats.untracked %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Visitors JS never saw (bots, bounces)
+        Filtered out junk traffic
       </div>
     </div>
-  </div>
-
-  <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 0.75rem; color: #94a3b8;">
-    <strong style="color: #60a5fa;">Pixel tracking</strong> captures ALL visitors including bots, ad-blocker users, and fast bounces.
-    <strong style="color: #34d399;">JavaScript tracking</strong> captures only visitors who fully load your page and engage.
-    The difference shows traffic that never executed JavaScript.
   </div>
 </div>
 <% } else { %>
