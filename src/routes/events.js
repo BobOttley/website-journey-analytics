@@ -40,10 +40,34 @@ async function resolveSiteId(trackingKey) {
 }
 
 /**
- * Track which journeys we’ve already emailed about
+ * Track which journeys we've already emailed about
  * (in-memory; resets on restart by design)
  */
 const notifiedJourneys = new Set();
+
+/**
+ * Debug log buffer for troubleshooting
+ */
+const emailDebugLog = [];
+const MAX_LOG_SIZE = 50;
+
+function logEmail(message) {
+  const entry = `[${new Date().toISOString()}] ${message}`;
+  console.log(entry);
+  emailDebugLog.push(entry);
+  if (emailDebugLog.length > MAX_LOG_SIZE) {
+    emailDebugLog.shift();
+  }
+}
+
+// Debug endpoint to see email logs
+router.get('/debug-email-log', (req, res) => {
+  res.json({
+    notifiedJourneys: Array.from(notifiedJourneys).slice(-20),
+    notifiedCount: notifiedJourneys.size,
+    recentLogs: emailDebugLog
+  });
+});
 
 /**
  * VALID EVENT TYPES
@@ -240,11 +264,11 @@ router.post('/', async (req, res) => {
      * Visitor email logic
      * Fire once per journey per server session (covers new AND returning visitors)
      */
-    console.log(`[EVENT] Received: ${event.event_type} for journey ${event.journey_id.substring(0,8)}, notified=${notifiedJourneys.has(event.journey_id)}, setSize=${notifiedJourneys.size}`);
+    logEmail(`EVENT: ${event.event_type} for ${event.journey_id.substring(0,8)}, notified=${notifiedJourneys.has(event.journey_id)}, size=${notifiedJourneys.size}`);
 
     if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id)) {
       notifiedJourneys.add(event.journey_id);
-      console.log(`[EMAIL] TRIGGERING for journey ${event.journey_id.substring(0,8)}`);
+      logEmail(`TRIGGER: ${event.journey_id.substring(0,8)}`);
 
       // Keep memory bounded
       if (notifiedJourneys.size > 5000) {
@@ -256,7 +280,7 @@ router.post('/', async (req, res) => {
       const existing = await getEventsByJourneyId(event.journey_id);
       const isReturn = existing.length > 1;
 
-      console.log(`[EMAIL] Sending for journey ${event.journey_id.substring(0,8)} (${isReturn ? 'returning' : 'new'}), location=${location ? location.city : 'none'}`);
+      logEmail(`SENDING: ${event.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}), page=${event.page_url?.substring(0,50)}`);
 
       emailService.sendNewVisitorNotification({
         journey_id: event.journey_id,
@@ -267,12 +291,12 @@ router.post('/', async (req, res) => {
         location,
         isReturn
       }).then(result => {
-        console.log(`[EMAIL] SUCCESS for ${event.journey_id.substring(0,8)}:`, result);
+        logEmail(`SUCCESS: ${event.journey_id.substring(0,8)} - ${JSON.stringify(result)}`);
       }).catch(err => {
-        console.error(`[EMAIL] FAILED for ${event.journey_id.substring(0,8)}:`, err.message);
+        logEmail(`FAILED: ${event.journey_id.substring(0,8)} - ${err.message}`);
       });
     } else if (event.event_type === 'page_view') {
-      console.log(`[EMAIL] SKIPPED for ${event.journey_id.substring(0,8)} - already notified`);
+      logEmail(`SKIPPED: ${event.journey_id.substring(0,8)} - already notified`);
     }
 
     res.status(201).json({
