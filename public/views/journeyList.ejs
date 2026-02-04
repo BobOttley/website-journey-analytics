@@ -229,9 +229,9 @@
               // Mask IP for privacy (show first two octets)
               const ip = journey.primary_ip_address;
               const maskedIP = ip ? ip.split('.').slice(0, 2).join('.') + '.x.x' : null;
-              // Device icon
-              const deviceIcon = journey.device_type === 'mobile' ? '&#128241;' :
-                                 journey.device_type === 'tablet' ? '&#128241;' : '&#128187;';
+              // Device icon (using actual emoji characters)
+              const deviceIcon = journey.device_type === 'mobile' ? '📱' :
+                                 journey.device_type === 'tablet' ? '📱' : '💻';
             %>
             <tr>
               <td>
