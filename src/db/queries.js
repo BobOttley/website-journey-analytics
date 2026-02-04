@@ -156,6 +156,9 @@ async function getAllJourneys(limit = 100, offset = 0, options = {}) {
     conditions.push('is_bot = true');
   }
 
+  // Exclude internal analytics app traffic (test clicks from dashboard)
+  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   params.push(limit);
@@ -208,6 +211,9 @@ async function getJourneyCount(options = {}) {
   } else if (options.botsOnly === true) {
     conditions.push('is_bot = true');
   }
+
+  // Exclude internal analytics app traffic (test clicks from dashboard)
+  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const result = await db.query(`SELECT COUNT(*) as count FROM journeys ${whereClause}`, params);

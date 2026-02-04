@@ -98,9 +98,13 @@
         <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Referrer</th>
         <td>
           <% if (journey.entry_referrer) { %>
-            <a href="<%= journey.entry_referrer %>" target="_blank" title="<%= journey.entry_referrer %>">
-              <%= journey.entry_referrer.replace(/^https?:\/\/([^\/]+).*/, '$1') %>
-            </a>
+            <% if (journey.entry_referrer.includes('smart-bookings-more-house.onrender.com')) { %>
+              <span class="badge badge-success" style="font-size: 0.85rem;">Returned from Booking</span>
+            <% } else { %>
+              <a href="<%= journey.entry_referrer %>" target="_blank" title="<%= journey.entry_referrer %>">
+                <%= journey.entry_referrer.replace(/^https?:\/\/([^\/]+).*/, '$1') %>
+              </a>
+            <% } %>
           <% } else { %>
             <span class="text-muted">Direct</span>
           <% } %>

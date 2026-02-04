@@ -91,7 +91,11 @@
             </td>
             <td>
               <% if (visitor.referrer) { %>
-              <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 25) %></span>
+                <% if (visitor.referrer.includes('smart-bookings-more-house.onrender.com')) { %>
+                  <span class="badge badge-success" style="font-size: 0.75rem;">Post-Booking</span>
+                <% } else { %>
+                  <span title="<%= visitor.referrer %>"><%= visitor.referrer.replace(/^https?:\/\/([^\/]+).*/, '$1').substring(0, 25) %></span>
+                <% } %>
               <% } else { %>
               <span class="text-muted">Direct</span>
               <% } %>
@@ -328,7 +332,9 @@
           const isNew = newJourneyIds.has(v.journey_id);
           const deviceBadge = v.device_type === 'mobile' ? 'warning' : v.device_type === 'tablet' ? 'info' : 'neutral';
           const referrerHtml = v.referrer
-            ? `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`
+            ? (v.referrer.includes('smart-bookings-more-house.onrender.com')
+              ? '<span class="badge badge-success" style="font-size: 0.75rem;">Post-Booking</span>'
+              : `<span title="${v.referrer}">${truncateDomain(v.referrer)}</span>`)
             : '<span class="text-muted">Direct</span>';
           const hasLocation = v.location ? v.location.countryCode : false;
           const locationHtml = hasLocation
