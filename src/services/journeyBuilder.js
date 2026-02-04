@@ -426,10 +426,11 @@ async function reconstructJourney(journeyId, siteId = null) {
   // Calculate bot score for the entire journey
   const botResult = calculateJourneyBotScore(events);
 
-  // Calculate visit_number by counting this visitor's journeys from the database
-  // This works for all data, not just events with visit_number in metadata
+  // Calculate visit_number by counting journeys from same visitor_id OR same IP address
+  // IP address is more reliable than localStorage-based visitor_id
   const visitNumber = await getVisitorJourneyNumber(
     firstEvent.visitor_id,
+    firstEvent.ip_address,
     firstEvent.occurred_at,
     firstEvent.site_id
   );

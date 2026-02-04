@@ -1638,24 +1638,26 @@ async function getJourneyAnalysis(journeyId) {
 /**
  * Count how many journeys a visitor has (for return visitor detection)
  * Returns the visit number for a specific journey based on first event time
- * Uses raw events table so it works during rebuild
+ * Uses IP address OR visitor_id to link visits (IP is more reliable than localStorage)
  */
-async function getVisitorJourneyNumber(visitorId, journeyFirstSeen, siteId = null) {
-  if (!visitorId) return 1;
-
+async function getVisitorJourneyNumber(visitorId, ipAddress, journeyFirstSeen, siteId = null) {
   const db = getDb();
 
-  // Count distinct journey_ids for this visitor that started before or at the same time
+  // Count distinct journey_ids that match either visitor_id OR ip_address
+  // This catches return visitors even if localStorage was cleared
   let query = `
     SELECT COUNT(DISTINCT journey_id) as visit_number
     FROM journey_events
-    WHERE visitor_id = $1
-      AND occurred_at <= $2
+    WHERE occurred_at <= $1
+      AND (
+        (visitor_id = $2 AND visitor_id IS NOT NULL)
+        OR (ip_address = $3 AND ip_address IS NOT NULL)
+      )
   `;
-  const params = [visitorId, journeyFirstSeen];
+  const params = [journeyFirstSeen, visitorId, ipAddress];
 
   if (siteId) {
-    query += ` AND site_id = $3`;
+    query += ` AND site_id = $4`;
     params.push(siteId);
   }
 
@@ -1664,17 +1666,22 @@ async function getVisitorJourneyNumber(visitorId, journeyFirstSeen, siteId = nul
 }
 
 /**
- * Get total journey count for a visitor
+ * Get total journey count for a visitor (by visitor_id or IP)
  */
-async function getVisitorTotalJourneys(visitorId, siteId = null) {
-  if (!visitorId) return 1;
-
+async function getVisitorTotalJourneys(visitorId, ipAddress, siteId = null) {
   const db = getDb();
-  let query = `SELECT COUNT(DISTINCT journey_id) as total FROM journey_events WHERE visitor_id = $1`;
-  const params = [visitorId];
+  let query = `
+    SELECT COUNT(DISTINCT journey_id) as total
+    FROM journey_events
+    WHERE (
+      (visitor_id = $1 AND visitor_id IS NOT NULL)
+      OR (ip_address = $2 AND ip_address IS NOT NULL)
+    )
+  `;
+  const params = [visitorId, ipAddress];
 
   if (siteId) {
-    query += ` AND site_id = $2`;
+    query += ` AND site_id = $3`;
     params.push(siteId);
   }
 
