@@ -290,10 +290,32 @@ app.get('/debug', async (req, res) => {
     const eventCount = await db.query('SELECT COUNT(*) as count FROM journey_events');
     const journeyCount = await db.query('SELECT COUNT(*) as count FROM journeys');
     const recentEvents = await db.query('SELECT * FROM journey_events ORDER BY occurred_at DESC LIMIT 5');
+
+    // Check IP addresses with multiple journeys
+    const ipJourneys = await db.query(`
+      SELECT ip_address, COUNT(DISTINCT journey_id) as journey_count
+      FROM journey_events
+      WHERE ip_address IS NOT NULL
+      GROUP BY ip_address
+      HAVING COUNT(DISTINCT journey_id) > 1
+      ORDER BY journey_count DESC
+      LIMIT 10
+    `);
+
+    // Check current visit_number values in journeys table
+    const visitNumbers = await db.query(`
+      SELECT journey_id, visitor_id, visit_number, first_seen
+      FROM journeys
+      ORDER BY first_seen DESC
+      LIMIT 10
+    `);
+
     res.json({
       events: parseInt(eventCount.rows[0].count),
       journeys: parseInt(journeyCount.rows[0].count),
-      recentEvents: recentEvents.rows
+      recentEvents: recentEvents.rows,
+      ipsWithMultipleJourneys: ipJourneys.rows,
+      recentJourneysWithVisitNumber: visitNumbers.rows
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
