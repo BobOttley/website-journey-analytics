@@ -426,9 +426,18 @@ async function reconstructJourney(journeyId, siteId = null) {
   // Calculate bot score for the entire journey
   const botResult = calculateJourneyBotScore(events);
 
+  // Extract visit_number from metadata (sent by tracking script)
+  // Handle both parsed JSON and string formats
+  let metadata = firstEvent.metadata;
+  if (typeof metadata === 'string') {
+    try { metadata = JSON.parse(metadata); } catch (e) { metadata = {}; }
+  }
+  const visitNumber = metadata?.visit_number || 1;
+
   return {
     journey_id: journeyId,
     visitor_id: firstEvent.visitor_id || null,
+    visit_number: visitNumber,
     first_seen: firstEvent.occurred_at,
     last_seen: lastEvent.occurred_at,
     entry_page: pageSequence[0]?.url || null,
