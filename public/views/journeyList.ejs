@@ -212,12 +212,12 @@
       <table>
         <thead>
           <tr>
-            <th>Journey ID</th>
+            <th>Visitor</th>
             <th>First Seen</th>
             <th>Entry Page</th>
             <th>Pages</th>
             <th>Events</th>
-            <th>Visitor</th>
+            <th>Status</th>
             <th>Outcome</th>
             <th>Time to Action</th>
             <th></th>
@@ -225,14 +225,27 @@
         </thead>
         <tbody>
           <% journeys.forEach(journey => { %>
+            <%
+              // Mask IP for privacy (show first two octets)
+              const ip = journey.primary_ip_address;
+              const maskedIP = ip ? ip.split('.').slice(0, 2).join('.') + '.x.x' : null;
+              // Device icon
+              const deviceIcon = journey.device_type === 'mobile' ? '&#128241;' :
+                                 journey.device_type === 'tablet' ? '&#128241;' : '&#128187;';
+            %>
             <tr>
               <td>
-                <span class="journey-id">
-                  #<%= journey.journey_id.substring(4, 12) %>
-                </span>
-                <% if (journey.is_bot) { %>
-                  <span class="badge badge-danger" style="margin-left: 4px; font-size: 0.6rem;" title="Bot score: <%= journey.bot_score || 0 %>">BOT</span>
-                <% } %>
+                <div class="visitor-cell">
+                  <span class="device-icon"><%= deviceIcon %></span>
+                  <% if (maskedIP) { %>
+                    <span class="ip-masked" title="Masked IP address"><%= maskedIP %></span>
+                  <% } else { %>
+                    <span class="text-muted">Unknown</span>
+                  <% } %>
+                  <% if (journey.is_bot) { %>
+                    <span class="badge badge-danger" style="margin-left: 4px; font-size: 0.6rem;" title="Bot score: <%= journey.bot_score || 0 %>">BOT</span>
+                  <% } %>
+                </div>
               </td>
               <td class="text-small"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) %></td>
               <td class="text-small entry-page-cell" data-url="<%= journey.entry_page || '' %>">
@@ -528,3 +541,25 @@
     });
   });
 </script>
+
+<style>
+  .visitor-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .device-icon {
+    font-size: 1rem;
+    opacity: 0.8;
+  }
+
+  .ip-masked {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--paper);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+</style>

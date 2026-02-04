@@ -2077,6 +2077,29 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  // Build HAVING conditions for engagement and visits filters
+  const havingConditions = [];
+
+  // Engagement filter
+  if (options.engagement === 'high') {
+    havingConditions.push('(SUM(event_count) > 50 OR COUNT(*) > 2)');
+  } else if (options.engagement === 'medium') {
+    havingConditions.push('((SUM(event_count) > 20 OR COUNT(*) > 1) AND NOT (SUM(event_count) > 50 OR COUNT(*) > 2))');
+  } else if (options.engagement === 'low') {
+    havingConditions.push('(SUM(event_count) <= 20 AND COUNT(*) <= 1)');
+  }
+
+  // Visits filter
+  if (options.visits === '1') {
+    havingConditions.push('COUNT(*) = 1');
+  } else if (options.visits === '2-3') {
+    havingConditions.push('COUNT(*) >= 2 AND COUNT(*) <= 3');
+  } else if (options.visits === '4+') {
+    havingConditions.push('COUNT(*) >= 4');
+  }
+
+  const havingClause = havingConditions.length > 0 ? `HAVING ${havingConditions.join(' AND ')}` : '';
+
   params.push(limit);
   params.push(offset);
 
@@ -2095,6 +2118,7 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
     FROM journeys
     ${whereClause}
     GROUP BY primary_ip_address
+    ${havingClause}
     ORDER BY MAX(last_seen) DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `, params);
@@ -2128,10 +2152,37 @@ async function getFamilyCount(options = {}) {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  // Build HAVING conditions for engagement and visits filters
+  const havingConditions = [];
+
+  // Engagement filter
+  if (options.engagement === 'high') {
+    havingConditions.push('(SUM(event_count) > 50 OR COUNT(*) > 2)');
+  } else if (options.engagement === 'medium') {
+    havingConditions.push('((SUM(event_count) > 20 OR COUNT(*) > 1) AND NOT (SUM(event_count) > 50 OR COUNT(*) > 2))');
+  } else if (options.engagement === 'low') {
+    havingConditions.push('(SUM(event_count) <= 20 AND COUNT(*) <= 1)');
+  }
+
+  // Visits filter
+  if (options.visits === '1') {
+    havingConditions.push('COUNT(*) = 1');
+  } else if (options.visits === '2-3') {
+    havingConditions.push('COUNT(*) >= 2 AND COUNT(*) <= 3');
+  } else if (options.visits === '4+') {
+    havingConditions.push('COUNT(*) >= 4');
+  }
+
+  const havingClause = havingConditions.length > 0 ? `HAVING ${havingConditions.join(' AND ')}` : '';
+
   const result = await db.query(`
-    SELECT COUNT(DISTINCT primary_ip_address) as count
-    FROM journeys
-    ${whereClause}
+    SELECT COUNT(*) as count FROM (
+      SELECT primary_ip_address
+      FROM journeys
+      ${whereClause}
+      GROUP BY primary_ip_address
+      ${havingClause}
+    ) as filtered_families
   `, params);
 
   return parseInt(result.rows[0].count);

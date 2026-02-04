@@ -51,15 +51,62 @@
 <div class="card">
   <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
     <h2 style="margin-bottom: 0;">All Families</h2>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3 flex-wrap">
+      <!-- Engagement Filter Dropdown -->
+      <div class="filter-dropdown">
+        <label class="filter-label">Engagement</label>
+        <select id="engagementFilter" onchange="applyFilters()" class="filter-select">
+          <option value="all" <%= (typeof engagement === 'undefined' || engagement === 'all') ? 'selected' : '' %>>All</option>
+          <option value="high" <%= engagement === 'high' ? 'selected' : '' %>>High</option>
+          <option value="medium" <%= engagement === 'medium' ? 'selected' : '' %>>Medium</option>
+          <option value="low" <%= engagement === 'low' ? 'selected' : '' %>>Low</option>
+        </select>
+      </div>
+
+      <!-- Visits Filter Dropdown -->
+      <div class="filter-dropdown">
+        <label class="filter-label">Visits</label>
+        <select id="visitsFilter" onchange="applyFilters()" class="filter-select">
+          <option value="all" <%= (typeof visits === 'undefined' || visits === 'all') ? 'selected' : '' %>>All</option>
+          <option value="1" <%= visits === '1' ? 'selected' : '' %>>1 visit</option>
+          <option value="2-3" <%= visits === '2-3' ? 'selected' : '' %>>2-3 visits</option>
+          <option value="4+" <%= visits === '4+' ? 'selected' : '' %>>4+ visits</option>
+        </select>
+      </div>
+
       <!-- Bot Filter Buttons -->
-      <div class="filter-buttons" style="display: flex; gap: 4px; margin-right: 1rem;">
-        <a href="/families?filter=all" class="btn btn-sm <%= (typeof filter === 'undefined' || filter === 'all') ? 'btn-primary' : 'btn-secondary' %>">All</a>
-        <a href="/families?filter=humans" class="btn btn-sm <%= filter === 'humans' ? 'btn-primary' : 'btn-secondary' %>">Humans Only</a>
-        <a href="/families?filter=bots" class="btn btn-sm <%= filter === 'bots' ? 'btn-primary' : 'btn-secondary' %>">Bots Only</a>
+      <div class="filter-buttons" style="display: flex; gap: 4px;">
+        <a href="#" onclick="setFilter('all'); return false;" class="btn btn-sm <%= (typeof filter === 'undefined' || filter === 'all') ? 'btn-primary' : 'btn-secondary' %>" data-filter="all">All</a>
+        <a href="#" onclick="setFilter('humans'); return false;" class="btn btn-sm <%= filter === 'humans' ? 'btn-primary' : 'btn-secondary' %>" data-filter="humans">Humans Only</a>
+        <a href="#" onclick="setFilter('bots'); return false;" class="btn btn-sm <%= filter === 'bots' ? 'btn-primary' : 'btn-secondary' %>" data-filter="bots">Bots Only</a>
       </div>
     </div>
   </div>
+
+  <script>
+    function applyFilters() {
+      const engagement = document.getElementById('engagementFilter').value;
+      const visits = document.getElementById('visitsFilter').value;
+      const currentFilter = '<%= filter || "all" %>';
+
+      let url = '/families?filter=' + currentFilter;
+      if (engagement !== 'all') url += '&engagement=' + engagement;
+      if (visits !== 'all') url += '&visits=' + visits;
+
+      window.location.href = url;
+    }
+
+    function setFilter(filterValue) {
+      const engagement = document.getElementById('engagementFilter').value;
+      const visits = document.getElementById('visitsFilter').value;
+
+      let url = '/families?filter=' + filterValue;
+      if (engagement !== 'all') url += '&engagement=' + engagement;
+      if (visits !== 'all') url += '&visits=' + visits;
+
+      window.location.href = url;
+    }
+  </script>
 
   <% if (families.length === 0) { %>
     <div class="empty-state">
@@ -154,11 +201,14 @@
 
     <% if (pagination.totalPages > 1) { %>
       <%
-        const filterParam = filter && filter !== 'all' ? `&filter=${filter}` : '';
+        let filterParams = '';
+        if (filter && filter !== 'all') filterParams += `&filter=${filter}`;
+        if (typeof engagement !== 'undefined' && engagement !== 'all') filterParams += `&engagement=${engagement}`;
+        if (typeof visits !== 'undefined' && visits !== 'all') filterParams += `&visits=${visits}`;
       %>
       <div class="pagination">
         <% if (pagination.hasPrev) { %>
-          <a href="/families?page=<%= pagination.page - 1 %><%= filterParam %>">Previous</a>
+          <a href="/families?page=<%= pagination.page - 1 %><%= filterParams %>">Previous</a>
         <% } %>
 
         <%
@@ -167,21 +217,21 @@
         %>
 
         <% if (startPage > 1) { %>
-          <a href="/families?page=1<%= filterParam %>">1</a>
+          <a href="/families?page=1<%= filterParams %>">1</a>
           <% if (startPage > 2) { %><span style="padding: 10px;">...</span><% } %>
         <% } %>
 
         <% for (let i = startPage; i <= endPage; i++) { %>
-          <a href="/families?page=<%= i %><%= filterParam %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+          <a href="/families?page=<%= i %><%= filterParams %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
         <% } %>
 
         <% if (endPage < pagination.totalPages) { %>
           <% if (endPage < pagination.totalPages - 1) { %><span style="padding: 10px;">...</span><% } %>
-          <a href="/families?page=<%= pagination.totalPages %><%= filterParam %>"><%= pagination.totalPages %></a>
+          <a href="/families?page=<%= pagination.totalPages %><%= filterParams %>"><%= pagination.totalPages %></a>
         <% } %>
 
         <% if (pagination.hasNext) { %>
-          <a href="/families?page=<%= pagination.page + 1 %><%= filterParam %>">Next</a>
+          <a href="/families?page=<%= pagination.page + 1 %><%= filterParams %>">Next</a>
         <% } %>
       </div>
     <% } %>
@@ -189,6 +239,41 @@
 </div>
 
 <style>
+  /* Filter Dropdowns */
+  .filter-dropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .filter-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .filter-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border-grey);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    min-width: 100px;
+  }
+
+  .filter-select:hover {
+    border-color: var(--accent);
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(255, 159, 28, 0.2);
+  }
+
   .family-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

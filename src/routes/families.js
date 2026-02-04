@@ -15,14 +15,18 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
-    const filter = req.query.filter || 'all'; // 'all', 'humans', 'bots', 'converted'
+    const filter = req.query.filter || 'all'; // 'all', 'humans', 'bots'
+    const engagement = req.query.engagement || 'all'; // 'all', 'high', 'medium', 'low'
+    const visits = req.query.visits || 'all'; // 'all', '1', '2-3', '4+'
     const siteId = getSiteId(req);
 
     // Build filter options
     const filterOptions = {
       excludeBots: filter === 'humans',
       botsOnly: filter === 'bots',
-      siteId: siteId
+      siteId: siteId,
+      engagement: engagement !== 'all' ? engagement : null,
+      visits: visits !== 'all' ? visits : null
     };
 
     const [families, totalCount, stats] = await Promise.all([
@@ -46,6 +50,8 @@ router.get('/', async (req, res) => {
       families,
       stats: parsedStats,
       filter,
+      engagement,
+      visits,
       pagination: {
         page,
         limit,
