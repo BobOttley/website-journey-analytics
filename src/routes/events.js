@@ -376,6 +376,32 @@ router.post('/batch', async (req, res) => {
           site_id: siteId
         });
 
+        // Email notification for batch events (same logic as single endpoint)
+        if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id)) {
+          notifiedJourneys.add(e.journey_id);
+          logEmail(`BATCH TRIGGER: ${e.journey_id.substring(0,8)}`);
+
+          const location = metadata.location || null;
+          const existing = await getEventsByJourneyId(e.journey_id);
+          const isReturn = existing.length > 1;
+
+          logEmail(`BATCH SENDING: ${e.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}), page=${e.page_url?.substring(0,50)}`);
+
+          emailService.sendNewVisitorNotification({
+            journey_id: e.journey_id,
+            entry_page: e.page_url,
+            referrer: e.referrer,
+            device_type: e.device_type,
+            first_seen: e.occurred_at || new Date().toISOString(),
+            location,
+            isReturn
+          }).then(result => {
+            logEmail(`BATCH SUCCESS: ${e.journey_id.substring(0,8)} - ${JSON.stringify(result)}`);
+          }).catch(err => {
+            logEmail(`BATCH FAILED: ${e.journey_id.substring(0,8)} - ${err.message}`);
+          });
+        }
+
         results.push({ index: i, success: true });
       } catch (err) {
         errors.push({ index: i, error: err.message });
