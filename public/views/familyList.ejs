@@ -1,0 +1,325 @@
+<!-- Hero KPI Cards - Family Stats -->
+<div class="stats-grid">
+  <div class="stat-card highlight">
+    <h3>Total Families</h3>
+    <div class="value"><%= stats.total_families || 0 %></div>
+    <div class="subtitle">Unique IP addresses</div>
+  </div>
+  <div class="stat-card" style="border-top-color: #8b5cf6;">
+    <h3>Returning Families</h3>
+    <div class="value" style="color: #8b5cf6;"><%= stats.returning_families || 0 %></div>
+    <div class="subtitle">
+      <% if (stats.total_families > 0) { %>
+        <%= ((stats.returning_families / stats.total_families) * 100).toFixed(0) %>% came back
+      <% } else { %>
+        No data yet
+      <% } %>
+    </div>
+  </div>
+  <div class="stat-card success">
+    <h3>Converted</h3>
+    <div class="value"><%= stats.converted_families || 0 %></div>
+    <div class="subtitle">
+      <% if (stats.total_families > 0) { %>
+        <%= ((stats.converted_families / stats.total_families) * 100).toFixed(1) %>% conversion
+      <% } else { %>
+        No data yet
+      <% } %>
+    </div>
+  </div>
+  <div class="stat-card info">
+    <h3>Avg Events/Visit</h3>
+    <div class="value"><%= Math.round(stats.avg_events || 0) %></div>
+    <div class="subtitle">Engagement per session</div>
+  </div>
+</div>
+
+<!-- Info banner -->
+<div class="card mb-4" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 1rem;">
+  <div class="flex items-center gap-3">
+    <span style="font-size: 1.5rem;">&#128106;</span>
+    <div>
+      <strong style="color: #60a5fa;">Family Profiles</strong>
+      <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">
+        Visitors grouped by IP address - see complete history across all visits
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Family Cards -->
+<div class="card">
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+    <h2 style="margin-bottom: 0;">All Families</h2>
+    <div class="flex items-center gap-2">
+      <!-- Bot Filter Buttons -->
+      <div class="filter-buttons" style="display: flex; gap: 4px; margin-right: 1rem;">
+        <a href="/families?filter=all" class="btn btn-sm <%= (typeof filter === 'undefined' || filter === 'all') ? 'btn-primary' : 'btn-secondary' %>">All</a>
+        <a href="/families?filter=humans" class="btn btn-sm <%= filter === 'humans' ? 'btn-primary' : 'btn-secondary' %>">Humans Only</a>
+        <a href="/families?filter=bots" class="btn btn-sm <%= filter === 'bots' ? 'btn-primary' : 'btn-secondary' %>">Bots Only</a>
+      </div>
+    </div>
+  </div>
+
+  <% if (families.length === 0) { %>
+    <div class="empty-state">
+      <h3>No families recorded yet</h3>
+      <p>Family profiles will appear here once visitor journeys are rebuilt with IP data.</p>
+      <p class="text-small text-muted mt-2">Try clicking "Rebuild Journeys" on the Journeys page to populate IP addresses.</p>
+    </div>
+  <% } else { %>
+    <div class="family-grid">
+      <% families.forEach(family => { %>
+        <%
+          // Calculate engagement level
+          let engagementLevel = 'low';
+          let engagementColour = '#ef4444';
+          if (family.total_events > 50 || family.visit_count > 2) {
+            engagementLevel = 'high';
+            engagementColour = '#10b981';
+          } else if (family.total_events > 20 || family.visit_count > 1) {
+            engagementLevel = 'medium';
+            engagementColour = '#f59e0b';
+          }
+
+          // Mask IP for privacy (show first two octets)
+          const maskedIP = family.primary_ip_address ?
+            family.primary_ip_address.split('.').slice(0, 2).join('.') + '.xxx.xxx' :
+            'Unknown';
+
+          // Format dates
+          const firstVisit = new Date(family.first_visit);
+          const lastVisit = new Date(family.last_visit);
+          const daysBetween = Math.floor((lastVisit - firstVisit) / (1000 * 60 * 60 * 24));
+        %>
+        <div class="family-card <%= family.has_converted ? 'converted' : '' %> <%= family.has_bot_activity ? 'bot-activity' : '' %>">
+          <div class="family-card-header">
+            <div class="family-ip">
+              <span class="ip-icon">&#127760;</span>
+              <span class="ip-text"><%= maskedIP %></span>
+            </div>
+            <div class="family-engagement">
+              <span class="engagement-dot" style="background: <%= engagementColour %>;"></span>
+              <span class="engagement-label"><%= engagementLevel.charAt(0).toUpperCase() + engagementLevel.slice(1) %></span>
+            </div>
+          </div>
+
+          <div class="family-card-stats">
+            <div class="family-stat">
+              <span class="stat-value"><%= family.visit_count %></span>
+              <span class="stat-label">Visits</span>
+            </div>
+            <div class="family-stat">
+              <span class="stat-value"><%= family.total_events %></span>
+              <span class="stat-label">Events</span>
+            </div>
+            <div class="family-stat">
+              <span class="stat-value"><%= daysBetween > 0 ? daysBetween + 'd' : '<1d' %></span>
+              <span class="stat-label">Span</span>
+            </div>
+          </div>
+
+          <div class="family-card-meta">
+            <div class="meta-row">
+              <span class="meta-label">First Visit:</span>
+              <span class="meta-value"><%= firstVisit.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Last Visit:</span>
+              <span class="meta-value"><%= lastVisit.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></span>
+            </div>
+          </div>
+
+          <div class="family-card-outcome">
+            <% if (family.best_outcome === 'enquiry_submitted') { %>
+              <span class="badge badge-success">Enquiry Submitted</span>
+            <% } else if (family.best_outcome === 'visit_booked') { %>
+              <span class="badge badge-success">Visit Booked</span>
+            <% } else if (family.visit_count > 1) { %>
+              <span class="badge badge-gold">Returning</span>
+            <% } else { %>
+              <span class="badge badge-neutral">Browsing</span>
+            <% } %>
+            <% if (family.has_bot_activity) { %>
+              <span class="badge badge-danger" style="font-size: 0.6rem;">BOT</span>
+            <% } %>
+          </div>
+
+          <div class="family-card-actions">
+            <a href="/families/<%= encodeURIComponent(family.primary_ip_address) %>" class="btn btn-outline btn-sm">View Family</a>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <% if (pagination.totalPages > 1) { %>
+      <%
+        const filterParam = filter && filter !== 'all' ? `&filter=${filter}` : '';
+      %>
+      <div class="pagination">
+        <% if (pagination.hasPrev) { %>
+          <a href="/families?page=<%= pagination.page - 1 %><%= filterParam %>">Previous</a>
+        <% } %>
+
+        <%
+          let startPage = Math.max(1, pagination.page - 2);
+          let endPage = Math.min(pagination.totalPages, pagination.page + 2);
+        %>
+
+        <% if (startPage > 1) { %>
+          <a href="/families?page=1<%= filterParam %>">1</a>
+          <% if (startPage > 2) { %><span style="padding: 10px;">...</span><% } %>
+        <% } %>
+
+        <% for (let i = startPage; i <= endPage; i++) { %>
+          <a href="/families?page=<%= i %><%= filterParam %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+        <% } %>
+
+        <% if (endPage < pagination.totalPages) { %>
+          <% if (endPage < pagination.totalPages - 1) { %><span style="padding: 10px;">...</span><% } %>
+          <a href="/families?page=<%= pagination.totalPages %><%= filterParam %>"><%= pagination.totalPages %></a>
+        <% } %>
+
+        <% if (pagination.hasNext) { %>
+          <a href="/families?page=<%= pagination.page + 1 %><%= filterParam %>">Next</a>
+        <% } %>
+      </div>
+    <% } %>
+  <% } %>
+</div>
+
+<style>
+  .family-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .family-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-grey);
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .family-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .family-card.converted {
+    border-left: 4px solid #10b981;
+  }
+
+  .family-card.bot-activity {
+    opacity: 0.7;
+  }
+
+  .family-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-grey);
+  }
+
+  .family-ip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ip-icon {
+    font-size: 1.25rem;
+  }
+
+  .ip-text {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .family-engagement {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .engagement-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .engagement-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .family-card-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0;
+    background: var(--paper);
+    border-radius: 8px;
+  }
+
+  .family-stat {
+    text-align: center;
+  }
+
+  .family-stat .stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .family-stat .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .family-card-meta {
+    margin-bottom: 1rem;
+  }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    padding: 0.25rem 0;
+  }
+
+  .meta-label {
+    color: var(--text-muted);
+  }
+
+  .meta-value {
+    color: var(--text-primary);
+  }
+
+  .family-card-outcome {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .family-card-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .family-card-actions .btn {
+    flex: 1;
+    text-align: center;
+  }
+</style>

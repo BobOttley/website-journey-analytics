@@ -94,8 +94,8 @@ async function upsertJourney(journey) {
   };
 
   const result = await db.query(
-    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, is_bot, bot_score, bot_type, site_id, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
+    `INSERT INTO journeys (journey_id, visitor_id, visit_number, first_seen, last_seen, entry_page, entry_referrer, initial_intent, page_sequence, event_count, outcome, time_to_action, confidence, metadata, is_bot, bot_score, bot_type, site_id, primary_ip_address, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP)
      ON CONFLICT(journey_id) DO UPDATE SET
        visitor_id = EXCLUDED.visitor_id,
        visit_number = EXCLUDED.visit_number,
@@ -110,6 +110,7 @@ async function upsertJourney(journey) {
        bot_score = EXCLUDED.bot_score,
        bot_type = EXCLUDED.bot_type,
        site_id = COALESCE(journeys.site_id, EXCLUDED.site_id),
+       primary_ip_address = COALESCE(EXCLUDED.primary_ip_address, journeys.primary_ip_address),
        updated_at = CURRENT_TIMESTAMP
      RETURNING journey_id`,
     [
@@ -130,7 +131,8 @@ async function upsertJourney(journey) {
       journey.is_bot || false,
       journey.bot_score || 0,
       journey.bot_type || null,
-      journey.site_id || null
+      journey.site_id || null,
+      journey.primary_ip_address || null
     ]
   );
   return result;
@@ -2040,6 +2042,222 @@ async function getCombinedVisitorStats(siteId = null, days = 30) {
   };
 }
 
+// ============================================
+// FAMILY PROFILES (IP-BASED GROUPING)
+// ============================================
+
+/**
+ * Get all families (grouped by IP address) with aggregated stats
+ */
+async function getAllFamilies(limit = 50, offset = 0, options = {}) {
+  const db = getDb();
+  const conditions = [];
+  const params = [];
+  let paramIndex = 1;
+
+  // Base condition: must have an IP address
+  conditions.push('primary_ip_address IS NOT NULL');
+
+  // Exclude internal analytics traffic
+  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
+
+  // Filter by site_id
+  if (options.siteId) {
+    conditions.push(`site_id = $${paramIndex}`);
+    params.push(options.siteId);
+    paramIndex++;
+  }
+
+  // Filter by bot status
+  if (options.excludeBots === true) {
+    conditions.push('(is_bot = false OR is_bot IS NULL)');
+  } else if (options.botsOnly === true) {
+    conditions.push('is_bot = true');
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  params.push(limit);
+  params.push(offset);
+
+  const result = await db.query(`
+    SELECT
+      primary_ip_address,
+      COUNT(*) as visit_count,
+      SUM(event_count) as total_events,
+      MIN(first_seen) as first_visit,
+      MAX(last_seen) as last_visit,
+      array_agg(DISTINCT journey_id ORDER BY journey_id) as journey_ids,
+      MAX(CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN outcome ELSE NULL END) as best_outcome,
+      MAX(CASE WHEN outcome = 'enquiry_submitted' THEN 1 WHEN outcome = 'visit_booked' THEN 1 ELSE 0 END) as has_converted,
+      MAX(metadata->'engagement_metrics'->>'max_scroll_depth')::integer as max_scroll,
+      BOOL_OR(is_bot) as has_bot_activity
+    FROM journeys
+    ${whereClause}
+    GROUP BY primary_ip_address
+    ORDER BY MAX(last_seen) DESC
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `, params);
+
+  return result.rows;
+}
+
+/**
+ * Get total count of unique families (IPs)
+ */
+async function getFamilyCount(options = {}) {
+  const db = getDb();
+  const conditions = [];
+  const params = [];
+  let paramIndex = 1;
+
+  conditions.push('primary_ip_address IS NOT NULL');
+  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
+
+  if (options.siteId) {
+    conditions.push(`site_id = $${paramIndex}`);
+    params.push(options.siteId);
+    paramIndex++;
+  }
+
+  if (options.excludeBots === true) {
+    conditions.push('(is_bot = false OR is_bot IS NULL)');
+  } else if (options.botsOnly === true) {
+    conditions.push('is_bot = true');
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const result = await db.query(`
+    SELECT COUNT(DISTINCT primary_ip_address) as count
+    FROM journeys
+    ${whereClause}
+  `, params);
+
+  return parseInt(result.rows[0].count);
+}
+
+/**
+ * Get a single family profile by IP address with all their journeys
+ */
+async function getFamilyByIP(ipAddress, siteId = null) {
+  const db = getDb();
+
+  let siteFilter = '';
+  const params = [ipAddress];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get all journeys for this IP
+  const journeysResult = await db.query(`
+    SELECT *
+    FROM journeys
+    WHERE primary_ip_address = $1 ${siteFilter}
+    ORDER BY first_seen ASC
+  `, params);
+
+  if (journeysResult.rows.length === 0) {
+    return null;
+  }
+
+  const journeys = journeysResult.rows;
+
+  // Get location from first event with metadata containing location
+  const locationResult = await db.query(`
+    SELECT metadata
+    FROM journey_events
+    WHERE ip_address = $1
+      AND metadata IS NOT NULL
+      AND metadata->>'location' IS NOT NULL
+    LIMIT 1
+  `, [ipAddress]);
+
+  let location = null;
+  if (locationResult.rows.length > 0) {
+    try {
+      const metadata = typeof locationResult.rows[0].metadata === 'string'
+        ? JSON.parse(locationResult.rows[0].metadata)
+        : locationResult.rows[0].metadata;
+      location = metadata?.location || null;
+    } catch (e) {}
+  }
+
+  // Aggregate stats
+  const totalEvents = journeys.reduce((sum, j) => sum + (j.event_count || 0), 0);
+  const bestOutcome = journeys.find(j =>
+    j.outcome === 'enquiry_submitted' || j.outcome === 'visit_booked'
+  )?.outcome || journeys[journeys.length - 1]?.outcome || 'no_action';
+
+  // Get unique pages across all journeys
+  const allPages = new Set();
+  journeys.forEach(j => {
+    const seq = typeof j.page_sequence === 'string' ? JSON.parse(j.page_sequence) : j.page_sequence;
+    if (Array.isArray(seq)) {
+      seq.forEach(p => allPages.add(p.url));
+    }
+  });
+
+  // Get devices used
+  const devicesResult = await db.query(`
+    SELECT DISTINCT device_type
+    FROM journey_events
+    WHERE ip_address = $1
+      AND device_type IS NOT NULL
+  `, [ipAddress]);
+  const devices = devicesResult.rows.map(r => r.device_type);
+
+  return {
+    ip_address: ipAddress,
+    visit_count: journeys.length,
+    total_events: totalEvents,
+    first_visit: journeys[0].first_seen,
+    last_visit: journeys[journeys.length - 1].last_seen,
+    best_outcome: bestOutcome,
+    location: location,
+    unique_pages: Array.from(allPages),
+    devices: devices,
+    journeys: journeys.map(j => ({
+      journey_id: j.journey_id,
+      first_seen: j.first_seen,
+      last_seen: j.last_seen,
+      event_count: j.event_count,
+      outcome: j.outcome,
+      entry_page: j.entry_page,
+      page_sequence: typeof j.page_sequence === 'string' ? JSON.parse(j.page_sequence) : j.page_sequence
+    }))
+  };
+}
+
+/**
+ * Get family stats for dashboard
+ */
+async function getFamilyStats(siteId = null) {
+  const db = getDb();
+  let whereClause = "WHERE primary_ip_address IS NOT NULL AND (entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')";
+  const params = [];
+
+  if (siteId) {
+    whereClause += ' AND site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(`
+    SELECT
+      COUNT(DISTINCT primary_ip_address) as total_families,
+      COUNT(DISTINCT CASE WHEN is_bot = false OR is_bot IS NULL THEN primary_ip_address END) as human_families,
+      COUNT(DISTINCT CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN primary_ip_address END) as converted_families,
+      COUNT(DISTINCT CASE WHEN visit_number > 1 THEN primary_ip_address END) as returning_families,
+      AVG(event_count) as avg_events_per_visit
+    FROM journeys
+    ${whereClause}
+  `, params);
+
+  return result.rows[0];
+}
+
 module.exports = {
   // Events
   insertEvent,
@@ -2053,6 +2271,11 @@ module.exports = {
   getJourneyCount,
   getJourneysInDateRange,
   getJourneyStats,
+  // Family Profiles
+  getAllFamilies,
+  getFamilyCount,
+  getFamilyByIP,
+  getFamilyStats,
   // Chart Data
   getTopPages,
   getDeviceBreakdown,

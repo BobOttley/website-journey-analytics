@@ -10,6 +10,7 @@ const { initializeSchema, getDb } = require('./db/database');
 // Import routes
 const eventsRouter = require('./routes/events');
 const journeysRouter = require('./routes/journeys');
+const familiesRouter = require('./routes/families');
 const insightsRouter = require('./routes/insights');
 const realtimeRouter = require('./routes/realtime');
 const botsRouter = require('./routes/bots');
@@ -379,6 +380,7 @@ app.use('/api/events', eventsRouter);
 
 // Web Routes (protected - require authentication)
 app.use('/journeys', requireAuth, journeysRouter);
+app.use('/families', requireAuth, familiesRouter);
 app.use('/realtime', requireAuth, realtimeRouter);
 app.use('/insights', requireAuth, insightsRouter);
 app.use('/bots', requireAuth, botsRouter);
@@ -441,6 +443,7 @@ async function start() {
 ║              Website Visitor Tracking                 ║
 ╠═══════════════════════════════════════════════════════╣
 ║  Dashboard:  http://localhost:${PORT}/journeys            ║
+║  Families:   http://localhost:${PORT}/families            ║
 ║  Real-time:  http://localhost:${PORT}/realtime            ║
 ║  UX:         http://localhost:${PORT}/ux                  ║
 ║  Insights:   http://localhost:${PORT}/insights            ║

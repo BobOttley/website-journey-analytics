@@ -102,3 +102,15 @@ CREATE INDEX IF NOT EXISTS idx_journey_events_bot_score ON journey_events(bot_sc
 CREATE INDEX IF NOT EXISTS idx_journeys_is_bot ON journeys(is_bot);
 CREATE INDEX IF NOT EXISTS idx_journeys_bot_score ON journeys(bot_score);
 CREATE INDEX IF NOT EXISTS idx_journeys_bot_type ON journeys(bot_type);
+
+-- ============================================
+-- FAMILY PROFILES (IP-BASED GROUPING)
+-- ============================================
+
+-- Add primary_ip_address to journeys for family grouping
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS primary_ip_address TEXT;
+CREATE INDEX IF NOT EXISTS idx_journeys_primary_ip_address ON journeys(primary_ip_address);
+
+-- Add AI analysis columns to journeys
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS ai_analysis JSONB;
+ALTER TABLE journeys ADD COLUMN IF NOT EXISTS ai_analysed_at TIMESTAMP;

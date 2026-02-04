@@ -446,6 +446,10 @@ async function reconstructJourney(journeyId, siteId = null) {
     firstEvent.site_id
   );
 
+  // Get IP address from first event or any non-null
+  const primaryIP = firstEvent.ip_address ||
+    events.find(e => e.ip_address)?.ip_address || null;
+
   return {
     journey_id: journeyId,
     visitor_id: firstEvent.visitor_id || null,
@@ -474,7 +478,9 @@ async function reconstructJourney(journeyId, siteId = null) {
     bot_type: botResult.botType,
     bot_signals: botResult.signals,
     // Site ID for multi-tenant filtering
-    site_id: firstEvent.site_id || null
+    site_id: firstEvent.site_id || null,
+    // IP address for family grouping
+    primary_ip_address: primaryIP
   };
 }
 
@@ -500,6 +506,10 @@ async function buildJourneyFromEvents(primaryJourneyId, events, visitNumber, sit
   const confidence = calculateConfidence(sortedEvents, metrics);
 
   const botResult = calculateJourneyBotScore(sortedEvents);
+
+  // Get IP address from any event (prefer first, fall back to any non-null)
+  const primaryIP = firstEvent.ip_address ||
+    sortedEvents.find(e => e.ip_address)?.ip_address || null;
 
   return {
     journey_id: primaryJourneyId,
@@ -527,7 +537,8 @@ async function buildJourneyFromEvents(primaryJourneyId, events, visitNumber, sit
     bot_score: botResult.botScore,
     bot_type: botResult.botType,
     bot_signals: botResult.signals,
-    site_id: siteId || firstEvent.site_id || null
+    site_id: siteId || firstEvent.site_id || null,
+    primary_ip_address: primaryIP
   };
 }
 

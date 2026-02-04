@@ -1,0 +1,320 @@
+<%
+  // Mask IP for privacy (show first two octets)
+  const maskedIP = family.ip_address ?
+    family.ip_address.split('.').slice(0, 2).join('.') + '.xxx.xxx' :
+    'Unknown';
+
+  // Calculate engagement level
+  let engagementLevel = 'low';
+  let engagementColour = '#ef4444';
+  if (family.total_events > 50 || family.visit_count > 2) {
+    engagementLevel = 'high';
+    engagementColour = '#10b981';
+  } else if (family.total_events > 20 || family.visit_count > 1) {
+    engagementLevel = 'medium';
+    engagementColour = '#f59e0b';
+  }
+
+  // Format dates
+  const firstVisit = new Date(family.first_visit);
+  const lastVisit = new Date(family.last_visit);
+  const daysBetween = Math.floor((lastVisit - firstVisit) / (1000 * 60 * 60 * 24));
+%>
+
+<div class="flex justify-between items-center mb-4">
+  <div>
+    <a href="/families" class="text-muted text-small">&#8592; Back to Families</a>
+    <h2 class="mt-4" style="font-size: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+      <span style="font-size: 1.5rem;">&#128106;</span>
+      Family Profile
+      <span class="journey-id" style="font-size: 0.9rem;"><%= maskedIP %></span>
+    </h2>
+  </div>
+  <div class="flex gap-2 items-center">
+    <% if (family.best_outcome === 'enquiry_submitted') { %>
+      <span class="badge badge-success">Enquiry Submitted</span>
+    <% } else if (family.best_outcome === 'visit_booked') { %>
+      <span class="badge badge-success">Visit Booked</span>
+    <% } else if (family.visit_count > 1) { %>
+      <span class="badge badge-gold">Returning Family</span>
+    <% } else { %>
+      <span class="badge badge-neutral">New Family</span>
+    <% } %>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="stats-grid">
+  <div class="stat-card highlight">
+    <h3>Total Visits</h3>
+    <div class="value"><%= family.visit_count %></div>
+    <div class="subtitle">Separate sessions</div>
+  </div>
+  <div class="stat-card">
+    <h3>Total Events</h3>
+    <div class="value"><%= family.total_events %></div>
+    <div class="subtitle">Across all visits</div>
+  </div>
+  <div class="stat-card">
+    <h3>Time Span</h3>
+    <div class="value"><%= daysBetween > 0 ? daysBetween : '<1' %></div>
+    <div class="subtitle">Days from first to last</div>
+  </div>
+  <div class="stat-card" style="border-top-color: <%= engagementColour %>;">
+    <h3>Engagement</h3>
+    <div class="value" style="color: <%= engagementColour %>;">
+      <%= engagementLevel.charAt(0).toUpperCase() + engagementLevel.slice(1) %>
+    </div>
+    <div class="subtitle">Activity level</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-6">
+  <!-- Family Overview -->
+  <div class="card">
+    <h2>Family Overview</h2>
+    <table>
+      <tr>
+        <th style="width: 140px; background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">IP Address</th>
+        <td><code style="font-size: 0.85rem;"><%= maskedIP %></code></td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Location</th>
+        <td>
+          <% if (family.location) { %>
+            <span><%= family.location.city || family.location.region || 'Unknown' %>, <%= family.location.country || family.location.countryCode || '' %></span>
+          <% } else { %>
+            <span class="text-muted">Unknown</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">First Visit</th>
+        <td><%= firstVisit.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %></td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Last Visit</th>
+        <td><%= lastVisit.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %></td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Devices Used</th>
+        <td>
+          <% if (family.devices && family.devices.length > 0) { %>
+            <% family.devices.forEach(device => { %>
+              <span class="badge badge-<%= device === 'mobile' ? 'warning' : device === 'tablet' ? 'info' : 'neutral' %>" style="margin-right: 4px;">
+                <%= device %>
+              </span>
+            <% }) %>
+          <% } else { %>
+            <span class="text-muted">Unknown</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Pages Visited</th>
+        <td><strong><%= family.unique_pages?.length || 0 %></strong> unique pages</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Pages Visited -->
+  <div class="card">
+    <h2>Pages Visited</h2>
+    <% if (family.unique_pages && family.unique_pages.length > 0) { %>
+      <div style="max-height: 250px; overflow-y: auto;">
+        <% family.unique_pages.slice(0, 20).forEach(pageUrl => { %>
+          <%
+            const path = pageUrl ? pageUrl.replace(/^https?:\/\/[^\/]+/, '') : '';
+            const pageName = path === '/' ? 'Home' : path.split('/').filter(Boolean).pop() || path;
+          %>
+          <div style="padding: 8px 0; border-bottom: 1px solid var(--border-grey); font-size: 0.85rem;">
+            <a href="<%= pageUrl %>" target="_blank" title="<%= pageUrl %>">
+              <%= pageName.substring(0, 40) %><%= pageName.length > 40 ? '...' : '' %>
+            </a>
+          </div>
+        <% }) %>
+        <% if (family.unique_pages.length > 20) { %>
+          <div style="padding: 8px 0; color: var(--text-muted); font-size: 0.8rem;">
+            + <%= family.unique_pages.length - 20 %> more pages
+          </div>
+        <% } %>
+      </div>
+    <% } else { %>
+      <p class="text-muted">No page data available</p>
+    <% } %>
+  </div>
+</div>
+
+<!-- Session Timeline -->
+<div class="card">
+  <h2>Session History</h2>
+  <p class="text-muted text-small mb-4">All visits from this family, in chronological order</p>
+
+  <% if (!family.journeys || family.journeys.length === 0) { %>
+    <div class="empty-state">
+      <h3>No sessions recorded</h3>
+      <p>No journey data available for this family.</p>
+    </div>
+  <% } else { %>
+    <div class="session-timeline">
+      <% family.journeys.forEach((journey, index) => { %>
+        <%
+          const sessionDate = new Date(journey.first_seen);
+          const sessionEndDate = new Date(journey.last_seen);
+          const durationMs = sessionEndDate - sessionDate;
+          const durationMins = Math.floor(durationMs / 60000);
+          const pageCount = journey.page_sequence?.length || 0;
+        %>
+        <div class="session-item">
+          <div class="session-number">
+            <span class="session-badge">Session <%= index + 1 %></span>
+          </div>
+          <div class="session-content">
+            <div class="session-header">
+              <div class="session-date">
+                <strong><%= sessionDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) %></strong>
+                <span class="text-muted"> at <%= sessionDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) %></span>
+              </div>
+              <div class="session-outcome">
+                <% if (journey.outcome === 'enquiry_submitted') { %>
+                  <span class="badge badge-success">Enquiry</span>
+                <% } else if (journey.outcome === 'visit_booked') { %>
+                  <span class="badge badge-success">Booked</span>
+                <% } else if (journey.outcome === 'engaged') { %>
+                  <span class="badge badge-info">Engaged</span>
+                <% } else if (journey.outcome === 'form_abandoned') { %>
+                  <span class="badge badge-warning">Form Abandoned</span>
+                <% } else { %>
+                  <span class="badge badge-neutral">Browsing</span>
+                <% } %>
+              </div>
+            </div>
+            <div class="session-stats">
+              <span class="session-stat">
+                <strong><%= journey.event_count %></strong> events
+              </span>
+              <span class="session-stat">
+                <strong><%= pageCount %></strong> pages
+              </span>
+              <span class="session-stat">
+                <strong><%= durationMins > 0 ? durationMins + 'm' : '<1m' %></strong> duration
+              </span>
+            </div>
+            <% if (journey.page_sequence && journey.page_sequence.length > 0) { %>
+              <div class="session-pages">
+                <span class="text-muted text-small">Pages: </span>
+                <% journey.page_sequence.slice(0, 5).forEach((page, idx) => { %>
+                  <%
+                    const path = page.url ? page.url.replace(/^https?:\/\/[^\/]+/, '') : '';
+                    const name = path === '/' ? 'Home' : path.split('/').filter(Boolean).pop() || path;
+                  %>
+                  <span class="page-chip"><%= name.substring(0, 15) %></span>
+                  <% if (idx < Math.min(4, journey.page_sequence.length - 1)) { %>
+                    <span class="page-arrow">&#8594;</span>
+                  <% } %>
+                <% }) %>
+                <% if (journey.page_sequence.length > 5) { %>
+                  <span class="text-muted text-small">+<%= journey.page_sequence.length - 5 %> more</span>
+                <% } %>
+              </div>
+            <% } %>
+            <div class="session-actions">
+              <a href="/journeys/<%= journey.journey_id %>" class="btn btn-outline btn-sm">View Full Journey</a>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<style>
+  .session-timeline {
+    position: relative;
+  }
+
+  .session-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--border-grey);
+  }
+
+  .session-item:last-child {
+    border-bottom: none;
+  }
+
+  .session-number {
+    flex-shrink: 0;
+    width: 80px;
+  }
+
+  .session-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--bg-card);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+
+  .session-content {
+    flex: 1;
+  }
+
+  .session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .session-date {
+    font-size: 0.9rem;
+  }
+
+  .session-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .session-stat {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .session-stat strong {
+    color: var(--text-primary);
+  }
+
+  .session-pages {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .page-chip {
+    display: inline-block;
+    background: var(--paper);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-grey);
+  }
+
+  .page-arrow {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+
+  .session-actions {
+    margin-top: 0.5rem;
+  }
+</style>
