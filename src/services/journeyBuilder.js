@@ -1,4 +1,13 @@
-const { getEventsByJourneyId, getUniqueJourneyIds, upsertJourney, getVisitorJourneyNumber } = require('../db/queries');
+const {
+  getEventsByJourneyId,
+  getUniqueJourneyIds,
+  upsertJourney,
+  getVisitorJourneyNumber,
+  getUniqueIPsWithJourneys,
+  getEventsByIPAddress,
+  deleteJourneysByIds,
+  getJourneysWithNullIP
+} = require('../db/queries');
 const { calculateJourneyBotScore } = require('./botDetection');
 
 /**
@@ -467,24 +476,145 @@ async function reconstructJourney(journeyId, siteId = null) {
   };
 }
 
-async function reconstructAllJourneys() {
-  const journeyIds = await getUniqueJourneyIds();
-  const results = { processed: 0, updated: 0, errors: [] };
+/**
+ * Build a journey from a list of events (for IP consolidation)
+ * Creates ONE journey from events that may span multiple original journey_ids
+ */
+async function buildJourneyFromEvents(primaryJourneyId, events, visitNumber, siteId) {
+  if (!events || events.length === 0) return null;
 
-  for (const journeyId of journeyIds) {
-    try {
-      const journey = await reconstructJourney(journeyId);
-      if (journey) {
-        await upsertJourney(journey);
-        results.updated++;
+  const sortedEvents = sortEventsByTime(events);
+  const firstEvent = sortedEvents[0];
+  const lastEvent = sortedEvents[sortedEvents.length - 1];
+
+  const pageSequence = buildPageSequence(sortedEvents);
+  const loops = detectLoops(pageSequence);
+  const timeToAction = calculateTimeToAction(sortedEvents);
+  const metrics = calculateEngagementMetrics(sortedEvents);
+
+  const outcomeResult = determineOutcome(sortedEvents);
+  const strength = calculateIntentStrength(sortedEvents, timeToAction);
+  const friction = detectFriction(sortedEvents, loops);
+  const confidence = calculateConfidence(sortedEvents, metrics);
+
+  const botResult = calculateJourneyBotScore(sortedEvents);
+
+  return {
+    journey_id: primaryJourneyId,
+    visitor_id: firstEvent.visitor_id || null,
+    visit_number: visitNumber,
+    first_seen: firstEvent.occurred_at,
+    last_seen: lastEvent.occurred_at,
+    entry_page: pageSequence[0]?.url || null,
+    entry_referrer: firstEvent.referrer,
+    initial_intent: determineInitialIntent(sortedEvents),
+    page_sequence: pageSequence,
+    event_count: sortedEvents.length,
+    outcome: outcomeResult.outcome,
+    outcome_detail: {
+      raw: outcomeResult.raw_outcome,
+      intent_type: outcomeResult.intent_type || null,
+      strength
+    },
+    time_to_action: timeToAction,
+    loops,
+    friction,
+    confidence,
+    engagement_metrics: metrics,
+    is_bot: botResult.isBot,
+    bot_score: botResult.botScore,
+    bot_type: botResult.botType,
+    bot_signals: botResult.signals,
+    site_id: siteId || firstEvent.site_id || null
+  };
+}
+
+/**
+ * Consolidate journeys by IP address
+ * Groups all events from the same IP into ONE journey
+ * This is what happens when you click "Rebuild" - it merges visits from the same person
+ */
+async function consolidateJourneysByIP(siteId = null) {
+  const results = {
+    ipConsolidated: 0,
+    nullIPJourneys: 0,
+    deleted: 0,
+    errors: []
+  };
+
+  try {
+    // Step 1: Get unique IPs with their journey info
+    const ipGroups = await getUniqueIPsWithJourneys(siteId);
+    console.log(`[CONSOLIDATE] Found ${ipGroups.length} unique IP addresses`);
+
+    // Step 2: For each IP, consolidate all events into one journey
+    for (const ipGroup of ipGroups) {
+      try {
+        const { ip_address, primary_journey_id, journey_count, all_journey_ids } = ipGroup;
+
+        // Get ALL events for this IP address
+        const allEvents = await getEventsByIPAddress(ip_address, siteId);
+
+        if (allEvents.length === 0) continue;
+
+        // Build ONE consolidated journey using the first journey_id as primary
+        const journey = await buildJourneyFromEvents(
+          primary_journey_id,
+          allEvents,
+          journey_count, // visit_number = how many times they visited
+          siteId
+        );
+
+        if (journey) {
+          await upsertJourney(journey);
+          results.ipConsolidated++;
+
+          // Delete duplicate journey records (keep only the primary)
+          const duplicateIds = all_journey_ids.filter(id => id !== primary_journey_id);
+          if (duplicateIds.length > 0) {
+            const deletedCount = await deleteJourneysByIds(duplicateIds);
+            results.deleted += deletedCount;
+            console.log(`[CONSOLIDATE] IP ${ip_address}: merged ${journey_count} visits, deleted ${deletedCount} duplicates`);
+          }
+        }
+      } catch (error) {
+        results.errors.push({ ip: ipGroup.ip_address, error: error.message });
       }
-      results.processed++;
-    } catch (error) {
-      results.errors.push({ journeyId, error: error.message });
     }
+
+    // Step 3: Handle journeys with NULL IP (can't consolidate, process individually)
+    const nullIPJourneyIds = await getJourneysWithNullIP(siteId);
+    console.log(`[CONSOLIDATE] Found ${nullIPJourneyIds.length} journeys with NULL IP (processing individually)`);
+
+    for (const journeyId of nullIPJourneyIds) {
+      try {
+        const journey = await reconstructJourney(journeyId, siteId);
+        if (journey) {
+          await upsertJourney(journey);
+          results.nullIPJourneys++;
+        }
+      } catch (error) {
+        results.errors.push({ journeyId, error: error.message });
+      }
+    }
+
+    console.log(`[CONSOLIDATE] Complete: ${results.ipConsolidated} IP-based journeys, ${results.nullIPJourneys} NULL-IP journeys, ${results.deleted} duplicates removed`);
+
+  } catch (error) {
+    results.errors.push({ error: error.message });
+    console.error('[CONSOLIDATE] Failed:', error);
   }
 
   return results;
+}
+
+/**
+ * Rebuild all journeys - NOW CONSOLIDATES BY IP ADDRESS
+ * This is the function called when you click "Rebuild" in the dashboard
+ */
+async function reconstructAllJourneys() {
+  console.log('[REBUILD] Starting IP-based consolidation...');
+  return await consolidateJourneysByIP();
 }
 
 async function getJourneyWithEvents(journeyId, siteId = null) {
@@ -503,6 +633,7 @@ async function getJourneyWithEvents(journeyId, siteId = null) {
 module.exports = {
   reconstructJourney,
   reconstructAllJourneys,
+  consolidateJourneysByIP,
   getJourneyWithEvents,
   determineOutcome,
   buildPageSequence,

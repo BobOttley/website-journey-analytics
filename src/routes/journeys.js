@@ -84,11 +84,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /journeys/rebuild - Rebuild all journeys from events
+// POST /journeys/rebuild - Rebuild all journeys from events (now consolidates by IP)
 router.post('/rebuild', async (req, res) => {
   try {
     const results = await reconstructAllJourneys();
-    res.redirect('/journeys?rebuilt=' + results.updated);
+    // Total journeys = IP-based + NULL-IP journeys
+    const totalJourneys = (results.ipConsolidated || 0) + (results.nullIPJourneys || 0);
+    const deleted = results.deleted || 0;
+    res.redirect(`/journeys?rebuilt=${totalJourneys}&deleted=${deleted}`);
   } catch (error) {
     console.error('Error rebuilding journeys:', error);
     res.status(500).render('error', { error: 'Failed to rebuild journeys' });

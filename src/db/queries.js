@@ -1691,6 +1691,88 @@ async function getVisitorTotalJourneys(visitorId, ipAddress, siteId = null) {
   return parseInt(result.rows[0]?.total || 1);
 }
 
+/**
+ * Get unique IP addresses from events (for IP-based consolidation)
+ * Returns IPs with their first journey_id and visit count
+ */
+async function getUniqueIPsWithJourneys(siteId = null) {
+  const db = getDb();
+  let query = `
+    SELECT
+      ip_address,
+      MIN(journey_id) as primary_journey_id,
+      COUNT(DISTINCT journey_id) as journey_count,
+      MIN(occurred_at) as first_seen,
+      MAX(occurred_at) as last_seen,
+      array_agg(DISTINCT journey_id) as all_journey_ids
+    FROM journey_events
+    WHERE ip_address IS NOT NULL AND ip_address != ''
+  `;
+  const params = [];
+
+  if (siteId) {
+    query += ` AND site_id = $1`;
+    params.push(siteId);
+  }
+
+  query += ` GROUP BY ip_address ORDER BY first_seen ASC`;
+  const result = await db.query(query, params);
+  return result.rows;
+}
+
+/**
+ * Get all events for a given IP address (for consolidation)
+ */
+async function getEventsByIPAddress(ipAddress, siteId = null) {
+  const db = getDb();
+  let query = `SELECT * FROM journey_events WHERE ip_address = $1`;
+  const params = [ipAddress];
+
+  if (siteId) {
+    query += ` AND site_id = $2`;
+    params.push(siteId);
+  }
+
+  query += ` ORDER BY occurred_at ASC`;
+  const result = await db.query(query, params);
+  return result.rows;
+}
+
+/**
+ * Delete journeys by journey_id (for consolidation cleanup)
+ */
+async function deleteJourneysByIds(journeyIds) {
+  if (!journeyIds || journeyIds.length === 0) return 0;
+  const db = getDb();
+  const placeholders = journeyIds.map((_, i) => `$${i + 1}`).join(', ');
+  const result = await db.query(
+    `DELETE FROM journeys WHERE journey_id IN (${placeholders})`,
+    journeyIds
+  );
+  return result.rowCount;
+}
+
+/**
+ * Get journeys with NULL IP (these can't be consolidated)
+ */
+async function getJourneysWithNullIP(siteId = null) {
+  const db = getDb();
+  let query = `
+    SELECT DISTINCT journey_id
+    FROM journey_events
+    WHERE ip_address IS NULL OR ip_address = ''
+  `;
+  const params = [];
+
+  if (siteId) {
+    query += ` AND site_id = $1`;
+    params.push(siteId);
+  }
+
+  const result = await db.query(query, params);
+  return result.rows.map(r => r.journey_id);
+}
+
 // ============================================
 // PIXEL TRACKING ANALYTICS
 // ============================================
@@ -1946,5 +2028,10 @@ module.exports = {
   getCombinedVisitorStats,
   // Visitor Journey Count
   getVisitorJourneyNumber,
-  getVisitorTotalJourneys
+  getVisitorTotalJourneys,
+  // IP Consolidation
+  getUniqueIPsWithJourneys,
+  getEventsByIPAddress,
+  deleteJourneysByIds,
+  getJourneysWithNullIP
 };
