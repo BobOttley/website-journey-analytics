@@ -236,12 +236,15 @@ async function getJourneyStats(siteId = null) {
 
   const result = await db.query(`
     SELECT
-      COUNT(*) as total_journeys,
-      COUNT(CASE WHEN outcome = 'enquiry_submitted' THEN 1 END) as enquiries,
-      COUNT(CASE WHEN outcome = 'visit_booked' THEN 1 END) as visits_booked,
+      COUNT(CASE WHEN is_bot = false OR is_bot IS NULL THEN 1 END) as human_visitors,
+      COUNT(CASE WHEN is_bot = true THEN 1 END) as bot_count,
+      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND visit_number > 1 THEN 1 END) as return_visitors,
+      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND outcome = 'enquiry_submitted' THEN 1 END) as enquiries,
+      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND outcome = 'visit_booked' THEN 1 END) as visits_booked,
       COUNT(CASE WHEN outcome = 'no_action' THEN 1 END) as no_action,
-      AVG(event_count) as avg_events,
-      AVG(time_to_action) as avg_time_to_action
+      AVG(CASE WHEN is_bot = false OR is_bot IS NULL THEN event_count END) as avg_events,
+      AVG(time_to_action) as avg_time_to_action,
+      COUNT(*) as total_journeys
     FROM journeys ${whereClause}
   `, params);
   return result.rows[0];

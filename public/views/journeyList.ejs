@@ -4,19 +4,32 @@
 </div>
 <% } %>
 
-<!-- Hero KPI Cards -->
+<!-- Hero KPI Cards - Human Visitors Only -->
 <div class="stats-grid">
   <div class="stat-card highlight">
-    <h3>Total Journeys</h3>
-    <div class="value"><%= stats.total_journeys || 0 %></div>
-    <div class="subtitle">All-time visitors tracked</div>
+    <h3>Human Visitors</h3>
+    <div class="value"><%= stats.human_visitors || 0 %></div>
+    <div class="subtitle">Unique people tracked</div>
+  </div>
+  <div class="stat-card" style="border-top-color: #8b5cf6;">
+    <h3>Return Visitors</h3>
+    <div class="value" style="color: #8b5cf6;"><%= stats.return_visitors || 0 %></div>
+    <div class="subtitle">
+      <% const humanCount = parseInt(stats.human_visitors) || 0; %>
+      <% const returnCount = parseInt(stats.return_visitors) || 0; %>
+      <% if (humanCount > 0) { %>
+        <%= ((returnCount / humanCount) * 100).toFixed(0) %>% came back
+      <% } else { %>
+        No data yet
+      <% } %>
+    </div>
   </div>
   <div class="stat-card success">
     <h3>Enquiries</h3>
     <div class="value"><%= stats.enquiries || 0 %></div>
     <div class="subtitle">
-      <% if (stats.total_journeys > 0) { %>
-        <%= ((stats.enquiries / stats.total_journeys) * 100).toFixed(1) %>% conversion rate
+      <% if (humanCount > 0) { %>
+        <%= ((parseInt(stats.enquiries) / humanCount) * 100).toFixed(1) %>% conversion
       <% } else { %>
         No data yet
       <% } %>
@@ -26,19 +39,31 @@
     <h3>Visits Booked</h3>
     <div class="value"><%= stats.visits_booked || 0 %></div>
     <div class="subtitle">
-      <% if (stats.total_journeys > 0) { %>
-        <%= ((stats.visits_booked / stats.total_journeys) * 100).toFixed(1) %>% booking rate
+      <% if (humanCount > 0) { %>
+        <%= ((parseInt(stats.visits_booked) / humanCount) * 100).toFixed(1) %>% booking rate
       <% } else { %>
         No data yet
       <% } %>
     </div>
   </div>
-  <div class="stat-card">
-    <h3>Avg Events</h3>
-    <div class="value"><%= stats.avg_events ? stats.avg_events.toFixed(1) : '0' %></div>
-    <div class="subtitle">Events per journey</div>
+</div>
+
+<!-- Bots Detected Card (small, separate) -->
+<% const botCount = parseInt(stats.bot_count) || 0; %>
+<% if (botCount > 0) { %>
+<div class="card mb-4" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1rem;">
+  <div class="flex justify-between items-center">
+    <div>
+      <span style="color: #f87171; font-weight: 600;">Bots Filtered Out:</span>
+      <span style="color: #ef4444; font-weight: 700; margin-left: 8px;"><%= botCount %></span>
+      <span style="color: #94a3b8; font-size: 0.8rem; margin-left: 8px;">
+        (Google crawlers, SEO tools, etc.)
+      </span>
+    </div>
+    <a href="/journeys?filter=bots" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: none;">View Bots</a>
   </div>
 </div>
+<% } %>
 
 <!-- Pixel vs JavaScript Tracking Comparison (Last 30 Days) -->
 <% if (pixelStats && (pixelStats.pixel.total > 0 || pixelStats.javascript.total > 0)) { %>
