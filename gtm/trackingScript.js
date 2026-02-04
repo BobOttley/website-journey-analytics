@@ -12,6 +12,7 @@
   // ============ CONFIGURATION ============
   const CONFIG = {
     endpoint: 'https://website-journey-analytics.onrender.com/api/event',
+    pixelEndpoint: 'https://website-journey-analytics.onrender.com/p.gif',
     trackingKey: '',                 // Will be injected by server
     heartbeatInterval: 30000,        // 30 seconds
     scrollThresholds: [25, 50, 75, 90, 100],
@@ -21,6 +22,47 @@
     sectionViewThreshold: 1000,      // 1 second in viewport to count as viewed
     idleTimeout: 60000,              // 60 seconds of no activity = idle
   };
+
+  // ============ PIXEL TRACKING (fires immediately) ============
+  // Injects a 1x1 pixel to capture the visit even if JS tracking fails later
+  (function injectPixel() {
+    try {
+      const visitorId = localStorage.getItem('wja_visitor_id') || 'pxl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const journeyId = sessionStorage.getItem('wja_journey_id') || 'pxl_jrn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+      // Store IDs if they were generated here (so JS tracking uses same IDs)
+      if (!localStorage.getItem('wja_visitor_id')) {
+        localStorage.setItem('wja_visitor_id', visitorId);
+      }
+      if (!sessionStorage.getItem('wja_journey_id')) {
+        sessionStorage.setItem('wja_journey_id', journeyId);
+      }
+
+      const params = new URLSearchParams({
+        k: CONFIG.trackingKey,
+        p: window.location.href,
+        r: document.referrer || '',
+        t: document.title || '',
+        v: visitorId,
+        j: journeyId
+      });
+
+      const img = new Image(1, 1);
+      img.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+      img.src = CONFIG.pixelEndpoint + '?' + params.toString();
+
+      // Append to body when ready, or document if body not available yet
+      if (document.body) {
+        document.body.appendChild(img);
+      } else {
+        document.addEventListener('DOMContentLoaded', function() {
+          document.body.appendChild(img);
+        });
+      }
+    } catch (e) {
+      // Silently fail - don't break the page
+    }
+  })();
 
   // ============ STATE ============
   const state = {

@@ -155,6 +155,12 @@ app.get('/tracking.js', (req, res) => {
     `endpoint: '${serverUrl}/api/event'`
   );
 
+  // Replace pixel endpoint
+  script = script.replace(
+    /pixelEndpoint: ['"][^'"]+['"]/,
+    `pixelEndpoint: '${serverUrl}/p.gif'`
+  );
+
   // Inject tracking key
   script = script.replace(
     /trackingKey: ['"][^'"]*['"]/,
