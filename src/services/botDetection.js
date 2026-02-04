@@ -148,6 +148,14 @@ const DATACENTER_PATTERNS = [
   /^159\./, /^185\./, // Various datacenters
   /^192\.30\./, // GitHub
   /^140\.82\./, // GitHub
+  // Google/Googlebot IP ranges
+  /^66\.249\./, // Googlebot primary range
+  /^72\.14\./, // Google
+  /^74\.125\./, // Google
+  /^172\.217\./, // Google
+  /^172\.253\./, // Google
+  /^209\.85\./, // Google
+  /^216\.239\./, // Google
 ];
 
 // ============================================
