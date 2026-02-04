@@ -1693,39 +1693,54 @@ async function getVisitorTotalJourneys(visitorId, ipAddress, siteId = null) {
 
 /**
  * Get unique IP addresses from events (for IP-based consolidation)
- * Returns IPs with their first journey_id and visit count
+ * For each journey_id, finds the IP (even if only some events have it)
+ * Then groups by IP to consolidate
  */
 async function getUniqueIPsWithJourneys(siteId = null) {
   const db = getDb();
+
+  // First, get the IP for each journey_id (prefer non-null IP)
+  // Then group journeys by their resolved IP
   let query = `
+    WITH journey_ips AS (
+      -- For each journey, get the IP address (preferring non-null)
+      SELECT DISTINCT ON (journey_id)
+        journey_id,
+        ip_address,
+        site_id
+      FROM journey_events
+      WHERE ip_address IS NOT NULL AND ip_address != ''
+      ${siteId ? 'AND site_id = $1' : ''}
+      ORDER BY journey_id, occurred_at ASC
+    )
     SELECT
-      ip_address,
-      MIN(journey_id) as primary_journey_id,
-      COUNT(DISTINCT journey_id) as journey_count,
-      MIN(occurred_at) as first_seen,
-      MAX(occurred_at) as last_seen,
-      array_agg(DISTINCT journey_id) as all_journey_ids
-    FROM journey_events
-    WHERE ip_address IS NOT NULL AND ip_address != ''
+      ji.ip_address,
+      MIN(ji.journey_id) as primary_journey_id,
+      COUNT(DISTINCT ji.journey_id) as journey_count,
+      array_agg(DISTINCT ji.journey_id) as all_journey_ids
+    FROM journey_ips ji
+    GROUP BY ji.ip_address
+    ORDER BY MIN(ji.journey_id)
   `;
-  const params = [];
-
-  if (siteId) {
-    query += ` AND site_id = $1`;
-    params.push(siteId);
-  }
-
-  query += ` GROUP BY ip_address ORDER BY first_seen ASC`;
+  const params = siteId ? [siteId] : [];
   const result = await db.query(query, params);
   return result.rows;
 }
 
 /**
  * Get all events for a given IP address (for consolidation)
+ * Includes events from ANY journey_id that has this IP
  */
 async function getEventsByIPAddress(ipAddress, siteId = null) {
   const db = getDb();
-  let query = `SELECT * FROM journey_events WHERE ip_address = $1`;
+
+  // Get ALL events from journey_ids that have at least one event with this IP
+  let query = `
+    SELECT * FROM journey_events
+    WHERE journey_id IN (
+      SELECT DISTINCT journey_id FROM journey_events WHERE ip_address = $1
+    )
+  `;
   const params = [ipAddress];
 
   if (siteId) {
@@ -1750,6 +1765,44 @@ async function deleteJourneysByIds(journeyIds) {
     journeyIds
   );
   return result.rowCount;
+}
+
+/**
+ * Delete ALL journeys for a site (for complete rebuild)
+ */
+async function deleteAllJourneys(siteId = null) {
+  const db = getDb();
+  let query = 'DELETE FROM journeys';
+  const params = [];
+
+  if (siteId) {
+    query += ' WHERE site_id = $1';
+    params.push(siteId);
+  }
+
+  const result = await db.query(query, params);
+  return result.rowCount;
+}
+
+/**
+ * Get ALL unique IPs that have events (simple version)
+ */
+async function getAllUniqueIPs(siteId = null) {
+  const db = getDb();
+  let query = `
+    SELECT DISTINCT ip_address
+    FROM journey_events
+    WHERE ip_address IS NOT NULL AND ip_address != ''
+  `;
+  const params = [];
+
+  if (siteId) {
+    query += ` AND site_id = $1`;
+    params.push(siteId);
+  }
+
+  const result = await db.query(query, params);
+  return result.rows.map(r => r.ip_address);
 }
 
 /**
@@ -2033,5 +2086,7 @@ module.exports = {
   getUniqueIPsWithJourneys,
   getEventsByIPAddress,
   deleteJourneysByIds,
-  getJourneysWithNullIP
+  getJourneysWithNullIP,
+  deleteAllJourneys,
+  getAllUniqueIPs
 };

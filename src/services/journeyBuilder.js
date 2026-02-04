@@ -6,7 +6,9 @@ const {
   getUniqueIPsWithJourneys,
   getEventsByIPAddress,
   deleteJourneysByIds,
-  getJourneysWithNullIP
+  getJourneysWithNullIP,
+  deleteAllJourneys,
+  getAllUniqueIPs
 } = require('../db/queries');
 const { calculateJourneyBotScore } = require('./botDetection');
 
@@ -531,37 +533,54 @@ async function buildJourneyFromEvents(primaryJourneyId, events, visitNumber, sit
 
 /**
  * Consolidate journeys by IP address
- * Groups all events from the same IP into ONE journey
- * This is what happens when you click "Rebuild" - it merges visits from the same person
+ * ONE IP = ONE JOURNEY. Simple.
+ *
+ * Logic:
+ * 1. Get all unique IPs
+ * 2. For each IP, get ALL events (including from journeys that have mixed NULL/non-NULL IPs)
+ * 3. Create one journey per IP using the earliest journey_id as the primary
+ * 4. Delete duplicate journey records
+ * 5. Orphan journeys (no IP at all) are left alone
  */
 async function consolidateJourneysByIP(siteId = null) {
   const results = {
     ipConsolidated: 0,
-    nullIPJourneys: 0,
     deleted: 0,
+    orphanJourneys: 0,
     errors: []
   };
 
   try {
-    // Step 1: Get unique IPs with their journey info
-    const ipGroups = await getUniqueIPsWithJourneys(siteId);
-    console.log(`[CONSOLIDATE] Found ${ipGroups.length} unique IP addresses`);
+    // Step 1: Get all unique IPs
+    const uniqueIPs = await getAllUniqueIPs(siteId);
+    console.log(`[CONSOLIDATE] Found ${uniqueIPs.length} unique IP addresses`);
+
+    // Track which journey_ids we've consolidated (to delete duplicates)
+    const consolidatedJourneyIds = new Set();
 
     // Step 2: For each IP, consolidate all events into one journey
-    for (const ipGroup of ipGroups) {
+    for (const ipAddress of uniqueIPs) {
       try {
-        const { ip_address, primary_journey_id, journey_count, all_journey_ids } = ipGroup;
-
-        // Get ALL events for this IP address
-        const allEvents = await getEventsByIPAddress(ip_address, siteId);
+        // Get ALL events for this IP (includes events from journeys with mixed NULL/IP)
+        const allEvents = await getEventsByIPAddress(ipAddress, siteId);
 
         if (allEvents.length === 0) continue;
 
-        // Build ONE consolidated journey using the first journey_id as primary
+        // Find all unique journey_ids for this IP
+        const journeyIds = [...new Set(allEvents.map(e => e.journey_id))];
+
+        // Use the earliest journey_id as the primary
+        const sortedEvents = sortEventsByTime(allEvents);
+        const primaryJourneyId = sortedEvents[0].journey_id;
+
+        // Track how many separate visits (sessions) this IP had
+        const visitCount = journeyIds.length;
+
+        // Build ONE consolidated journey
         const journey = await buildJourneyFromEvents(
-          primary_journey_id,
+          primaryJourneyId,
           allEvents,
-          journey_count, // visit_number = how many times they visited
+          visitCount,
           siteId
         );
 
@@ -569,36 +588,41 @@ async function consolidateJourneysByIP(siteId = null) {
           await upsertJourney(journey);
           results.ipConsolidated++;
 
+          // Mark all journey_ids as consolidated
+          journeyIds.forEach(id => consolidatedJourneyIds.add(id));
+
           // Delete duplicate journey records (keep only the primary)
-          const duplicateIds = all_journey_ids.filter(id => id !== primary_journey_id);
+          const duplicateIds = journeyIds.filter(id => id !== primaryJourneyId);
           if (duplicateIds.length > 0) {
             const deletedCount = await deleteJourneysByIds(duplicateIds);
             results.deleted += deletedCount;
-            console.log(`[CONSOLIDATE] IP ${ip_address}: merged ${journey_count} visits, deleted ${deletedCount} duplicates`);
           }
+
+          console.log(`[CONSOLIDATE] IP ${ipAddress}: ${allEvents.length} events, ${visitCount} visits -> 1 journey`);
         }
       } catch (error) {
-        results.errors.push({ ip: ipGroup.ip_address, error: error.message });
+        results.errors.push({ ip: ipAddress, error: error.message });
+        console.error(`[CONSOLIDATE] Error for IP ${ipAddress}:`, error.message);
       }
     }
 
-    // Step 3: Handle journeys with NULL IP (can't consolidate, process individually)
-    const nullIPJourneyIds = await getJourneysWithNullIP(siteId);
-    console.log(`[CONSOLIDATE] Found ${nullIPJourneyIds.length} journeys with NULL IP (processing individually)`);
+    // Step 3: Find truly orphan journeys (journeys where NO event has an IP)
+    const orphanJourneyIds = await getJourneysWithNullIP(siteId);
 
-    for (const journeyId of nullIPJourneyIds) {
-      try {
-        const journey = await reconstructJourney(journeyId, siteId);
-        if (journey) {
-          await upsertJourney(journey);
-          results.nullIPJourneys++;
-        }
-      } catch (error) {
-        results.errors.push({ journeyId, error: error.message });
-      }
+    // Filter out any that were already consolidated (they had some events with IP)
+    const trueOrphans = orphanJourneyIds.filter(id => !consolidatedJourneyIds.has(id));
+
+    console.log(`[CONSOLIDATE] Found ${trueOrphans.length} orphan journeys (no IP data at all)`);
+    results.orphanJourneys = trueOrphans.length;
+
+    // Delete orphan journey records (they're garbage test data)
+    if (trueOrphans.length > 0) {
+      const deletedOrphans = await deleteJourneysByIds(trueOrphans);
+      results.deleted += deletedOrphans;
+      console.log(`[CONSOLIDATE] Deleted ${deletedOrphans} orphan journey records`);
     }
 
-    console.log(`[CONSOLIDATE] Complete: ${results.ipConsolidated} IP-based journeys, ${results.nullIPJourneys} NULL-IP journeys, ${results.deleted} duplicates removed`);
+    console.log(`[CONSOLIDATE] Complete: ${results.ipConsolidated} journeys (one per IP), ${results.deleted} duplicates/orphans removed`);
 
   } catch (error) {
     results.errors.push({ error: error.message });
