@@ -304,8 +304,22 @@ app.get('/debug', async (req, res) => {
 
     // Check current visit_number values in journeys table
     const visitNumbers = await db.query(`
-      SELECT journey_id, visitor_id, visit_number, first_seen
+      SELECT journey_id, visitor_id, visit_number, first_seen, site_id
       FROM journeys
+      ORDER BY first_seen DESC
+      LIMIT 15
+    `);
+
+    // Check journeys specifically for site_id=1 (BSMART)
+    const bsmartJourneys = await db.query(`
+      SELECT journey_id, visitor_id, visit_number, ip_address, first_seen
+      FROM journeys j
+      LEFT JOIN (
+        SELECT DISTINCT journey_id, ip_address
+        FROM journey_events
+        WHERE ip_address IS NOT NULL
+      ) e ON j.journey_id = e.journey_id
+      WHERE j.site_id = 1
       ORDER BY first_seen DESC
       LIMIT 10
     `);
@@ -315,7 +329,8 @@ app.get('/debug', async (req, res) => {
       journeys: parseInt(journeyCount.rows[0].count),
       recentEvents: recentEvents.rows,
       ipsWithMultipleJourneys: ipJourneys.rows,
-      recentJourneysWithVisitNumber: visitNumbers.rows
+      recentJourneysWithVisitNumber: visitNumbers.rows,
+      bsmartJourneys: bsmartJourneys.rows
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
