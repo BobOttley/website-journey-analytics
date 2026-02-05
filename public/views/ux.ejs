@@ -306,7 +306,7 @@
                 // Handle index
                 if (name === '' || name === 'index') return 'Home';
                 // Capitalise first letter and replace hyphens with spaces
-                name = name.split('/').pop(); // Get last segment
+                name = name.split('/').filter(p => p).pop() || 'Home'; // Get last segment
                 name = name.replace(/-/g, ' ');
                 return name.charAt(0).toUpperCase() + name.slice(1);
               } catch(e) {
@@ -400,7 +400,7 @@
             const pathname = new URL(url).pathname;
             let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
             if (name === '' || name === 'index') return 'Home';
-            name = name.split('/').pop();
+            name = name.split('/').filter(p => p).pop() || 'Home';
             name = name.replace(/-/g, ' ');
             return name.charAt(0).toUpperCase() + name.slice(1);
           } catch(e) { return url; }
@@ -450,7 +450,7 @@
           const pathname = new URL(url).pathname;
           let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
           if (name === '' || name === 'index') return 'Home';
-          name = name.split('/').pop();
+          name = name.split('/').filter(p => p).pop() || 'Home';
           name = name.replace(/-/g, ' ');
           return name.charAt(0).toUpperCase() + name.slice(1);
         } catch(e) { return url; }
@@ -520,7 +520,7 @@
             const pathname = new URL(url).pathname;
             let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
             if (name === '' || name === 'index') return 'Home';
-            name = name.split('/').pop();
+            name = name.split('/').filter(p => p).pop() || 'Home';
             name = name.replace(/-/g, ' ');
             return name.charAt(0).toUpperCase() + name.slice(1);
           } catch(e) { return url; }
@@ -570,9 +570,11 @@
         if (!url) return '-';
         try {
           const pathname = new URL(url).pathname;
-          let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
+          let name = pathname.replace(/^\//, '').replace(/\/$/, '').replace(/\.html?$/, '');
           if (name === '' || name === 'index') return 'Home';
-          name = name.split('/').pop();
+          // Filter empty strings before pop (handles trailing slashes)
+          const parts = name.split('/').filter(p => p);
+          name = parts.pop() || 'Home';
           name = name.replace(/-/g, ' ');
           return name.charAt(0).toUpperCase() + name.slice(1);
         } catch(e) { return url; }
@@ -747,7 +749,7 @@
           const pathname = new URL(url).pathname;
           let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
           if (name === '' || name === 'index') return 'Home';
-          name = name.split('/').pop();
+          name = name.split('/').filter(p => p).pop() || 'Home';
           name = name.replace(/-/g, ' ');
           return name.charAt(0).toUpperCase() + name.slice(1);
         } catch(e) { return url; }
@@ -828,7 +830,7 @@
           const pathname = new URL(url).pathname;
           let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
           if (name === '' || name === 'index') return 'Home';
-          name = name.split('/').pop();
+          name = name.split('/').filter(p => p).pop() || 'Home';
           name = name.replace(/-/g, ' ');
           return name.charAt(0).toUpperCase() + name.slice(1);
         } catch(e) { return url; }
@@ -929,7 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const pathname = new URL(url).pathname;
         let name = pathname.replace(/^\//, '').replace(/\.html?$/, '');
         if (name === '' || name === 'index') return 'Home';
-        name = name.split('/').pop();
+        name = name.split('/').filter(p => p).pop() || 'Home';
         name = name.replace(/-/g, ' ');
         return name.charAt(0).toUpperCase() + name.slice(1);
       } catch(e) { return ''; }

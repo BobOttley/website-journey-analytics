@@ -954,12 +954,14 @@ async function getCTAHesitations(siteId = null, limit = 20) {
   }
 
   // Get hover events with their durations
+  // Note: GTM sends 'text' in metadata, trackingScript.js sends 'cta_label' - support both
   const result = await db.query(`
     WITH hover_data AS (
       SELECT
-        cta_label,
+        COALESCE(cta_label, metadata->>'text') as cta_label,
         journey_id,
-        COALESCE((metadata->>'hover_duration')::numeric, 0) as hover_duration
+        COALESCE((metadata->>'hover_duration')::numeric, 0) as hover_duration,
+        metadata->>'href' as href
       FROM journey_events
       WHERE event_type = 'cta_hover'
         AND ${dateFilter}
@@ -967,7 +969,7 @@ async function getCTAHesitations(siteId = null, limit = 20) {
         ${siteFilter}
     ),
     click_data AS (
-      SELECT DISTINCT cta_label, journey_id
+      SELECT DISTINCT COALESCE(cta_label, metadata->>'text') as cta_label, journey_id
       FROM journey_events
       WHERE event_type = 'cta_click'
         AND ${dateFilter}
@@ -976,6 +978,7 @@ async function getCTAHesitations(siteId = null, limit = 20) {
     )
     SELECT
       h.cta_label,
+      h.href,
       COUNT(*) as hesitation_count,
       ROUND(AVG(h.hover_duration)::numeric, 1) as avg_hover_time,
       COUNT(DISTINCT h.journey_id) as unique_hovers,
@@ -983,7 +986,7 @@ async function getCTAHesitations(siteId = null, limit = 20) {
     FROM hover_data h
     LEFT JOIN click_data c ON h.cta_label = c.cta_label AND h.journey_id = c.journey_id
     WHERE h.cta_label IS NOT NULL AND h.cta_label != ''
-    GROUP BY h.cta_label
+    GROUP BY h.cta_label, h.href
     HAVING COUNT(*) >= 2
     ORDER BY hesitation_count DESC
     LIMIT $1
@@ -1000,6 +1003,7 @@ async function getCTAHesitations(siteId = null, limit = 20) {
 
 /**
  * Get scroll behaviour distribution
+ * Note: GTM sends 'depth' percentage, trackingScript.js sends 'scroll_behaviour' - support both
  */
 async function getScrollBehaviour(siteId = null) {
   const db = getDb();
@@ -1014,7 +1018,8 @@ async function getScrollBehaviour(siteId = null) {
     params.push(siteId);
   }
 
-  const result = await db.query(`
+  // First try to get scroll_behaviour if available
+  const behaviourResult = await db.query(`
     SELECT
       COALESCE(metadata->>'scroll_behaviour', 'unknown') as behaviour,
       COUNT(*) as count
@@ -1028,11 +1033,46 @@ async function getScrollBehaviour(siteId = null) {
     ORDER BY count DESC
   `, params);
 
-  return result.rows;
+  if (behaviourResult.rows.length > 0) {
+    return behaviourResult.rows;
+  }
+
+  // Fallback: Calculate behaviour from scroll depth patterns per journey
+  // Readers: reach 75%+ depth, Scanners: 50-74%, Bouncers: <50%
+  const depthResult = await db.query(`
+    WITH journey_max_depth AS (
+      SELECT
+        journey_id,
+        MAX(COALESCE((metadata->>'depth')::int, (metadata->>'depth_percent')::int, 0)) as max_depth
+      FROM journey_events
+      WHERE event_type = 'scroll_depth'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+      GROUP BY journey_id
+    )
+    SELECT
+      CASE
+        WHEN max_depth >= 75 THEN 'Deep Reader'
+        WHEN max_depth >= 50 THEN 'Scanner'
+        ELSE 'Quick Glancer'
+      END as behaviour,
+      COUNT(*) as count
+    FROM journey_max_depth
+    GROUP BY CASE
+      WHEN max_depth >= 75 THEN 'Deep Reader'
+      WHEN max_depth >= 50 THEN 'Scanner'
+      ELSE 'Quick Glancer'
+    END
+    ORDER BY count DESC
+  `, params);
+
+  return depthResult.rows;
 }
 
 /**
  * Get scroll behaviour by page
+ * Note: GTM sends 'depth' percentage, trackingScript.js sends 'scroll_behaviour' - support both
  */
 async function getScrollBehaviourByPage(siteId = null, limit = 10) {
   const db = getDb();
@@ -1047,20 +1087,31 @@ async function getScrollBehaviourByPage(siteId = null, limit = 10) {
     params.push(siteId);
   }
 
+  // Get scroll depth stats per page (works with both GTM and trackingScript.js)
   const result = await db.query(`
+    WITH page_scroll AS (
+      SELECT
+        page_url,
+        journey_id,
+        MAX(COALESCE((metadata->>'depth')::int, (metadata->>'depth_percent')::int, 0)) as max_depth
+      FROM journey_events
+      WHERE event_type = 'scroll_depth'
+        AND page_url IS NOT NULL
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+      GROUP BY page_url, journey_id
+    )
     SELECT
       page_url,
-      COALESCE(metadata->>'scroll_behaviour', 'unknown') as behaviour,
-      COUNT(*) as count
-    FROM journey_events
-    WHERE event_type = 'scroll_depth'
-      AND metadata->>'scroll_behaviour' IS NOT NULL
-      AND page_url IS NOT NULL
-      AND ${dateFilter}
-      AND ${botFilter}
-      ${siteFilter}
-    GROUP BY page_url, metadata->>'scroll_behaviour'
-    ORDER BY page_url, count DESC
+      ROUND(AVG(max_depth)) as avg_depth,
+      COUNT(*) as visitors,
+      COUNT(*) FILTER (WHERE max_depth >= 75) as deep_readers,
+      COUNT(*) FILTER (WHERE max_depth >= 50 AND max_depth < 75) as scanners,
+      COUNT(*) FILTER (WHERE max_depth < 50) as bouncers
+    FROM page_scroll
+    GROUP BY page_url
+    ORDER BY visitors DESC
     LIMIT $1
   `, params);
 
