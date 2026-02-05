@@ -32,16 +32,17 @@
   // Injects a 1x1 pixel to capture the visit even if JS tracking fails later
   (function injectPixel() {
     try {
-      const visitorId = localStorage.getItem('wja_visitor_id') || 'pxl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      const journeyId = sessionStorage.getItem('wja_journey_id') || 'pxl_jrn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      // Check for cross-domain params first
+      const urlParams = new URLSearchParams(window.location.search);
+      const crossVisitorId = urlParams.get('_wja_vid');
+      const crossJourneyId = urlParams.get('_wja_jid');
 
-      // Store IDs if they were generated here (so JS tracking uses same IDs)
-      if (!localStorage.getItem('wja_visitor_id')) {
-        localStorage.setItem('wja_visitor_id', visitorId);
-      }
-      if (!sessionStorage.getItem('wja_journey_id')) {
-        sessionStorage.setItem('wja_journey_id', journeyId);
-      }
+      const visitorId = crossVisitorId || localStorage.getItem('wja_visitor_id') || 'pxl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const journeyId = crossJourneyId || sessionStorage.getItem('wja_journey_id') || 'pxl_jrn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+      // Store IDs (including cross-domain ones so JS tracking uses same IDs)
+      localStorage.setItem('wja_visitor_id', visitorId);
+      sessionStorage.setItem('wja_journey_id', journeyId);
 
       const params = new URLSearchParams({
         k: CONFIG.trackingKey,
@@ -174,12 +175,28 @@
     return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
+  // Cross-domain tracking: Get IDs from URL parameters if present
+  function getCrossdomainParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      visitorId: params.get('_wja_vid'),
+      journeyId: params.get('_wja_jid')
+    };
+  }
+
   function getVisitorId() {
     if (!state.visitorId) {
-      state.visitorId = localStorage.getItem('wja_visitor_id');
-      if (!state.visitorId) {
-        state.visitorId = generateId('vis');
+      // Priority: 1) URL param (cross-domain), 2) localStorage, 3) generate new
+      const crossDomain = getCrossdomainParams();
+      if (crossDomain.visitorId) {
+        state.visitorId = crossDomain.visitorId;
         localStorage.setItem('wja_visitor_id', state.visitorId);
+      } else {
+        state.visitorId = localStorage.getItem('wja_visitor_id');
+        if (!state.visitorId) {
+          state.visitorId = generateId('vis');
+          localStorage.setItem('wja_visitor_id', state.visitorId);
+        }
       }
     }
     return state.visitorId;
@@ -187,19 +204,63 @@
 
   function getJourneyId() {
     if (!state.journeyId) {
-      state.journeyId = sessionStorage.getItem('wja_journey_id');
-      if (!state.journeyId) {
-        state.journeyId = generateId('jrn');
+      // Priority: 1) URL param (cross-domain), 2) sessionStorage, 3) generate new
+      const crossDomain = getCrossdomainParams();
+      if (crossDomain.journeyId) {
+        state.journeyId = crossDomain.journeyId;
         sessionStorage.setItem('wja_journey_id', state.journeyId);
-        // Increment visit count
-        let visits = parseInt(localStorage.getItem('wja_visit_count') || '0', 10) + 1;
-        localStorage.setItem('wja_visit_count', visits.toString());
-        state.visitNumber = visits;
-      } else {
         state.visitNumber = parseInt(localStorage.getItem('wja_visit_count') || '1', 10);
+      } else {
+        state.journeyId = sessionStorage.getItem('wja_journey_id');
+        if (!state.journeyId) {
+          state.journeyId = generateId('jrn');
+          sessionStorage.setItem('wja_journey_id', state.journeyId);
+          // Increment visit count
+          let visits = parseInt(localStorage.getItem('wja_visit_count') || '0', 10) + 1;
+          localStorage.setItem('wja_visit_count', visits.toString());
+          state.visitNumber = visits;
+        } else {
+          state.visitNumber = parseInt(localStorage.getItem('wja_visit_count') || '1', 10);
+        }
       }
     }
     return state.journeyId;
+  }
+
+  // Decorate a URL with cross-domain tracking parameters
+  function decorateUrl(url) {
+    try {
+      const urlObj = new URL(url, window.location.origin);
+      urlObj.searchParams.set('_wja_vid', getVisitorId());
+      urlObj.searchParams.set('_wja_jid', getJourneyId());
+      return urlObj.toString();
+    } catch (e) {
+      return url;
+    }
+  }
+
+  // Auto-decorate links to specified domains
+  function setupCrossdomainLinks() {
+    const crossdomainDomains = [
+      'more-house-personalised-prospectus.onrender.com',
+      'more-house-booking.onrender.com',
+      'morehouse-booking-app.onrender.com'
+    ];
+
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+
+      try {
+        const url = new URL(link.href);
+        if (crossdomainDomains.some(d => url.hostname.includes(d))) {
+          // Decorate the link with tracking params
+          link.href = decorateUrl(link.href);
+        }
+      } catch (err) {
+        // Invalid URL, ignore
+      }
+    }, true);
   }
 
   function getDeviceInfo() {
@@ -1186,6 +1247,9 @@
 
   // ============ INITIALIZATION ============
   function init() {
+    // Setup cross-domain link decoration (must be first)
+    setupCrossdomainLinks();
+
     // Core tracking
     trackPageView();
     trackPageLoad();
@@ -1234,5 +1298,6 @@
   window.wjaGetVisitorId = getVisitorId;
   window.wjaGetJourneyId = getJourneyId;
   window.wjaGetVisitNumber = function() { return state.visitNumber; };
+  window.wjaDecorateUrl = decorateUrl;  // For manual cross-domain link decoration
 
 })();
