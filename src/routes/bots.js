@@ -273,7 +273,6 @@ async function getBotOverviewStats(siteId = null) {
  */
 async function getBotTypeBreakdown(siteId = null) {
   const db = getDb();
-  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   let siteFilter = '';
   const params = [];
 
@@ -282,23 +281,21 @@ async function getBotTypeBreakdown(siteId = null) {
     params.push(siteId);
   }
 
+  // Simplified query - classify based on user_agent directly
   const result = await db.query(`
-    WITH bot_journeys AS (
-      SELECT DISTINCT journey_id,
-        FIRST_VALUE(COALESCE(
-          CASE
-            WHEN bot_signals->>'userAgent' LIKE '%bot%' OR bot_signals->>'userAgent' LIKE '%crawler%' OR bot_signals->>'userAgent' LIKE '%spider%' THEN 'crawler'
-            WHEN bot_signals->>'userAgent' LIKE '%scraper%' OR bot_signals->>'userAgent' LIKE '%wget%' OR bot_signals->>'userAgent' LIKE '%curl%' THEN 'scraper'
-            WHEN bot_signals->>'headless' = 'true' OR bot_signals->>'webdriver' = 'true' THEN 'automation'
-            ELSE 'unknown'
-          END,
-          'unknown'
-        )) OVER (PARTITION BY journey_id ORDER BY occurred_at) as bot_type
-      FROM journey_events
-      WHERE is_bot = true AND ${dateFilter} ${siteFilter}
-    )
-    SELECT bot_type, COUNT(*) as count
-    FROM bot_journeys
+    SELECT
+      CASE
+        WHEN user_agent ILIKE '%bot%' OR user_agent ILIKE '%crawler%' OR user_agent ILIKE '%spider%' THEN 'crawler'
+        WHEN user_agent ILIKE '%scraper%' OR user_agent ILIKE '%wget%' OR user_agent ILIKE '%curl%' OR user_agent ILIKE '%python%' THEN 'scraper'
+        WHEN user_agent ILIKE '%headless%' OR user_agent ILIKE '%phantom%' OR user_agent ILIKE '%puppeteer%' THEN 'automation'
+        WHEN bot_signals->>'pixel_only_no_js' = 'true' THEN 'no_javascript'
+        ELSE 'unknown'
+      END as bot_type,
+      COUNT(DISTINCT journey_id) as count
+    FROM journey_events
+    WHERE is_bot = true
+      AND occurred_at >= NOW() - INTERVAL '7 days'
+      ${siteFilter}
     GROUP BY bot_type
     ORDER BY count DESC
   `, params);

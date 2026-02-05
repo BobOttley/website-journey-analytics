@@ -987,6 +987,8 @@ function getBotTypeLabel(botType) {
     monitoring: 'Monitoring Service',
     scraper: 'Web Scraper',
     automation: 'Automation/Headless Browser',
+    crawler: 'Web Crawler',
+    no_javascript: 'No JavaScript (Pixel Only)',
     unknown: 'Unknown Bot',
   };
   return labels[botType] || 'Unknown';
