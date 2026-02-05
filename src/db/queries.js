@@ -289,11 +289,13 @@ async function getJourneyStats(siteId = null) {
         journey_id,
         MAX(CASE WHEN event_type = 'form_submit' AND (
           LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%enquir%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'contact'
+          LOWER(COALESCE(metadata->>'intent_type', '')) = 'contact' OR
+          LOWER(COALESCE(page_url, '')) ~ '(contact|enquir)'
         ) THEN 1 ELSE 0 END) as is_enquiry,
         MAX(CASE WHEN event_type = 'form_submit' AND (
           LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%book%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'book_visit'
+          LOWER(COALESCE(metadata->>'intent_type', '')) = 'book_visit' OR
+          LOWER(COALESCE(page_url, '')) ~ '(book|visit|tour)'
         ) THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
       FROM journey_events
