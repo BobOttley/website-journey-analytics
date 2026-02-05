@@ -323,26 +323,60 @@ async function getJourneyStats(siteId = null) {
  */
 async function getTopPages(limit = 10, siteId = null) {
   const db = getDb();
-  let whereClause = "WHERE event_type = 'page_view' AND page_url IS NOT NULL AND page_url NOT LIKE '%gtm-msr.appspot.com%'";
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+
+  let siteFilter = '';
   const params = [limit];
 
   if (siteId) {
-    whereClause += ' AND site_id = $2';
+    siteFilter = 'AND site_id = $2';
     params.push(siteId);
   }
 
-  // Normalize URLs: extract path, remove trailing slashes, treat /, /index.html, /home as 'Home'
+  // Normalize URLs: extract path, handle searches, remove trailing slashes
+  // Search queries (?s=xxx) get labeled as "Search: xxx"
   const result = await db.query(`
     WITH normalized AS (
       SELECT
         journey_id,
         CASE
-          WHEN regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '/+$', '') IN ('', '/', '/index.html', '/index', '/home', '/homepage')
+          -- Search queries
+          WHEN page_url ~ '\\?s=' THEN 'Search: ' || COALESCE(
+            regexp_replace(page_url, '.*\\?s=([^&]+).*', '\\1'),
+            'unknown'
+          )
+          -- Home page variants
+          WHEN regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '[/?].*$', '') IN ('', '/')
+            AND page_url NOT LIKE '%?s=%'
           THEN '/'
-          ELSE LOWER(regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '/+$', ''))
+          -- Other pages: extract path, remove query string and trailing slash
+          ELSE LOWER(regexp_replace(
+            regexp_replace(
+              regexp_replace(page_url, '^https?://[^/]+', ''),
+              '\\?.*$', ''
+            ),
+            '/+$', ''
+          ))
         END as normalized_url
       FROM journey_events
-      ${whereClause}
+      WHERE event_type IN ('page_view', 'pixel_view')
+        AND page_url IS NOT NULL
+        AND page_url NOT LIKE '%gtm-msr.appspot.com%'
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+        ${excludeNewsCalendar}
     )
     SELECT
       normalized_url as page_url,
@@ -388,7 +422,7 @@ async function getDeviceBreakdown(siteId = null) {
       COALESCE(device_type, 'unknown') as device_type,
       COUNT(DISTINCT journey_id) as count
     FROM journey_events
-    WHERE event_type = 'page_view'
+    WHERE event_type IN ('page_view', 'pixel_view')
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
