@@ -249,7 +249,7 @@
 
   async function refreshData() {
     try {
-      const response = await fetch('/realtime/api/visitors?seconds=300');
+      const response = await fetch('/realtime/api/visitors?seconds=300', { credentials: 'same-origin' });
       const data = await response.json();
 
       if (!data.success) {
@@ -368,7 +368,7 @@
         previousJourneyIds = currentJourneyIds;
       }
 
-      fetch('/realtime/api/new-journeys?seconds=300').catch(console.error);
+      fetch('/realtime/api/new-journeys?seconds=300', { credentials: 'same-origin' }).catch(console.error);
 
     } catch (error) {
       console.error('Error refreshing data:', error);
@@ -384,7 +384,7 @@
 
     try {
       console.log('Fetching recent sessions...');
-      const response = await fetch('/realtime/api/recent-sessions?_t=' + Date.now());
+      const response = await fetch('/realtime/api/recent-sessions?_t=' + Date.now(), { credentials: 'same-origin' });
 
       if (!response.ok) {
         const text = await response.text();
