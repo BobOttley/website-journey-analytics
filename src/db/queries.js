@@ -245,15 +245,17 @@ async function getJourneyStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -270,7 +272,7 @@ async function getJourneyStats(siteId = null) {
     WITH journey_data AS (
       SELECT DISTINCT journey_id, visitor_id, is_bot
       FROM journey_events
-      WHERE ${dateFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE ${dateFilter} ${siteFilter} ${excludeExistingParents}
     ),
     human_visitors AS (
       SELECT DISTINCT visitor_id, journey_id
@@ -299,7 +301,7 @@ async function getJourneyStats(siteId = null) {
         ) THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
       FROM journey_events
-      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeExistingParents}
       GROUP BY journey_id
     )
     SELECT
@@ -327,15 +329,17 @@ async function getTopPages(limit = 10, siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -377,7 +381,7 @@ async function getTopPages(limit = 10, siteId = null) {
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
-        ${excludeNewsCalendar}
+        ${excludeExistingParents}
     )
     SELECT
       normalized_url as page_url,
@@ -399,15 +403,17 @@ async function getDeviceBreakdown(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -427,7 +433,7 @@ async function getDeviceBreakdown(siteId = null) {
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
-      ${excludeNewsCalendar}
+      ${excludeExistingParents}
     GROUP BY device_type
     ORDER BY count DESC
   `, params);
@@ -442,15 +448,17 @@ async function getTrafficSources(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -468,7 +476,7 @@ async function getTrafficSources(siteId = null) {
         journey_id,
         referrer
       FROM journey_events
-      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeExistingParents}
       ORDER BY journey_id, occurred_at ASC
     )
     SELECT
@@ -498,15 +506,17 @@ async function getTrafficSources(siteId = null) {
 async function getDailyJourneyTrend(days = 30, siteId = null) {
   const db = getDb();
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -527,7 +537,7 @@ async function getDailyJourneyTrend(days = 30, siteId = null) {
       WHERE occurred_at >= NOW() - INTERVAL '${days} days'
         AND ${botFilter}
         ${siteFilter}
-        ${excludeNewsCalendar}
+        ${excludeExistingParents}
       GROUP BY journey_id
     )
     SELECT
@@ -654,15 +664,17 @@ async function getConversionFunnel(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -677,7 +689,7 @@ async function getConversionFunnel(siteId = null) {
     WITH filtered_journeys AS (
       SELECT DISTINCT journey_id
       FROM journey_events
-      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeExistingParents}
     ),
     journey_stats AS (
       SELECT
@@ -723,15 +735,17 @@ async function getReturnVisitorStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -750,7 +764,7 @@ async function getReturnVisitorStats(siteId = null) {
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
-        ${excludeNewsCalendar}
+        ${excludeExistingParents}
     ),
     visitor_stats AS (
       SELECT visitor_id, COUNT(DISTINCT journey_id) as journey_count
@@ -991,15 +1005,17 @@ async function getUXOverview(siteId = null) {
   const db = getDb();
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -1020,7 +1036,7 @@ async function getUXOverview(siteId = null) {
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
-      ${excludeNewsCalendar}
+      ${excludeExistingParents}
   `, params);
 
   // CTA hesitations - hovers without clicks
@@ -1813,15 +1829,17 @@ async function getReturnVisitorAnalytics(siteId = null) {
   const db = getDb();
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
 
   let siteFilter = '';
@@ -1842,7 +1860,7 @@ async function getReturnVisitorAnalytics(siteId = null) {
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
-        ${excludeNewsCalendar}
+        ${excludeExistingParents}
     ),
     visitor_stats AS (
       SELECT
@@ -2593,15 +2611,17 @@ async function getFamilyStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `AND journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
   let siteFilter = '';
   const params = [];
@@ -2623,7 +2643,7 @@ async function getFamilyStats(siteId = null) {
       WHERE ip_address IS NOT NULL
         AND ${dateFilter}
         ${siteFilter}
-        ${excludeNewsCalendar}
+        ${excludeExistingParents}
       GROUP BY ip_address, journey_id, is_bot
     ),
     family_stats AS (
