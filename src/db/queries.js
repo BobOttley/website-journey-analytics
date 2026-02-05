@@ -1010,6 +1010,11 @@ async function getRecentInactiveSessions(inactiveAfterSeconds = 300, limit = 10,
       SELECT 1 FROM journey_events je3
       WHERE je3.journey_id = j.journey_id
       AND (je3.page_url IS NULL OR je3.page_url NOT LIKE '%gtm-msr.appspot.com%')
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM journey_events je_bot
+      WHERE je_bot.journey_id = j.journey_id
+      AND je_bot.is_bot = true
     )`;
   const params = [activeCutoff];
   let paramIndex = 2;
