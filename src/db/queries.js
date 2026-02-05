@@ -358,14 +358,28 @@ async function getTopPages(limit = 10, siteId = null) {
 
 /**
  * Get device type breakdown
+ * Uses journey_events with proper filters
  */
 async function getDeviceBreakdown(siteId = null) {
   const db = getDb();
-  let whereClause = "WHERE event_type = 'page_view'";
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+
+  let siteFilter = '';
   const params = [];
 
   if (siteId) {
-    whereClause += ' AND site_id = $1';
+    siteFilter = 'AND site_id = $1';
     params.push(siteId);
   }
 
@@ -374,7 +388,11 @@ async function getDeviceBreakdown(siteId = null) {
       COALESCE(device_type, 'unknown') as device_type,
       COUNT(DISTINCT journey_id) as count
     FROM journey_events
-    ${whereClause}
+    WHERE event_type = 'page_view'
+      AND ${dateFilter}
+      AND ${botFilter}
+      ${siteFilter}
+      ${excludeNewsCalendar}
     GROUP BY device_type
     ORDER BY count DESC
   `, params);
@@ -383,33 +401,55 @@ async function getDeviceBreakdown(siteId = null) {
 
 /**
  * Get traffic sources breakdown from referrers
+ * Uses journey_events for accurate data
  */
 async function getTrafficSources(siteId = null) {
   const db = getDb();
-  let whereClause = '';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+
+  let siteFilter = '';
   const params = [];
 
   if (siteId) {
-    whereClause = 'WHERE site_id = $1';
+    siteFilter = 'AND site_id = $1';
     params.push(siteId);
   }
 
+  // Get first referrer for each journey
   const result = await db.query(`
+    WITH first_referrers AS (
+      SELECT DISTINCT ON (journey_id)
+        journey_id,
+        referrer
+      FROM journey_events
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+      ORDER BY journey_id, occurred_at ASC
+    )
     SELECT
       CASE
-        WHEN entry_referrer IS NULL OR entry_referrer = '' THEN 'Direct'
-        WHEN entry_referrer LIKE '%google%' THEN 'Google'
-        WHEN entry_referrer LIKE '%bing%' THEN 'Bing'
-        WHEN entry_referrer LIKE '%facebook%' OR entry_referrer LIKE '%fb.%' THEN 'Facebook'
-        WHEN entry_referrer LIKE '%instagram%' THEN 'Instagram'
-        WHEN entry_referrer LIKE '%twitter%' OR entry_referrer LIKE '%x.com%' THEN 'Twitter/X'
-        WHEN entry_referrer LIKE '%linkedin%' THEN 'LinkedIn'
-        WHEN entry_referrer LIKE '%youtube%' THEN 'YouTube'
+        WHEN referrer IS NULL OR referrer = '' THEN 'Direct'
+        WHEN referrer LIKE '%google%' THEN 'Google'
+        WHEN referrer LIKE '%bing%' THEN 'Bing'
+        WHEN referrer LIKE '%facebook%' OR referrer LIKE '%fb.%' THEN 'Facebook'
+        WHEN referrer LIKE '%instagram%' THEN 'Instagram'
+        WHEN referrer LIKE '%twitter%' OR referrer LIKE '%x.com%' THEN 'Twitter/X'
+        WHEN referrer LIKE '%linkedin%' THEN 'LinkedIn'
+        WHEN referrer LIKE '%youtube%' THEN 'YouTube'
         ELSE 'Other'
       END as source,
       COUNT(*) as count
-    FROM journeys
-    ${whereClause}
+    FROM first_referrers
     GROUP BY source
     ORDER BY count DESC
   `, params);
@@ -418,25 +458,51 @@ async function getTrafficSources(siteId = null) {
 
 /**
  * Get daily journey and conversion trend
+ * Uses journey_events for accurate data
  */
 async function getDailyJourneyTrend(days = 30, siteId = null) {
   const db = getDb();
-  let whereClause = `WHERE first_seen >= NOW() - INTERVAL '${days} days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+
+  let siteFilter = '';
+  const params = [];
 
   if (siteId) {
-    whereClause += ' AND site_id = $1';
+    siteFilter = 'AND site_id = $1';
+    params.push(siteId);
   }
 
   const result = await db.query(`
+    WITH daily_journeys AS (
+      SELECT
+        DATE(MIN(occurred_at)) as date,
+        journey_id,
+        MAX(CASE WHEN event_type = 'form_submit' THEN 1 ELSE 0 END) as converted
+      FROM journey_events
+      WHERE occurred_at >= NOW() - INTERVAL '${days} days'
+        AND ${botFilter}
+        ${siteFilter}
+        ${excludeNewsCalendar}
+      GROUP BY journey_id
+    )
     SELECT
-      DATE(first_seen) as date,
+      date,
       COUNT(*) as journeys,
-      COUNT(CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN 1 END) as conversions
-    FROM journeys
-    ${whereClause}
-    GROUP BY DATE(first_seen)
+      SUM(converted) as conversions
+    FROM daily_journeys
+    GROUP BY date
     ORDER BY date ASC
-  `, siteId ? [siteId] : []);
+  `, params);
   return result.rows;
 }
 
@@ -547,59 +613,66 @@ async function getOutcomeDistribution(siteId = null) {
 
 /**
  * Get conversion funnel stages
+ * Uses journey_events for accurate data
  */
 async function getConversionFunnel(siteId = null) {
   const db = getDb();
-  const siteFilter = siteId ? 'WHERE site_id = $1' : '';
-  const eventSiteFilter = siteId ? 'WHERE site_id = $1' : '';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+
+  let siteFilter = '';
   const params = siteId ? [siteId] : [];
 
-  // Get total journeys
-  const totalResult = await db.query(`SELECT COUNT(DISTINCT journey_id) as count FROM journeys ${siteFilter}`, params);
-  const total = parseInt(totalResult.rows[0].count);
+  if (siteId) {
+    siteFilter = 'AND site_id = $1';
+  }
 
-  // Get journeys with multiple page views (engaged)
-  const engagedFilter = siteId ? 'WHERE event_count > 1 AND site_id = $1' : 'WHERE event_count > 1';
-  const engagedResult = await db.query(`
-    SELECT COUNT(DISTINCT journey_id) as count
-    FROM journeys
-    ${engagedFilter}
+  // Get all funnel stages in one query for consistency
+  const result = await db.query(`
+    WITH filtered_journeys AS (
+      SELECT DISTINCT journey_id
+      FROM journey_events
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+    ),
+    journey_stats AS (
+      SELECT
+        je.journey_id,
+        COUNT(*) as event_count,
+        COUNT(*) FILTER (WHERE je.event_type = 'cta_click') as cta_clicks,
+        COUNT(*) FILTER (WHERE je.event_type = 'form_start') as form_starts,
+        COUNT(*) FILTER (WHERE je.event_type = 'form_submit') as form_submits
+      FROM journey_events je
+      INNER JOIN filtered_journeys fj ON je.journey_id = fj.journey_id
+      WHERE ${dateFilter} ${siteFilter}
+      GROUP BY je.journey_id
+    )
+    SELECT
+      COUNT(*) as total_visitors,
+      COUNT(*) FILTER (WHERE event_count > 1) as engaged,
+      COUNT(*) FILTER (WHERE cta_clicks > 0) as cta_clicked,
+      COUNT(*) FILTER (WHERE form_starts > 0) as form_started,
+      COUNT(*) FILTER (WHERE form_submits > 0) as converted
+    FROM journey_stats
   `, params);
-  const engaged = parseInt(engagedResult.rows[0].count);
 
-  // Get journeys with CTA clicks
-  const ctaFilter = siteId ? "WHERE event_type = 'cta_click' AND site_id = $1" : "WHERE event_type = 'cta_click'";
-  const ctaResult = await db.query(`
-    SELECT COUNT(DISTINCT journey_id) as count
-    FROM journey_events
-    ${ctaFilter}
-  `, params);
-  const ctaClicks = parseInt(ctaResult.rows[0].count);
-
-  // Get journeys with form starts
-  const formFilter = siteId ? "WHERE event_type = 'form_start' AND site_id = $1" : "WHERE event_type = 'form_start'";
-  const formStartResult = await db.query(`
-    SELECT COUNT(DISTINCT journey_id) as count
-    FROM journey_events
-    ${formFilter}
-  `, params);
-  const formStarts = parseInt(formStartResult.rows[0].count);
-
-  // Get conversions
-  const convFilter = siteId ? "WHERE outcome IN ('enquiry_submitted', 'visit_booked') AND site_id = $1" : "WHERE outcome IN ('enquiry_submitted', 'visit_booked')";
-  const conversionResult = await db.query(`
-    SELECT COUNT(*) as count
-    FROM journeys
-    ${convFilter}
-  `, params);
-  const conversions = parseInt(conversionResult.rows[0].count);
+  const data = result.rows[0];
 
   return [
-    { stage: 'Visitors', count: total },
-    { stage: 'Engaged', count: engaged },
-    { stage: 'CTA Clicked', count: ctaClicks },
-    { stage: 'Form Started', count: formStarts },
-    { stage: 'Converted', count: conversions }
+    { stage: 'Visitors', count: parseInt(data.total_visitors || 0) },
+    { stage: 'Engaged', count: parseInt(data.engaged || 0) },
+    { stage: 'CTA Clicked', count: parseInt(data.cta_clicked || 0) },
+    { stage: 'Form Started', count: parseInt(data.form_started || 0) },
+    { stage: 'Converted', count: parseInt(data.converted || 0) }
   ];
 }
 
