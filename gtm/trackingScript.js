@@ -464,24 +464,47 @@
         const isExternal = href && !href.includes(window.location.hostname) && href.startsWith('http');
         const isDownload = btn.hasAttribute('download') || /\.(pdf|doc|docx|xls|xlsx|zip|rar)$/i.test(href || '');
 
-        let eventType = 'cta_click';
+        // Detect intent from button text/href
         let intentType = detectIntent(text, href);
 
+        // For external links (like booking/enquiry apps), track as cta_click with proper intent
+        // Don't change eventType to 'external_link' - these are still CTAs
+        let eventType = 'cta_click';
         if (isDownload) {
           eventType = 'download_click';
           intentType = 'download';
-        } else if (isExternal) {
-          eventType = 'external_link';
-          intentType = 'external';
         }
 
-        sendEvent(eventType, {
-          cta_label: text,
-          intent_type: intentType,
-          element: getElementSelector(btn),
-          href: href,
-          position: { x: e.clientX, y: e.clientY },
-        });
+        // For external links, delay navigation to ensure tracking sends
+        if (isExternal && href && btn.tagName === 'A') {
+          e.preventDefault();
+
+          sendEvent(eventType, {
+            cta_label: text,
+            intent_type: intentType,
+            element: getElementSelector(btn),
+            href: href,
+            is_external: true,
+            position: { x: e.clientX, y: e.clientY },
+          });
+
+          // Navigate after brief delay to ensure event sends
+          setTimeout(function() {
+            if (btn.target === '_blank') {
+              window.open(href, '_blank');
+            } else {
+              window.location.href = href;
+            }
+          }, 150);
+        } else {
+          sendEvent(eventType, {
+            cta_label: text,
+            intent_type: intentType,
+            element: getElementSelector(btn),
+            href: href,
+            position: { x: e.clientX, y: e.clientY },
+          });
+        }
       }
 
       // Accordion/Tab clicks
