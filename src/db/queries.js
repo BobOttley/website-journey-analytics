@@ -691,12 +691,10 @@ async function getConversionFunnel(siteId = null) {
       SELECT
         je.journey_id,
         COUNT(*) as event_count,
-        COUNT(*) FILTER (WHERE je.event_type = 'cta_click') as cta_clicks,
-        COUNT(*) FILTER (WHERE je.event_type = 'form_start') as form_starts,
-        -- Only count form submissions from Render apps (enquiry form or booking form)
-        COUNT(*) FILTER (WHERE je.event_type = 'form_submit' AND (
-          je.page_url ~* 'onrender\\.com'
-        )) as form_submits
+        -- Only count Render app activity (enquiry/booking forms), not main website
+        COUNT(*) FILTER (WHERE je.event_type = 'cta_click' AND je.page_url ~* 'onrender\\.com') as cta_clicks,
+        COUNT(*) FILTER (WHERE je.event_type = 'form_start' AND je.page_url ~* 'onrender\\.com') as form_starts,
+        COUNT(*) FILTER (WHERE je.event_type = 'form_submit' AND je.page_url ~* 'onrender\\.com') as form_submits
       FROM journey_events je
       INNER JOIN filtered_journeys fj ON je.journey_id = fj.journey_id
       WHERE ${dateFilter} ${siteFilter}
