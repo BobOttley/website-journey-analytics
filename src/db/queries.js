@@ -1700,6 +1700,7 @@ async function getFormAnalytics(siteId = null) {
     params.push(siteId);
   }
 
+  // Only track forms on Render apps (enquiry/booking forms), not search boxes on main site
   const result = await db.query(`
     WITH form_events AS (
       SELECT
@@ -1710,6 +1711,7 @@ async function getFormAnalytics(siteId = null) {
         COALESCE((metadata->>'time_spent')::numeric, 0) as time_spent
       FROM journey_events
       WHERE event_type IN ('form_start', 'form_field_blur', 'form_abandon', 'form_submit')
+        AND page_url ~* 'onrender\\.com'
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
@@ -1750,6 +1752,7 @@ async function getFormFieldAbandonment(siteId = null, limit = 15) {
     params.push(siteId);
   }
 
+  // Only track forms on Render apps (enquiry/booking forms), not search boxes on main site
   const result = await db.query(`
     SELECT
       COALESCE(metadata->>'field_name', cta_label) as field_name,
@@ -1758,6 +1761,7 @@ async function getFormFieldAbandonment(siteId = null, limit = 15) {
       ROUND(AVG(COALESCE((metadata->>'time_spent')::numeric, 0)), 1) as avg_time_on_field
     FROM journey_events
     WHERE event_type = 'form_abandon'
+      AND page_url ~* 'onrender\\.com'
       AND (metadata->>'field_name' IS NOT NULL OR cta_label IS NOT NULL)
       AND ${dateFilter}
       AND ${botFilter}
