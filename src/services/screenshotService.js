@@ -87,14 +87,15 @@ async function captureScreenshot(url, outputPath, options = {}) {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Navigate to page
+    // Navigate to page - use 'domcontentloaded' for faster capture
+    // 60 second timeout for slow sites on limited cloud resources
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
     });
 
-    // Wait a bit for any animations/lazy loading
-    await page.evaluate((ms) => new Promise(r => setTimeout(r, ms)), waitFor);
+    // Wait for images and lazy content to load
+    await page.evaluate((ms) => new Promise(r => setTimeout(r, ms)), waitFor + 3000);
 
     // Dismiss any cookie banners (common pattern)
     try {
