@@ -410,16 +410,29 @@
         <thead>
           <tr>
             <th>Page</th>
+            <th>Avg Depth</th>
             <th>Behaviour</th>
             <th>Sessions</th>
           </tr>
         </thead>
         <tbody>
-          <% scrollByPage.slice(0, 8).forEach(item => { %>
+          <% scrollByPage.slice(0, 8).forEach(item => {
+            // Determine behaviour based on avg depth
+            let behaviour = 'Skimming';
+            let behaviourColor = '#ef4444';
+            if (item.avg_depth >= 75) {
+              behaviour = 'Reading';
+              behaviourColor = '#10b981';
+            } else if (item.avg_depth >= 50) {
+              behaviour = 'Scanning';
+              behaviourColor = '#f59e0b';
+            }
+          %>
             <tr>
               <td title="<%= item.page_url %>"><%= getPageNameSB(item.page_url) %></td>
-              <td style="text-transform: capitalize;"><%= item.behaviour %></td>
-              <td class="number"><%= item.count %></td>
+              <td class="number"><%= item.avg_depth || 0 %>%</td>
+              <td style="color: <%= behaviourColor %>; font-weight: 600;"><%= behaviour %></td>
+              <td class="number"><%= item.visitors || 0 %></td>
             </tr>
           <% }) %>
         </tbody>
