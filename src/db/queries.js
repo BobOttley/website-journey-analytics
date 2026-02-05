@@ -279,7 +279,15 @@ async function getJourneyStats(siteId = null) {
       SELECT DISTINCT je.journey_id, je.visitor_id, je.is_bot
       FROM journey_events je
       INNER JOIN js_tracked_journeys jt ON je.journey_id = jt.journey_id
-      WHERE ${dateFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE je.occurred_at >= NOW() - INTERVAL '7 days' ${siteId ? 'AND je.site_id = $1' : ''} AND je.journey_id NOT IN (
+        SELECT je_entry.journey_id FROM (
+          SELECT DISTINCT ON (journey_id) journey_id, page_url
+          FROM journey_events
+          WHERE event_type = 'page_view' AND page_url IS NOT NULL
+          ORDER BY journey_id, occurred_at ASC
+        ) je_entry
+        WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+      )
     ),
     human_visitors AS (
       SELECT DISTINCT visitor_id, journey_id
@@ -307,7 +315,15 @@ async function getJourneyStats(siteId = null) {
         COUNT(*) as event_count
       FROM journey_events je
       INNER JOIN js_tracked_journeys jt ON je.journey_id = jt.journey_id
-      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
+      WHERE je.occurred_at >= NOW() - INTERVAL '7 days' AND (je.is_bot = false OR je.is_bot IS NULL) ${siteId ? 'AND je.site_id = $1' : ''} AND je.journey_id NOT IN (
+        SELECT je_entry.journey_id FROM (
+          SELECT DISTINCT ON (journey_id) journey_id, page_url
+          FROM journey_events
+          WHERE event_type = 'page_view' AND page_url IS NOT NULL
+          ORDER BY journey_id, occurred_at ASC
+        ) je_entry
+        WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+      )
       GROUP BY je.journey_id
     )
     SELECT
