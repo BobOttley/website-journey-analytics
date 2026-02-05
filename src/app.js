@@ -478,6 +478,12 @@ async function start() {
       // Start background journey sync (every 30 seconds)
       setInterval(rebuildRecentJourneys, 30000);
       rebuildRecentJourneys(); // Run immediately on startup
+
+      // Run pixel-only bot detection on startup and every 5 minutes
+      if (botsRouter.runPixelOnlyBotDetection) {
+        botsRouter.runPixelOnlyBotDetection();
+        setInterval(() => botsRouter.runPixelOnlyBotDetection(), 5 * 60 * 1000);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);

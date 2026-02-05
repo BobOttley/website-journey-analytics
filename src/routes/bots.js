@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
-const { getBotTypeLabel } = require('../services/botDetection');
+const { getBotTypeLabel, markPixelOnlyBotsInDB } = require('../services/botDetection');
 const { getSiteId } = require('../middleware/auth');
 
 // ============================================
@@ -149,6 +149,47 @@ router.get('/api/comparison', async (req, res) => {
     res.status(500).json({ error: 'Failed to get comparison' });
   }
 });
+
+/**
+ * POST /bots/api/mark-pixel-only
+ * Mark pixel-only journeys as bots (no JavaScript = likely bot)
+ */
+router.post('/api/mark-pixel-only', async (req, res) => {
+  try {
+    const db = getDb();
+    const siteId = getSiteId(req);
+    const result = await markPixelOnlyBotsInDB(db, siteId);
+    console.log(`Marked ${result.marked} pixel-only journeys as bots`);
+    res.json({
+      success: true,
+      marked: result.marked,
+      message: `Marked ${result.marked} pixel-only journeys as bots (no JavaScript execution)`
+    });
+  } catch (error) {
+    console.error('Mark pixel-only bots error:', error);
+    res.status(500).json({ error: 'Failed to mark pixel-only bots' });
+  }
+});
+
+/**
+ * Run pixel-only bot detection (can be called on startup)
+ */
+async function runPixelOnlyBotDetection() {
+  try {
+    const db = getDb();
+    const result = await markPixelOnlyBotsInDB(db);
+    if (result.marked > 0) {
+      console.log(`[Bot Detection] Marked ${result.marked} pixel-only journeys as bots`);
+    }
+    return result;
+  } catch (error) {
+    console.error('[Bot Detection] Error marking pixel-only bots:', error.message);
+    return { marked: 0, error: error.message };
+  }
+}
+
+// Export for use in app.js startup
+router.runPixelOnlyBotDetection = runPixelOnlyBotDetection;
 
 // ============================================
 // QUERY FUNCTIONS

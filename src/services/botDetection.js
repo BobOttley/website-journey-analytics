@@ -992,6 +992,62 @@ function getBotTypeLabel(botType) {
   return labels[botType] || 'Unknown';
 }
 
+/**
+ * Mark pixel-only journeys as bots
+ * If a journey has pixel_view but no page_view events, JavaScript didn't run
+ * This is a strong indicator of bot traffic (real browsers execute JS)
+ * @param {object} db - Database connection
+ * @param {number} siteId - Optional site ID filter
+ * @returns {Promise<{marked: number, journeyIds: string[]}>}
+ */
+async function markPixelOnlyBotsInDB(db, siteId = null) {
+  const siteFilter = siteId ? 'AND site_id = $1' : '';
+  const params = siteId ? [siteId] : [];
+
+  // Find journeys that have pixel_view but NO page_view events
+  const pixelOnlyQuery = `
+    SELECT DISTINCT journey_id
+    FROM journey_events
+    WHERE event_type = 'pixel_view'
+      ${siteFilter}
+      AND journey_id NOT IN (
+        SELECT DISTINCT journey_id
+        FROM journey_events
+        WHERE event_type = 'page_view'
+        ${siteFilter}
+      )
+      AND (is_bot = false OR is_bot IS NULL)
+  `;
+
+  const result = await db.query(pixelOnlyQuery, params);
+  const journeyIds = result.rows.map(r => r.journey_id);
+
+  if (journeyIds.length === 0) {
+    return { marked: 0, journeyIds: [] };
+  }
+
+  // Mark these journeys as bots
+  const placeholders = journeyIds.map((_, i) => `$${i + 1}`).join(', ');
+  await db.query(`
+    UPDATE journey_events
+    SET is_bot = true,
+        bot_score = GREATEST(COALESCE(bot_score, 0), 85),
+        bot_signals = COALESCE(bot_signals, '{}'::jsonb) || '{"pixel_only_no_js": true}'::jsonb
+    WHERE journey_id IN (${placeholders})
+  `, journeyIds);
+
+  // Also update journeys table if it exists
+  await db.query(`
+    UPDATE journeys
+    SET is_bot = true,
+        bot_score = GREATEST(COALESCE(bot_score, 0), 85),
+        bot_type = COALESCE(bot_type, 'no_javascript')
+    WHERE journey_id IN (${placeholders})
+  `, journeyIds).catch(() => {}); // Ignore if journeys table doesn't have the record
+
+  return { marked: journeyIds.length, journeyIds };
+}
+
 module.exports = {
   // Standard detection
   analyseUserAgent,
@@ -1008,6 +1064,8 @@ module.exports = {
   analyseScrollPatterns,
   analyseHoneypot,
   analyseJsChallenge,
+  // Pixel-only bot detection
+  markPixelOnlyBotsInDB,
   // Constants
   KNOWN_BOTS,
   AUTOMATION_INDICATORS,
