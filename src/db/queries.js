@@ -243,26 +243,63 @@ async function getJourneysInDateRange(startDate, endDate, siteId = null) {
 
 async function getJourneyStats(siteId = null) {
   const db = getDb();
-  let whereClause = '';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+
+  let siteFilter = '';
   const params = [];
 
   if (siteId) {
-    whereClause = 'WHERE site_id = $1';
+    siteFilter = 'AND site_id = $1';
     params.push(siteId);
   }
 
+  // Query journey_events directly for accurate counts
+  // Counts UNIQUE VISITORS (people), not sessions/journeys
   const result = await db.query(`
+    WITH journey_data AS (
+      SELECT DISTINCT journey_id, visitor_id, is_bot
+      FROM journey_events
+      WHERE ${dateFilter} ${siteFilter}
+    ),
+    human_visitors AS (
+      SELECT DISTINCT visitor_id, journey_id
+      FROM journey_data
+      WHERE ${botFilter} AND visitor_id IS NOT NULL
+    ),
+    visitor_stats AS (
+      SELECT
+        visitor_id,
+        COUNT(DISTINCT journey_id) as journey_count
+      FROM human_visitors
+      GROUP BY visitor_id
+    ),
+    conversion_data AS (
+      SELECT
+        journey_id,
+        MAX(CASE WHEN event_type = 'form_submit' AND (
+          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%enquir%' OR
+          LOWER(COALESCE(metadata->>'intent_type', '')) = 'contact'
+        ) THEN 1 ELSE 0 END) as is_enquiry,
+        MAX(CASE WHEN event_type = 'form_submit' AND (
+          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%book%' OR
+          LOWER(COALESCE(metadata->>'intent_type', '')) = 'book_visit'
+        ) THEN 1 ELSE 0 END) as is_booking,
+        COUNT(*) as event_count
+      FROM journey_events
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter}
+      GROUP BY journey_id
+    )
     SELECT
-      COUNT(CASE WHEN is_bot = false OR is_bot IS NULL THEN 1 END) as human_visitors,
-      COUNT(CASE WHEN is_bot = true THEN 1 END) as bot_count,
-      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND visit_number > 1 THEN 1 END) as return_visitors,
-      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND outcome = 'enquiry_submitted' THEN 1 END) as enquiries,
-      COUNT(CASE WHEN (is_bot = false OR is_bot IS NULL) AND outcome = 'visit_booked' THEN 1 END) as visits_booked,
-      COUNT(CASE WHEN outcome = 'no_action' THEN 1 END) as no_action,
-      AVG(CASE WHEN is_bot = false OR is_bot IS NULL THEN event_count END) as avg_events,
-      AVG(time_to_action) as avg_time_to_action,
-      COUNT(*) as total_journeys
-    FROM journeys ${whereClause}
+      (SELECT COUNT(DISTINCT visitor_id) FROM human_visitors) as human_visitors,
+      (SELECT COUNT(DISTINCT journey_id) FROM journey_data WHERE is_bot = true) as bot_count,
+      (SELECT COUNT(*) FROM visitor_stats WHERE journey_count > 1) as return_visitors,
+      (SELECT COALESCE(SUM(is_enquiry), 0) FROM conversion_data) as enquiries,
+      (SELECT COALESCE(SUM(is_booking), 0) FROM conversion_data) as visits_booked,
+      (SELECT COUNT(*) FROM conversion_data WHERE is_enquiry = 0 AND is_booking = 0) as no_action,
+      (SELECT ROUND(AVG(event_count), 1) FROM conversion_data) as avg_events,
+      (SELECT COUNT(DISTINCT journey_id) FROM journey_data) as total_journeys,
+      (SELECT ROUND(AVG(journey_count), 1) FROM visitor_stats) as avg_visits_per_visitor
   `, params);
   return result.rows[0];
 }
@@ -547,23 +584,45 @@ async function getConversionFunnel(siteId = null) {
 
 /**
  * Get return visitor stats
+ * Counts UNIQUE VISITORS (people, not sessions)
+ * - new_visitors: people who only visited once
+ * - return_visitors: people who came back (2+ visits)
+ * - total_return_visits: total number of return visits made
+ * - avg_visits: average visits per returning visitor
  */
 async function getReturnVisitorStats(siteId = null) {
   const db = getDb();
-  let whereClause = '';
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+
+  let siteFilter = '';
   const params = [];
 
   if (siteId) {
-    whereClause = 'WHERE site_id = $1';
+    siteFilter = 'AND site_id = $1';
     params.push(siteId);
   }
 
   const result = await db.query(`
+    WITH visitor_journeys AS (
+      SELECT DISTINCT visitor_id, journey_id
+      FROM journey_events
+      WHERE visitor_id IS NOT NULL
+        AND ${dateFilter}
+        AND ${botFilter}
+        ${siteFilter}
+    ),
+    visitor_stats AS (
+      SELECT visitor_id, COUNT(DISTINCT journey_id) as journey_count
+      FROM visitor_journeys
+      GROUP BY visitor_id
+    )
     SELECT
-      COUNT(CASE WHEN visit_number = 1 THEN 1 END) as new_visitors,
-      COUNT(CASE WHEN visit_number > 1 THEN 1 END) as return_visitors
-    FROM journeys
-    ${whereClause}
+      COUNT(*) FILTER (WHERE journey_count = 1) as new_visitors,
+      COUNT(*) FILTER (WHERE journey_count > 1) as return_visitors,
+      SUM(journey_count - 1) FILTER (WHERE journey_count > 1) as total_return_visits,
+      ROUND(AVG(journey_count) FILTER (WHERE journey_count > 1), 1) as avg_visits_per_returner
+    FROM visitor_stats
   `, params);
   return result.rows[0];
 }
