@@ -578,15 +578,67 @@ async function buildJourneyFromEvents(primaryJourneyId, events, visitNumber, sit
 }
 
 /**
- * Consolidate journeys by IP address
- * ONE IP = ONE JOURNEY. Simple.
+ * Split events into separate sessions based on time gaps
+ * A gap of more than 30 minutes = new session
+ */
+function splitEventsIntoSessions(events, maxGapMinutes = 30) {
+  if (!events || events.length === 0) return [];
+
+  const sorted = sortEventsByTime(events);
+  const sessions = [];
+  let currentSession = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevTime = new Date(sorted[i - 1].occurred_at).getTime();
+    const currTime = new Date(sorted[i].occurred_at).getTime();
+    const gapMinutes = (currTime - prevTime) / (1000 * 60);
+
+    if (gapMinutes > maxGapMinutes) {
+      // Start a new session
+      sessions.push(currentSession);
+      currentSession = [sorted[i]];
+    } else {
+      currentSession.push(sorted[i]);
+    }
+  }
+
+  // Don't forget the last session
+  if (currentSession.length > 0) {
+    sessions.push(currentSession);
+  }
+
+  return sessions;
+}
+
+/**
+ * Calculate meaningful event count (excludes excessive heartbeats)
+ * Caps heartbeats at a reasonable number based on session duration
+ */
+function calculateMeaningfulEventCount(events) {
+  const heartbeats = events.filter(e => e.event_type === 'heartbeat').length;
+  const nonHeartbeats = events.filter(e => e.event_type !== 'heartbeat').length;
+
+  // Cap heartbeats: max 1 per minute of session (reasonable active browsing)
+  const sorted = sortEventsByTime(events);
+  if (sorted.length < 2) return events.length;
+
+  const sessionMinutes = (new Date(sorted[sorted.length - 1].occurred_at).getTime() -
+                          new Date(sorted[0].occurred_at).getTime()) / (1000 * 60);
+  const maxReasonableHeartbeats = Math.min(heartbeats, Math.ceil(sessionMinutes));
+
+  return nonHeartbeats + maxReasonableHeartbeats;
+}
+
+/**
+ * Consolidate journeys by IP address with SESSION SPLITTING
+ * ONE IP can have MULTIPLE JOURNEYS if sessions are more than 30 min apart
  *
  * Logic:
  * 1. Get all unique IPs
- * 2. For each IP, get ALL events (including from journeys that have mixed NULL/non-NULL IPs)
- * 3. Create one journey per IP using the earliest journey_id as the primary
- * 4. Delete duplicate journey records
- * 5. Orphan journeys (no IP at all) are left alone
+ * 2. For each IP, get ALL events
+ * 3. Split events into sessions (30 min gap = new session)
+ * 4. Create one journey per session
+ * 5. Delete orphan records
  */
 async function consolidateJourneysByIP(siteId = null) {
   const results = {
@@ -603,49 +655,61 @@ async function consolidateJourneysByIP(siteId = null) {
 
     // Track which journey_ids we've consolidated (to delete duplicates)
     const consolidatedJourneyIds = new Set();
+    const createdJourneyIds = new Set();
 
-    // Step 2: For each IP, consolidate all events into one journey
+    // Step 2: For each IP, split into sessions and create journeys
     for (const ipAddress of uniqueIPs) {
       try {
-        // Get ALL events for this IP (includes events from journeys with mixed NULL/IP)
+        // Get ALL events for this IP
         const allEvents = await getEventsByIPAddress(ipAddress, siteId);
 
         if (allEvents.length === 0) continue;
 
-        // Find all unique journey_ids for this IP
+        // Find all unique journey_ids for this IP (for cleanup)
         const journeyIds = [...new Set(allEvents.map(e => e.journey_id))];
+        journeyIds.forEach(id => consolidatedJourneyIds.add(id));
 
-        // Use the earliest journey_id as the primary
-        const sortedEvents = sortEventsByTime(allEvents);
-        const primaryJourneyId = sortedEvents[0].journey_id;
+        // Split events into sessions (30 min gap = new session)
+        const sessions = splitEventsIntoSessions(allEvents, 30);
 
-        // Track how many separate visits (sessions) this IP had
-        const visitCount = journeyIds.length;
+        console.log(`[CONSOLIDATE] IP ${ipAddress}: ${allEvents.length} events -> ${sessions.length} session(s)`);
 
-        // Build ONE consolidated journey
-        const journey = await buildJourneyFromEvents(
-          primaryJourneyId,
-          allEvents,
-          visitCount,
-          siteId
-        );
+        // Create one journey per session
+        for (let sessionIndex = 0; sessionIndex < sessions.length; sessionIndex++) {
+          const sessionEvents = sessions[sessionIndex];
 
-        if (journey) {
-          await upsertJourney(journey);
-          results.ipConsolidated++;
+          // Use the first event's journey_id as the primary for this session
+          const primaryJourneyId = sessionEvents[0].journey_id;
 
-          // Mark all journey_ids as consolidated
-          journeyIds.forEach(id => consolidatedJourneyIds.add(id));
+          // Visit number is the session index + 1 for this IP
+          const visitNumber = sessionIndex + 1;
 
-          // Delete duplicate journey records (keep only the primary)
-          const duplicateIds = journeyIds.filter(id => id !== primaryJourneyId);
-          if (duplicateIds.length > 0) {
-            const deletedCount = await deleteJourneysByIds(duplicateIds);
-            results.deleted += deletedCount;
+          // Build journey for this session
+          const journey = await buildJourneyFromEvents(
+            primaryJourneyId,
+            sessionEvents,
+            visitNumber,
+            siteId
+          );
+
+          if (journey) {
+            // Override event_count with meaningful count (caps heartbeats)
+            journey.event_count = calculateMeaningfulEventCount(sessionEvents);
+
+            await upsertJourney(journey);
+            createdJourneyIds.add(primaryJourneyId);
+            results.ipConsolidated++;
           }
-
-          console.log(`[CONSOLIDATE] IP ${ipAddress}: ${allEvents.length} events, ${visitCount} visits -> 1 journey`);
         }
+
+        // Delete journey records that weren't used as primary for any session
+        const usedIds = sessions.map(s => s[0].journey_id);
+        const duplicateIds = journeyIds.filter(id => !usedIds.includes(id));
+        if (duplicateIds.length > 0) {
+          const deletedCount = await deleteJourneysByIds(duplicateIds);
+          results.deleted += deletedCount;
+        }
+
       } catch (error) {
         results.errors.push({ ip: ipAddress, error: error.message });
         console.error(`[CONSOLIDATE] Error for IP ${ipAddress}:`, error.message);
