@@ -30,7 +30,8 @@ router.get('/', async (req, res) => {
       insight: parsedInsight,
       history: parsedHistory,
       currentPage: 'insights',
-      title: 'AI Insights - SMART Journey'
+      title: 'AI Insights - SMART Journey',
+      siteId: siteId
     });
   } catch (error) {
     console.error('Error loading insights:', error);

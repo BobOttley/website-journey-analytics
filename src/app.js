@@ -17,6 +17,7 @@ const botsRouter = require('./routes/bots');
 const authRouter = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const uxRouter = require('./routes/ux');
+const screenshotsRouter = require('./routes/screenshots');
 
 // Import middleware
 const { requireAuth, attachUserContext } = require('./middleware/auth');
@@ -408,6 +409,7 @@ app.use('/insights', requireAuth, insightsRouter);
 app.use('/bots', requireAuth, botsRouter);
 app.use('/ux', requireAuth, uxRouter);
 app.use('/admin', requireAuth, adminRouter);
+app.use('/screenshots', requireAuth, screenshotsRouter);
 
 // Root redirect
 app.get('/', (req, res) => {

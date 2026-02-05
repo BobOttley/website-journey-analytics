@@ -1,6 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getJourneysInDateRange, insertInsight } = require('../db/queries');
 const siteStructureConfig = require('../config/siteStructure.json');
+const { getScreenshotsForAnalysis, listScreenshots } = require('./screenshotService');
 
 /**
  * Get site-specific configuration
@@ -13,6 +14,42 @@ function getSiteConfig(siteId) {
 const anthropic = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
 });
+
+/**
+ * Build message content array with text and optional screenshots
+ * Claude's vision API format: { type: 'image', source: { type: 'base64', media_type: 'image/png', data: base64 } }
+ */
+function buildMessageWithScreenshots(textContent, screenshots = []) {
+  if (!screenshots || screenshots.length === 0) {
+    // No screenshots - return simple text format
+    return textContent;
+  }
+
+  // Build content array with images first, then text
+  const content = [];
+
+  // Add each screenshot as an image
+  for (const screenshot of screenshots) {
+    if (screenshot.base64) {
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: screenshot.mediaType || 'image/png',
+          data: screenshot.base64
+        }
+      });
+    }
+  }
+
+  // Add the text prompt
+  content.push({
+    type: 'text',
+    text: textContent
+  });
+
+  return content;
+}
 
 /**
  * Safe JSON parse helper
@@ -424,13 +461,31 @@ ${examplesLines || '(none)'}
 /**
  * Build prompt focused on website performance and actionable improvements.
  */
-function buildPrompt(formattedData, siteId) {
+function buildPrompt(formattedData, siteId, screenshots = []) {
   const siteStructure = getSiteConfig(siteId);
+
+  // Add visual context section if screenshots are included
+  const visualContextSection = screenshots.length > 0
+    ? `
+VISUAL CONTEXT:
+I've included ${screenshots.length} screenshot(s) of key website pages. Please reference these when making recommendations about:
+- CTA visibility and positioning
+- Content layout and hierarchy
+- Visual elements that may be causing confusion
+- Mobile vs desktop layout issues
+
+Screenshots included:
+${screenshots.map(s => `- ${s.pagePath} (${s.type})`).join('\n')}
+
+When you see issues in the data (e.g., high dead clicks on a page, CTA hesitation), look at the screenshot to identify what element users might be trying to click or what might be causing confusion.
+`
+    : '';
 
   return `You are a website performance analyst. Your job is to tell me how this website is performing and what we can do to improve conversions.
 
 WEBSITE: ${siteStructure.siteName} (${siteStructure.siteUrl})
 ${siteStructure.siteDescription}
+${visualContextSection}
 
 KEY PAGES:
 ${Object.entries(siteStructure.pages || {})
@@ -522,7 +577,7 @@ Respond with ONLY this JSON:
 }`;
 }
 
-async function runAnalysis(startDate, endDate, siteId = null) {
+async function runAnalysis(startDate, endDate, siteId = null, includeScreenshots = true) {
   const journeysRaw = await getJourneysInDateRange(startDate, endDate, siteId);
 
   if (!journeysRaw || journeysRaw.length === 0) {
@@ -531,13 +586,36 @@ async function runAnalysis(startDate, endDate, siteId = null) {
 
   const aggregatedData = aggregateJourneyData(journeysRaw);
   const formattedData = formatDataForAI(aggregatedData);
-  const prompt = buildPrompt(formattedData, siteId);
+
+  // Get screenshots if available and requested
+  let screenshots = [];
+  if (includeScreenshots && siteId) {
+    try {
+      // Get key pages from the aggregated data (top entry pages, most visited)
+      const topEntryPages = Object.keys(aggregatedData.entryPagesHigh).slice(0, 3);
+      const topVisitedPages = Object.keys(aggregatedData.pageVisitsHigh).slice(0, 5);
+      const keyPages = [...new Set([...topEntryPages, ...topVisitedPages])];
+
+      // Also check for available screenshots
+      const availableScreenshots = listScreenshots(siteId);
+      if (availableScreenshots.length > 0) {
+        screenshots = getScreenshotsForAnalysis(siteId, keyPages, 5);
+        console.log(`[AI Analysis] Including ${screenshots.length} screenshots in analysis`);
+      }
+    } catch (screenshotError) {
+      console.warn('[AI Analysis] Could not load screenshots:', screenshotError.message);
+      // Continue without screenshots
+    }
+  }
+
+  const prompt = buildPrompt(formattedData, siteId, screenshots);
+  const messageContent = buildMessageWithScreenshots(prompt, screenshots);
 
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: messageContent }]
     });
 
     const content = response?.content?.[0]?.text || '';
@@ -579,7 +657,7 @@ async function runAnalysis(startDate, endDate, siteId = null) {
 /**
  * Analyse a single journey in detail
  */
-async function analyseSingleJourney(journey, siteId = null) {
+async function analyseSingleJourney(journey, siteId = null, includeScreenshots = true) {
   if (!journey || !journey.events || journey.events.length === 0) {
     return { success: false, error: 'Journey has no events to analyse' };
   }
@@ -587,15 +665,34 @@ async function analyseSingleJourney(journey, siteId = null) {
   // Use journey's site_id if available, otherwise use passed siteId
   const effectiveSiteId = journey.site_id || siteId;
 
+  // Get screenshots of pages visited in this journey
+  let screenshots = [];
+  if (includeScreenshots && effectiveSiteId) {
+    try {
+      // Extract unique page URLs from events
+      const pageViews = (journey.events || []).filter(e => e.event_type === 'page_view');
+      const uniquePageUrls = [...new Set(pageViews.map(e => e.page_url).filter(Boolean))];
+
+      const availableScreenshots = listScreenshots(effectiveSiteId);
+      if (availableScreenshots.length > 0 && uniquePageUrls.length > 0) {
+        screenshots = getScreenshotsForAnalysis(effectiveSiteId, uniquePageUrls, 4);
+        console.log(`[AI Analysis] Including ${screenshots.length} screenshots for journey analysis`);
+      }
+    } catch (screenshotError) {
+      console.warn('[AI Analysis] Could not load screenshots for journey:', screenshotError.message);
+    }
+  }
+
   // Format the journey data for AI analysis
   const formattedJourney = formatSingleJourneyForAI(journey);
-  const prompt = buildSingleJourneyPrompt(formattedJourney, effectiveSiteId);
+  const prompt = buildSingleJourneyPrompt(formattedJourney, effectiveSiteId, screenshots);
+  const messageContent = buildMessageWithScreenshots(prompt, screenshots);
 
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: messageContent }]
     });
 
     const content = response?.content?.[0]?.text || '';
@@ -742,12 +839,27 @@ ${timeline.slice(0, 50).join('\n')}${timeline.length > 50 ? `\n... and ${timelin
 /**
  * Build prompt for single journey analysis
  */
-function buildSingleJourneyPrompt(formattedData, siteId) {
+function buildSingleJourneyPrompt(formattedData, siteId, screenshots = []) {
   const siteStructure = getSiteConfig(siteId);
+
+  // Add visual context section if screenshots are included
+  const visualContextSection = screenshots.length > 0
+    ? `
+VISUAL CONTEXT:
+I've included ${screenshots.length} screenshot(s) of pages this visitor viewed. Please reference these when analysing their behaviour:
+- Look at where CTAs are positioned on pages they visited
+- Consider what content they would have seen
+- Identify any potential UX issues visible in the screenshots
+
+Screenshots included:
+${screenshots.map(s => `- ${s.pagePath} (${s.type})`).join('\n')}
+`
+    : '';
 
   return `You are an expert in website user behaviour analysis. Analyse this single visitor journey and provide insights.
 
 CONTEXT: This is a visitor to ${siteStructure.siteName} (${siteStructure.siteUrl}) - ${siteStructure.siteDescription}.
+${visualContextSection}
 
 Site pages and their roles:
 ${Object.entries(siteStructure.pages || {})

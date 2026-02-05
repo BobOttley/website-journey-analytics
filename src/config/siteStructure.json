@@ -4,60 +4,75 @@
       "siteName": "bSMART AI",
       "siteUrl": "https://www.bsmart-ai.com",
       "siteDescription": "B2B SaaS company selling admissions software to schools",
+      "screenshotConfig": {
+        "enabled": true,
+        "viewport": { "width": 1440, "height": 900 },
+        "mobileViewport": { "width": 390, "height": 844 },
+        "captureMobile": true
+      },
       "pages": {
         "/": {
           "name": "Homepage",
           "role": "landing",
           "stage": "awareness",
-          "description": "Main landing page introducing the SMART AI ecosystem"
+          "description": "Main landing page introducing the SMART AI ecosystem",
+          "captureScreenshot": true
         },
         "/prospectus.html": {
           "name": "SMART Prospectus",
           "role": "product",
           "stage": "consideration",
-          "description": "Interactive digital prospectus product page"
+          "description": "Interactive digital prospectus product page",
+          "captureScreenshot": true
         },
         "/crm.html": {
           "name": "SMART CRM",
           "role": "product",
           "stage": "consideration",
-          "description": "Admissions CRM product page"
+          "description": "Admissions CRM product page",
+          "captureScreenshot": true
         },
         "/chatbot.html": {
           "name": "SMART Chat",
           "role": "product",
           "stage": "consideration",
-          "description": "AI chatbot product page"
+          "description": "AI chatbot product page",
+          "captureScreenshot": true
         },
         "/voice.html": {
           "name": "SMART Voice",
           "role": "product",
           "stage": "consideration",
-          "description": "Voice AI and audio tours product page"
+          "description": "Voice AI and audio tours product page",
+          "captureScreenshot": true
         },
         "/booking.html": {
           "name": "SMART Booking",
           "role": "product",
           "stage": "consideration",
-          "description": "Visit management product page"
+          "description": "Visit management product page",
+          "captureScreenshot": true
         },
         "/email.html": {
           "name": "SMART Email",
           "role": "product",
           "stage": "consideration",
-          "description": "AI email personalisation product page"
+          "description": "AI email personalisation product page",
+          "captureScreenshot": true
         },
         "/contact.html": {
           "name": "Contact",
           "role": "conversion",
           "stage": "decision",
-          "description": "Contact form and enquiry page"
+          "description": "Contact form and enquiry page",
+          "captureScreenshot": true
         },
         "/smart-benefits-calculator.html": {
           "name": "ROI Calculator",
           "role": "conversion",
           "stage": "consideration",
-          "description": "Interactive benefits calculator"
+          "description": "Interactive benefits calculator",
+          "captureScreenshot": true
         }
       },
       "ctas": {
@@ -110,73 +125,111 @@
     "2": {
       "siteName": "More House School",
       "siteUrl": "https://www.morehouse.org.uk",
-      "siteDescription": "Independent Catholic girls school in London",
+      "siteDescription": "Independent Catholic girls school in London, serving girls aged 9-18 with Pre-Senior, Senior, and Sixth Form",
+      "screenshotConfig": {
+        "enabled": true,
+        "viewport": { "width": 1440, "height": 900 },
+        "mobileViewport": { "width": 390, "height": 844 },
+        "captureMobile": true
+      },
       "pages": {
         "/": {
           "name": "Homepage",
           "role": "landing",
           "stage": "awareness",
-          "description": "Main landing page for More House School"
+          "description": "Main landing page for More House School with video and key information",
+          "captureScreenshot": true
         },
         "/admissions/": {
           "name": "Admissions",
           "role": "information",
           "stage": "consideration",
-          "description": "Main admissions section"
+          "description": "Main admissions section overview",
+          "captureScreenshot": true
         },
         "/admissions/joining-more-house/": {
           "name": "Joining More House",
           "role": "information",
           "stage": "consideration",
-          "description": "How to join the school"
+          "description": "How to join the school - application process",
+          "captureScreenshot": true
         },
         "/admissions/open-events/": {
           "name": "Open Events",
           "role": "conversion",
           "stage": "decision",
-          "description": "Open day and event booking"
+          "description": "Open day and event booking - key conversion page",
+          "captureScreenshot": true
         },
         "/admissions/fees/": {
           "name": "Fees",
           "role": "information",
           "stage": "consideration",
-          "description": "School fees information"
+          "description": "School fees information - critical for decision making",
+          "captureScreenshot": true
         },
         "/admissions/bursaries-scholarships/": {
           "name": "Bursaries & Scholarships",
           "role": "information",
           "stage": "consideration",
-          "description": "Financial assistance information"
+          "description": "Financial assistance information",
+          "captureScreenshot": true
         },
         "/sixth-form/": {
           "name": "Sixth Form",
           "role": "information",
           "stage": "consideration",
-          "description": "Sixth form information"
+          "description": "Sixth form information for 16-18 age group",
+          "captureScreenshot": true
+        },
+        "/pre-senior/": {
+          "name": "Pre-Senior",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Pre-Senior information for 9-11 age group",
+          "captureScreenshot": true
+        },
+        "/senior-school/": {
+          "name": "Senior School",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Senior school information for 11-16 age group",
+          "captureScreenshot": true
         },
         "/about/": {
           "name": "About",
           "role": "information",
           "stage": "awareness",
-          "description": "About the school"
+          "description": "About the school",
+          "captureScreenshot": false
+        },
+        "/our-school/our-ethos/": {
+          "name": "Our Ethos",
+          "role": "information",
+          "stage": "awareness",
+          "description": "School ethos and values",
+          "captureScreenshot": true
         },
         "/academic/": {
           "name": "Academic",
           "role": "information",
           "stage": "consideration",
-          "description": "Academic information and curriculum"
+          "description": "Academic information and curriculum",
+          "captureScreenshot": false
         },
         "/beyond-the-classroom/": {
           "name": "Beyond the Classroom",
           "role": "information",
           "stage": "consideration",
-          "description": "Extra-curricular activities"
+          "description": "Extra-curricular activities",
+          "captureScreenshot": false
         },
         "/contact/": {
           "name": "Contact",
           "role": "conversion",
           "stage": "decision",
-          "description": "Contact and enquiry page"
+          "description": "Contact and enquiry page - conversion endpoint",
+          "captureScreenshot": true
         }
       },
       "ctas": {

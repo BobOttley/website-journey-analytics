@@ -12,10 +12,71 @@
 
 <div class="flex justify-between items-center mb-4">
   <h2 style="font-size: 1.5rem;">AI Insights</h2>
-  <form action="/insights/analyze" method="POST" style="display: inline;">
-    <button type="submit" class="btn btn-primary">Run New Analysis</button>
-  </form>
+  <div class="flex gap-4 items-center">
+    <div id="screenshot-controls" class="flex gap-2 items-center">
+      <span id="screenshot-status" class="text-small text-muted">Loading...</span>
+      <button type="button" id="capture-screenshots-btn" class="btn btn-secondary" onclick="captureScreenshots()">
+        📷 Capture Screenshots
+      </button>
+    </div>
+    <form action="/insights/analyze" method="POST" style="display: inline;">
+      <button type="submit" class="btn btn-primary">Run New Analysis</button>
+    </form>
+  </div>
 </div>
+
+<script>
+// Screenshot management
+const siteId = '<%= typeof siteId !== "undefined" ? siteId : "2" %>';
+
+async function loadScreenshotStatus() {
+  try {
+    const response = await fetch(`/screenshots/${siteId}/status`);
+    const data = await response.json();
+    const statusEl = document.getElementById('screenshot-status');
+
+    if (data.hasScreenshots) {
+      statusEl.innerHTML = `<span class="text-success">✓ ${data.totalCount} screenshots</span>`;
+    } else {
+      statusEl.innerHTML = `<span class="text-muted">No screenshots yet</span>`;
+    }
+  } catch (error) {
+    document.getElementById('screenshot-status').innerHTML = '<span class="text-muted">-</span>';
+  }
+}
+
+async function captureScreenshots() {
+  const btn = document.getElementById('capture-screenshots-btn');
+  const statusEl = document.getElementById('screenshot-status');
+
+  btn.disabled = true;
+  btn.textContent = '📷 Capturing...';
+  statusEl.innerHTML = '<span class="text-muted">Capturing pages...</span>';
+
+  try {
+    const response = await fetch(`/screenshots/capture/${siteId}`, { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      statusEl.innerHTML = `<span class="text-success">✓ ${data.captured} captured</span>`;
+      alert(`Screenshots captured!\n\nCaptured: ${data.captured}\nFailed: ${data.failed}\n\nThe AI will now include these in analysis.`);
+    } else {
+      statusEl.innerHTML = `<span class="text-danger">✗ ${data.error || 'Failed'}</span>`;
+      alert('Screenshot capture failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    statusEl.innerHTML = '<span class="text-danger">✗ Error</span>';
+    alert('Screenshot capture failed: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📷 Capture Screenshots';
+    loadScreenshotStatus();
+  }
+}
+
+// Load status on page load
+document.addEventListener('DOMContentLoaded', loadScreenshotStatus);
+</script>
 
 <% if (!insight) { %>
   <div class="card">
