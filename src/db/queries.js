@@ -289,16 +289,11 @@ async function getJourneyStats(siteId = null) {
     conversion_data AS (
       SELECT
         journey_id,
-        MAX(CASE WHEN event_type = 'form_submit' AND (
-          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%enquir%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'contact' OR
-          LOWER(COALESCE(page_url, '')) ~ '(contact|enquir|inquiry-form|prospectus.*onrender)'
-        ) THEN 1 ELSE 0 END) as is_enquiry,
-        MAX(CASE WHEN event_type = 'form_submit' AND (
-          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%book%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'book_visit' OR
-          LOWER(COALESCE(page_url, '')) ~ '(book|visit|tour|booking.*onrender)'
-        ) THEN 1 ELSE 0 END) as is_booking,
+        -- Only count Render app form submissions
+        MAX(CASE WHEN event_type = 'form_submit' AND
+          page_url ~* 'prospectus.*onrender' THEN 1 ELSE 0 END) as is_enquiry,
+        MAX(CASE WHEN event_type = 'form_submit' AND
+          page_url ~* 'booking.*onrender' THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
       FROM journey_events
       WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeExistingParents}
@@ -532,7 +527,8 @@ async function getDailyJourneyTrend(days = 30, siteId = null) {
       SELECT
         DATE(MIN(occurred_at)) as date,
         journey_id,
-        MAX(CASE WHEN event_type = 'form_submit' THEN 1 ELSE 0 END) as converted
+        -- Only count form submissions from Render apps (enquiry form or booking form)
+        MAX(CASE WHEN event_type = 'form_submit' AND page_url ~* 'onrender\\.com' THEN 1 ELSE 0 END) as converted
       FROM journey_events
       WHERE occurred_at >= NOW() - INTERVAL '${days} days'
         AND ${botFilter}
@@ -697,7 +693,10 @@ async function getConversionFunnel(siteId = null) {
         COUNT(*) as event_count,
         COUNT(*) FILTER (WHERE je.event_type = 'cta_click') as cta_clicks,
         COUNT(*) FILTER (WHERE je.event_type = 'form_start') as form_starts,
-        COUNT(*) FILTER (WHERE je.event_type = 'form_submit') as form_submits
+        -- Only count form submissions from Render apps (enquiry form or booking form)
+        COUNT(*) FILTER (WHERE je.event_type = 'form_submit' AND (
+          je.page_url ~* 'onrender\\.com'
+        )) as form_submits
       FROM journey_events je
       INNER JOIN filtered_journeys fj ON je.journey_id = fj.journey_id
       WHERE ${dateFilter} ${siteFilter}
