@@ -66,15 +66,26 @@ async function captureScreenshot(url, outputPath, options = {}) {
   let browser = null;
 
   try {
-    browser = await puppeteer.launch({
+    // Puppeteer launch options - optimised for Render/cloud environments
+    const launchOptions = {
       headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-web-security'
+        '--disable-web-security',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote'
       ]
-    });
+    };
+
+    // Use custom Chrome path if set (for Render deployments)
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
 
