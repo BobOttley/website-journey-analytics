@@ -4,21 +4,27 @@
   <div class="alert alert-success slide-in">Data refreshed successfully</div>
 <% } %>
 
-<!-- Overview Stats -->
+<!-- Overview Stats - Three-way traffic breakdown -->
 <div class="stats-grid">
-  <div class="stat-card">
-    <h3>Total Bots Detected</h3>
+  <div class="stat-card danger">
+    <h3>Bots Detected</h3>
     <div class="value"><%= stats.botJourneys.toLocaleString() %></div>
     <div class="subtitle"><%= stats.botPercentage %>% of all traffic</div>
   </div>
 
   <div class="stat-card highlight">
-    <h3>Human Visitors</h3>
-    <div class="value"><%= stats.humanJourneys.toLocaleString() %></div>
-    <div class="subtitle">Verified real visitors</div>
+    <h3>Prospective Families</h3>
+    <div class="value"><%= (stats.prospectiveVisitors || 0).toLocaleString() %></div>
+    <div class="subtitle">Unique people researching the school</div>
   </div>
 
   <div class="stat-card info">
+    <h3>Existing Parents</h3>
+    <div class="value"><%= (stats.existingParentVisitors || 0).toLocaleString() %></div>
+    <div class="subtitle">Humans checking news/calendar (not bots)</div>
+  </div>
+
+  <div class="stat-card">
     <h3>Today's Bots</h3>
     <div class="value"><%= stats.todayBots.toLocaleString() %></div>
     <div class="subtitle">
@@ -30,12 +36,6 @@
         Same as yesterday
       <% } %>
     </div>
-  </div>
-
-  <div class="stat-card">
-    <h3>Suspicious</h3>
-    <div class="value"><%= stats.suspiciousJourneys.toLocaleString() %></div>
-    <div class="subtitle">Score 31-60 (needs review)</div>
   </div>
 </div>
 

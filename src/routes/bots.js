@@ -196,7 +196,10 @@ router.runPixelOnlyBotDetection = runPixelOnlyBotDetection;
 // ============================================
 
 /**
- * Get overview statistics
+ * Get overview statistics with three-way breakdown:
+ * - Bots (crawlers, scrapers, automation)
+ * - Existing Parents (humans checking news/calendar - NOT bots)
+ * - Prospective Families (humans researching the school)
  * Uses journey_events for accuracy (journeys table may be incomplete)
  */
 async function getBotOverviewStats(siteId = null) {
@@ -210,12 +213,33 @@ async function getBotOverviewStats(siteId = null) {
     params.push(siteId);
   }
 
-  // Get all stats from journey_events in one query
+  // Get all stats with three-way classification
+  // For humans, count UNIQUE VISITORS (visitor_id) to match Dashboard
+  // For bots, count journeys since bots don't have consistent visitor_ids
   const result = await db.query(`
-    WITH journey_data AS (
-      SELECT DISTINCT journey_id, is_bot, bot_score
+    WITH entry_pages AS (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
-      WHERE ${dateFilter} ${siteFilter}
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ),
+    journey_classification AS (
+      SELECT
+        jd.journey_id,
+        jd.visitor_id,
+        jd.is_bot,
+        jd.bot_score,
+        CASE
+          WHEN jd.is_bot = true THEN 'bot'
+          WHEN ep.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)' THEN 'existing_parent'
+          ELSE 'prospective'
+        END as visitor_type
+      FROM (
+        SELECT DISTINCT journey_id, visitor_id, is_bot, bot_score
+        FROM journey_events
+        WHERE ${dateFilter} ${siteFilter}
+      ) jd
+      LEFT JOIN entry_pages ep ON jd.journey_id = ep.journey_id
     ),
     today_data AS (
       SELECT DISTINCT journey_id, is_bot
@@ -230,19 +254,23 @@ async function getBotOverviewStats(siteId = null) {
         ${siteFilter}
     )
     SELECT
-      (SELECT COUNT(*) FROM journey_data) as total_journeys,
-      (SELECT COUNT(*) FROM journey_data WHERE is_bot = true) as bot_journeys,
-      (SELECT COUNT(*) FROM journey_data WHERE is_bot = false OR is_bot IS NULL) as human_journeys,
+      (SELECT COUNT(*) FROM journey_classification) as total_journeys,
+      (SELECT COUNT(*) FROM journey_classification WHERE visitor_type = 'bot') as bot_journeys,
+      -- Count unique visitors for humans to match Dashboard
+      (SELECT COUNT(DISTINCT visitor_id) FROM journey_classification WHERE visitor_type = 'existing_parent' AND visitor_id IS NOT NULL) as existing_parent_visitors,
+      (SELECT COUNT(DISTINCT visitor_id) FROM journey_classification WHERE visitor_type = 'prospective' AND visitor_id IS NOT NULL) as prospective_visitors,
       (SELECT COUNT(*) FROM today_data WHERE is_bot = true) as today_bots,
       (SELECT COUNT(*) FROM yesterday_data WHERE is_bot = true) as yesterday_bots,
-      (SELECT COUNT(*) FROM journey_data WHERE bot_score >= 31 AND bot_score <= 60) as suspicious_journeys,
-      (SELECT ROUND(AVG(bot_score)) FROM journey_data WHERE is_bot = true) as avg_bot_score
+      (SELECT COUNT(*) FROM journey_classification WHERE bot_score >= 31 AND bot_score <= 60) as suspicious_journeys,
+      (SELECT ROUND(AVG(bot_score)) FROM journey_classification WHERE visitor_type = 'bot') as avg_bot_score
   `, params);
 
   const data = result.rows[0];
   const totalJourneys = parseInt(data.total_journeys) || 0;
   const botJourneys = parseInt(data.bot_journeys) || 0;
-  const humanJourneys = parseInt(data.human_journeys) || 0;
+  const existingParentVisitors = parseInt(data.existing_parent_visitors) || 0;
+  const prospectiveVisitors = parseInt(data.prospective_visitors) || 0;
+  const humanVisitors = existingParentVisitors + prospectiveVisitors; // Total unique humans
   const todayBots = parseInt(data.today_bots) || 0;
   const yesterdayBots = parseInt(data.yesterday_bots) || 0;
   const suspiciousJourneys = parseInt(data.suspicious_journeys) || 0;
@@ -258,7 +286,9 @@ async function getBotOverviewStats(siteId = null) {
   return {
     totalJourneys,
     botJourneys,
-    humanJourneys,
+    humanVisitors,
+    existingParentVisitors,
+    prospectiveVisitors,
     botPercentage,
     todayBots,
     trend,

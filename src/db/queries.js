@@ -2340,17 +2340,18 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Matches Dashboard filter exactly for consistency
+  const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
-  conditions.push(excludeNewsCalendar);
+  conditions.push(excludeExistingParents);
   const params = [];
   let paramIndex = 1;
 
@@ -2442,17 +2443,18 @@ async function getFamilyCount(options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
-  // Exclude journeys where entry page is news/calendar (likely existing parents)
-  const excludeNewsCalendar = `journey_id NOT IN (
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Matches Dashboard filter exactly for consistency
+  const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
       FROM journey_events
       WHERE event_type = 'page_view' AND page_url IS NOT NULL
       ORDER BY journey_id, occurred_at ASC
     ) je_entry
-    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
   )`;
-  conditions.push(excludeNewsCalendar);
+  conditions.push(excludeExistingParents);
   const params = [];
   let paramIndex = 1;
 
