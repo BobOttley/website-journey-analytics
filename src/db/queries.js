@@ -266,10 +266,19 @@ async function getJourneyStats(siteId = null) {
 
   // Query journey_events directly for accurate counts
   // Counts UNIQUE VISITORS (people), not sessions/journeys
+  // Only counts journeys with page_view events (JS tracking loaded)
   const result = await db.query(`
-    WITH journey_data AS (
-      SELECT DISTINCT journey_id, visitor_id, is_bot
+    WITH js_tracked_journeys AS (
+      -- Only journeys that have actual page_view events (JS tracking worked)
+      SELECT DISTINCT journey_id
       FROM journey_events
+      WHERE event_type = 'page_view'
+        AND ${dateFilter} ${siteFilter}
+    ),
+    journey_data AS (
+      SELECT DISTINCT je.journey_id, je.visitor_id, je.is_bot
+      FROM journey_events je
+      INNER JOIN js_tracked_journeys jt ON je.journey_id = jt.journey_id
       WHERE ${dateFilter} ${siteFilter} ${excludeNewsCalendar}
     ),
     human_visitors AS (
@@ -286,19 +295,20 @@ async function getJourneyStats(siteId = null) {
     ),
     conversion_data AS (
       SELECT
-        journey_id,
-        MAX(CASE WHEN event_type = 'form_submit' AND (
-          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%enquir%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'contact'
+        je.journey_id,
+        MAX(CASE WHEN je.event_type = 'form_submit' AND (
+          LOWER(COALESCE(je.metadata->>'form_action', '')) LIKE '%enquir%' OR
+          LOWER(COALESCE(je.metadata->>'intent_type', '')) = 'contact'
         ) THEN 1 ELSE 0 END) as is_enquiry,
-        MAX(CASE WHEN event_type = 'form_submit' AND (
-          LOWER(COALESCE(metadata->>'form_action', '')) LIKE '%book%' OR
-          LOWER(COALESCE(metadata->>'intent_type', '')) = 'book_visit'
+        MAX(CASE WHEN je.event_type = 'form_submit' AND (
+          LOWER(COALESCE(je.metadata->>'form_action', '')) LIKE '%book%' OR
+          LOWER(COALESCE(je.metadata->>'intent_type', '')) = 'book_visit'
         ) THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
-      FROM journey_events
+      FROM journey_events je
+      INNER JOIN js_tracked_journeys jt ON je.journey_id = jt.journey_id
       WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
-      GROUP BY journey_id
+      GROUP BY je.journey_id
     )
     SELECT
       (SELECT COUNT(DISTINCT visitor_id) FROM human_visitors) as human_visitors,
@@ -370,7 +380,7 @@ async function getTopPages(limit = 10, siteId = null) {
           ))
         END as normalized_url
       FROM journey_events
-      WHERE event_type IN ('page_view', 'pixel_view')
+      WHERE event_type = 'page_view'
         AND page_url IS NOT NULL
         AND page_url NOT LIKE '%gtm-msr.appspot.com%'
         AND ${dateFilter}
@@ -422,7 +432,7 @@ async function getDeviceBreakdown(siteId = null) {
       COALESCE(device_type, 'unknown') as device_type,
       COUNT(DISTINCT journey_id) as count
     FROM journey_events
-    WHERE event_type IN ('page_view', 'pixel_view')
+    WHERE event_type = 'page_view'
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
