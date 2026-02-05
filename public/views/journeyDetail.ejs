@@ -95,6 +95,16 @@
         </td>
       </tr>
       <tr>
+        <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Location</th>
+        <td>
+          <% if (journey.location) { %>
+            <strong><%= journey.location.city || journey.location.region || 'Unknown' %></strong><% if (journey.location.country) { %>, <%= journey.location.country %><% } %>
+          <% } else { %>
+            <span class="text-muted">Unknown</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr>
         <th style="background: transparent; color: var(--text-muted); text-transform: none; letter-spacing: 0;">Referrer</th>
         <td>
           <% if (journey.entry_referrer) { %>

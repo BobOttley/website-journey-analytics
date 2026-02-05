@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
       visits: visits !== 'all' ? visits : null
     };
 
-    const [families, totalCount, stats, topLocations] = await Promise.all([
+    const [rawFamilies, totalCount, stats, topLocations] = await Promise.all([
       getAllFamilies(limit, offset, filterOptions),
       getFamilyCount(filterOptions),
       getFamilyStats(siteId),
@@ -39,6 +39,18 @@ router.get('/', async (req, res) => {
     ]);
 
     const totalPages = Math.ceil(totalCount / limit);
+
+    // Parse location for each family
+    const families = rawFamilies.map(f => {
+      let location = null;
+      try {
+        if (f.location_metadata) {
+          const metadata = typeof f.location_metadata === 'string' ? JSON.parse(f.location_metadata) : f.location_metadata;
+          location = metadata?.location || null;
+        }
+      } catch (e) {}
+      return { ...f, location };
+    });
 
     // Parse stats
     const parsedStats = {

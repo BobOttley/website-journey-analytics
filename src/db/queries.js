@@ -167,7 +167,13 @@ async function getAllJourneys(limit = 100, offset = 0, options = {}) {
   params.push(offset);
 
   const result = await db.query(
-    `SELECT * FROM journeys ${whereClause} ORDER BY last_seen DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    `SELECT j.*,
+      (SELECT je.metadata FROM journey_events je
+       WHERE je.journey_id = j.journey_id
+       AND je.metadata IS NOT NULL
+       AND je.metadata->>'location' IS NOT NULL
+       ORDER BY je.occurred_at ASC LIMIT 1) as location_metadata
+     FROM journeys j ${whereClause} ORDER BY j.last_seen DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
     params
   );
   return result.rows;
@@ -183,7 +189,12 @@ async function getJourneyById(journeyId, siteId = null) {
       AND je.page_url IS NOT NULL
       AND je.page_url NOT LIKE '%gtm-msr.appspot.com%'
       ORDER BY je.occurred_at ASC LIMIT 1
-    )) as entry_page
+    )) as entry_page,
+    (SELECT je.metadata FROM journey_events je
+     WHERE je.journey_id = journeys.journey_id
+     AND je.metadata IS NOT NULL
+     AND je.metadata->>'location' IS NOT NULL
+     ORDER BY je.occurred_at ASC LIMIT 1) as location_metadata
     FROM journeys WHERE journey_id = $1`;
   const params = [journeyId];
 
@@ -2489,7 +2500,13 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
       FROM family_journeys
       GROUP BY visitor_id
     )
-    SELECT * FROM family_data
+    SELECT fd.*,
+      (SELECT je.metadata FROM journey_events je
+       WHERE je.visitor_id = fd.visitor_id
+       AND je.metadata IS NOT NULL
+       AND je.metadata->>'location' IS NOT NULL
+       ORDER BY je.occurred_at ASC LIMIT 1) as location_metadata
+    FROM family_data fd
     ${havingClause}
     ORDER BY last_visit DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

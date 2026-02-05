@@ -59,11 +59,21 @@ router.get('/', async (req, res) => {
       avg_time_to_action: parseFloat(rawStats.avg_time_to_action) || 0
     };
 
-    // Parse page_sequence JSON for each journey
-    const parsedJourneys = journeys.map(j => ({
-      ...j,
-      page_sequence: j.page_sequence ? JSON.parse(j.page_sequence) : []
-    }));
+    // Parse page_sequence JSON and location for each journey
+    const parsedJourneys = journeys.map(j => {
+      let location = null;
+      try {
+        if (j.location_metadata) {
+          const metadata = typeof j.location_metadata === 'string' ? JSON.parse(j.location_metadata) : j.location_metadata;
+          location = metadata?.location || null;
+        }
+      } catch (e) {}
+      return {
+        ...j,
+        page_sequence: j.page_sequence ? JSON.parse(j.page_sequence) : [],
+        location
+      };
+    });
 
     res.render('journeyList', {
       journeys: parsedJourneys,
@@ -162,11 +172,27 @@ router.get('/:id', async (req, res) => {
       return res.status(404).render('error', { error: 'Journey not found' });
     }
 
+    // Extract location from events
+    let location = null;
+    if (journey.events && journey.events.length > 0) {
+      for (const event of journey.events) {
+        try {
+          if (event.metadata) {
+            const metadata = typeof event.metadata === 'string' ? JSON.parse(event.metadata) : event.metadata;
+            if (metadata?.location) {
+              location = metadata.location;
+              break;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
     // Get existing AI analysis if any
     const existingAnalysis = await getJourneyAnalysis(journeyId);
 
     res.render('journeyDetail', {
-      journey,
+      journey: { ...journey, location },
       existingAnalysis,
       currentPage: 'journeys',
       title: `Journey ${journeyId.substring(0, 8)} - SMART Journey`

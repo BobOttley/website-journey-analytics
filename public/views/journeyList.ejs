@@ -216,6 +216,7 @@
         <thead>
           <tr>
             <th>Visitor</th>
+            <th>Location</th>
             <th>First Seen</th>
             <th>Entry Page</th>
             <th>Pages</th>
@@ -245,6 +246,13 @@
                     <span class="badge badge-danger" style="margin-left: 4px; font-size: 0.6rem;" title="Bot score: <%= journey.bot_score || 0 %>">BOT</span>
                   <% } %>
                 </div>
+              </td>
+              <td class="text-small">
+                <% if (journey.location) { %>
+                  <%= journey.location.city || journey.location.region || 'Unknown' %>
+                <% } else { %>
+                  <span class="text-muted">-</span>
+                <% } %>
               </td>
               <td class="text-small"><%= new Date(journey.first_seen).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) %></td>
               <td class="text-small entry-page-cell" data-url="<%= journey.entry_page || '' %>">

@@ -165,7 +165,11 @@
           <div class="family-card-header">
             <div class="family-ip">
               <span class="ip-icon">&#127760;</span>
-              <span class="ip-text"><%= maskedIP %></span>
+              <% if (family.location) { %>
+                <span class="ip-text" style="color: var(--text-primary);"><%= family.location.city || family.location.region || maskedIP %></span>
+              <% } else { %>
+                <span class="ip-text"><%= maskedIP %></span>
+              <% } %>
             </div>
             <div class="family-engagement">
               <span class="engagement-dot" style="background: <%= engagementColour %>;"></span>
