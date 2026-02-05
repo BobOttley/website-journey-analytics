@@ -288,7 +288,7 @@ async function getBotTypeBreakdown(siteId = null) {
         WHEN user_agent ILIKE '%bot%' OR user_agent ILIKE '%crawler%' OR user_agent ILIKE '%spider%' THEN 'crawler'
         WHEN user_agent ILIKE '%scraper%' OR user_agent ILIKE '%wget%' OR user_agent ILIKE '%curl%' OR user_agent ILIKE '%python%' THEN 'scraper'
         WHEN user_agent ILIKE '%headless%' OR user_agent ILIKE '%phantom%' OR user_agent ILIKE '%puppeteer%' THEN 'automation'
-        WHEN bot_signals->>'pixel_only_no_js' = 'true' THEN 'no_javascript'
+        WHEN 'pixel_only_no_js' = ANY(bot_signals) THEN 'no_javascript'
         ELSE 'unknown'
       END as bot_type,
       COUNT(DISTINCT journey_id) as count

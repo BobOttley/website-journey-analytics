@@ -1034,7 +1034,7 @@ async function markPixelOnlyBotsInDB(db, siteId = null) {
     UPDATE journey_events
     SET is_bot = true,
         bot_score = GREATEST(COALESCE(bot_score, 0), 85),
-        bot_signals = COALESCE(bot_signals, '{}'::jsonb) || '{"pixel_only_no_js": true}'::jsonb
+        bot_signals = array_append(COALESCE(bot_signals, ARRAY[]::text[]), 'pixel_only_no_js')
     WHERE journey_id IN (${placeholders})
   `, journeyIds);
 
