@@ -245,6 +245,16 @@ async function getJourneyStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
 
   let siteFilter = '';
   const params = [];
@@ -260,7 +270,7 @@ async function getJourneyStats(siteId = null) {
     WITH journey_data AS (
       SELECT DISTINCT journey_id, visitor_id, is_bot
       FROM journey_events
-      WHERE ${dateFilter} ${siteFilter}
+      WHERE ${dateFilter} ${siteFilter} ${excludeNewsCalendar}
     ),
     human_visitors AS (
       SELECT DISTINCT visitor_id, journey_id
@@ -287,7 +297,7 @@ async function getJourneyStats(siteId = null) {
         ) THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
       FROM journey_events
-      WHERE ${dateFilter} AND ${botFilter} ${siteFilter}
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeNewsCalendar}
       GROUP BY journey_id
     )
     SELECT
@@ -321,14 +331,25 @@ async function getTopPages(limit = 10, siteId = null) {
     params.push(siteId);
   }
 
+  // Normalize URLs: extract path, remove trailing slashes, treat /, /index.html, /home as 'Home'
   const result = await db.query(`
+    WITH normalized AS (
+      SELECT
+        journey_id,
+        CASE
+          WHEN regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '/+$', '') IN ('', '/', '/index.html', '/index', '/home', '/homepage')
+          THEN '/'
+          ELSE LOWER(regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '/+$', ''))
+        END as normalized_url
+      FROM journey_events
+      ${whereClause}
+    )
     SELECT
-      page_url,
+      normalized_url as page_url,
       COUNT(*) as views,
       COUNT(DISTINCT journey_id) as unique_visitors
-    FROM journey_events
-    ${whereClause}
-    GROUP BY page_url
+    FROM normalized
+    GROUP BY normalized_url
     ORDER BY views DESC
     LIMIT $1
   `, params);
@@ -594,6 +615,16 @@ async function getReturnVisitorStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
 
   let siteFilter = '';
   const params = [];
@@ -611,6 +642,7 @@ async function getReturnVisitorStats(siteId = null) {
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
+        ${excludeNewsCalendar}
     ),
     visitor_stats AS (
       SELECT visitor_id, COUNT(DISTINCT journey_id) as journey_count
@@ -851,6 +883,16 @@ async function getUXOverview(siteId = null) {
   const db = getDb();
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
 
   let siteFilter = '';
   const params = [];
@@ -870,6 +912,7 @@ async function getUXOverview(siteId = null) {
       AND ${dateFilter}
       AND ${botFilter}
       ${siteFilter}
+      ${excludeNewsCalendar}
   `, params);
 
   // CTA hesitations - hovers without clicks
@@ -1662,6 +1705,16 @@ async function getReturnVisitorAnalytics(siteId = null) {
   const db = getDb();
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
 
   let siteFilter = '';
   const params = [];
@@ -1681,6 +1734,7 @@ async function getReturnVisitorAnalytics(siteId = null) {
         AND ${dateFilter}
         AND ${botFilter}
         ${siteFilter}
+        ${excludeNewsCalendar}
     ),
     visitor_stats AS (
       SELECT
@@ -2163,6 +2217,17 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+  conditions.push(excludeNewsCalendar);
   const params = [];
   let paramIndex = 1;
 
@@ -2254,6 +2319,17 @@ async function getFamilyCount(options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
+  conditions.push(excludeNewsCalendar);
   const params = [];
   let paramIndex = 1;
 
@@ -2409,6 +2485,16 @@ async function getFamilyStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page is news/calendar (likely existing parents)
+  const excludeNewsCalendar = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar)'
+  )`;
   let siteFilter = '';
   const params = [];
 
@@ -2429,6 +2515,7 @@ async function getFamilyStats(siteId = null) {
       WHERE ip_address IS NOT NULL
         AND ${dateFilter}
         ${siteFilter}
+        ${excludeNewsCalendar}
       GROUP BY ip_address, journey_id, is_bot
     ),
     family_stats AS (
