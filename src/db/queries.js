@@ -914,7 +914,8 @@ async function getActiveVisitors(withinSeconds = 300, siteId = null) {
   const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
 
   let whereClause = `WHERE je.occurred_at >= $1
-       AND je.event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')`;
+       AND je.event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')
+       AND (je.is_bot = false OR je.is_bot IS NULL)`;
   const params = [cutoffTime];
 
   if (siteId) {
@@ -979,7 +980,8 @@ async function getActiveVisitorCount(withinSeconds = 300, siteId = null) {
   const cutoffTime = new Date(Date.now() - (withinSeconds * 1000)).toISOString();
 
   let whereClause = `WHERE occurred_at >= $1
-       AND event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')`;
+       AND event_type IN ('heartbeat', 'page_view', 'cta_click', 'form_start', 'form_submit')
+       AND (is_bot = false OR is_bot IS NULL)`;
   const params = [cutoffTime];
 
   if (siteId) {
