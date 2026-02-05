@@ -112,20 +112,37 @@
     }
   });
 
-  var ctaHoverTimeout;
+  // CTA Hesitation tracking - track hover duration properly
+  var ctaHoverData = new Map();
   document.querySelectorAll('a, button, [role="button"]').forEach(function(el) {
     el.addEventListener('mouseenter', function() {
-      var element = this;
-      ctaHoverTimeout = setTimeout(function() {
-        sendEvent('cta_hover', {
-          element: element.tagName.toLowerCase(),
-          text: (element.textContent || '').substring(0, 50),
-          href: element.href || ''
-        });
-      }, 1000);
+      var text = (this.textContent || '').trim().substring(0, 50);
+      if (!text) return;
+      ctaHoverData.set(this, {
+        startTime: Date.now(),
+        text: text,
+        element: this.tagName.toLowerCase(),
+        href: this.href || ''
+      });
     });
     el.addEventListener('mouseleave', function() {
-      clearTimeout(ctaHoverTimeout);
+      var data = ctaHoverData.get(this);
+      if (data) {
+        var hoverDuration = Date.now() - data.startTime;
+        if (hoverDuration >= 1500) { // 1.5 seconds = hesitation
+          sendEvent('cta_hover', {
+            cta_label: data.text,
+            element: data.element,
+            text: data.text,
+            href: data.href,
+            hover_duration: Math.round(hoverDuration / 100) / 10 // seconds with 1 decimal
+          });
+        }
+        ctaHoverData.delete(this);
+      }
+    });
+    el.addEventListener('click', function() {
+      ctaHoverData.delete(this); // Don't track as hesitation if they clicked
     });
   });
 
