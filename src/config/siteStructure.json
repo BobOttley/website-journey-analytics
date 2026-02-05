@@ -1,159 +1,231 @@
 {
-  "siteName": "More House School",
-  "siteUrl": "https://www.morehouse.org.uk",
-  "pages": {
-    "/": {
-      "name": "Homepage",
-      "role": "landing",
-      "stage": "awareness",
-      "description": "Main landing page for More House School"
+  "sites": {
+    "1": {
+      "siteName": "bSMART AI",
+      "siteUrl": "https://www.bsmart-ai.com",
+      "siteDescription": "B2B SaaS company selling admissions software to schools",
+      "pages": {
+        "/": {
+          "name": "Homepage",
+          "role": "landing",
+          "stage": "awareness",
+          "description": "Main landing page introducing the SMART AI ecosystem"
+        },
+        "/prospectus.html": {
+          "name": "SMART Prospectus",
+          "role": "product",
+          "stage": "consideration",
+          "description": "Interactive digital prospectus product page"
+        },
+        "/crm.html": {
+          "name": "SMART CRM",
+          "role": "product",
+          "stage": "consideration",
+          "description": "Admissions CRM product page"
+        },
+        "/chatbot.html": {
+          "name": "SMART Chat",
+          "role": "product",
+          "stage": "consideration",
+          "description": "AI chatbot product page"
+        },
+        "/voice.html": {
+          "name": "SMART Voice",
+          "role": "product",
+          "stage": "consideration",
+          "description": "Voice AI and audio tours product page"
+        },
+        "/booking.html": {
+          "name": "SMART Booking",
+          "role": "product",
+          "stage": "consideration",
+          "description": "Visit management product page"
+        },
+        "/email.html": {
+          "name": "SMART Email",
+          "role": "product",
+          "stage": "consideration",
+          "description": "AI email personalisation product page"
+        },
+        "/contact.html": {
+          "name": "Contact",
+          "role": "conversion",
+          "stage": "decision",
+          "description": "Contact form and enquiry page"
+        },
+        "/smart-benefits-calculator.html": {
+          "name": "ROI Calculator",
+          "role": "conversion",
+          "stage": "consideration",
+          "description": "Interactive benefits calculator"
+        }
+      },
+      "ctas": {
+        "book_demo": {
+          "label": "Book a Demo",
+          "intent": "demo",
+          "commitment": "high",
+          "description": "Request a product demonstration"
+        },
+        "discuss_options": {
+          "label": "Discuss Options",
+          "intent": "enquire",
+          "commitment": "medium",
+          "description": "Talk about deployment options"
+        },
+        "calculate_roi": {
+          "label": "Calculate Your ROI",
+          "intent": "calculate",
+          "commitment": "low",
+          "description": "Use the benefits calculator"
+        },
+        "learn_more": {
+          "label": "Learn more",
+          "intent": "explore",
+          "commitment": "low",
+          "description": "Navigate to product page"
+        }
+      },
+      "conversionGoals": [
+        {
+          "name": "Demo Booked",
+          "event": "cta_click",
+          "intent": "demo",
+          "value": "high"
+        },
+        {
+          "name": "Contact Form Submitted",
+          "event": "form_submit",
+          "intent": "contact",
+          "value": "high"
+        },
+        {
+          "name": "ROI Calculator Used",
+          "event": "form_submit",
+          "intent": "calculate",
+          "value": "medium"
+        }
+      ]
     },
-    "/admissions/": {
-      "name": "Admissions",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Main admissions section"
-    },
-    "/admissions/joining-more-house/": {
-      "name": "Joining More House",
-      "role": "information",
-      "stage": "consideration",
-      "description": "How to join the school"
-    },
-    "/admissions/open-events/": {
-      "name": "Open Events",
-      "role": "conversion",
-      "stage": "decision",
-      "description": "Open day and event booking"
-    },
-    "/admissions/fees/": {
-      "name": "Fees",
-      "role": "information",
-      "stage": "consideration",
-      "description": "School fees information"
-    },
-    "/admissions/bursaries-scholarships/": {
-      "name": "Bursaries & Scholarships",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Financial assistance information"
-    },
-    "/sixth-form/": {
-      "name": "Sixth Form",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Sixth form information"
-    },
-    "/about/": {
-      "name": "About",
-      "role": "information",
-      "stage": "awareness",
-      "description": "About the school"
-    },
-    "/academic/": {
-      "name": "Academic",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Academic information and curriculum"
-    },
-    "/beyond-the-classroom/": {
-      "name": "Beyond the Classroom",
-      "role": "information",
-      "stage": "consideration",
-      "description": "Extra-curricular activities"
-    },
-    "/contact/": {
-      "name": "Contact",
-      "role": "conversion",
-      "stage": "decision",
-      "description": "Contact and enquiry page"
-    },
-    "/news/": {
-      "name": "News",
-      "role": "content",
-      "stage": "awareness",
-      "description": "School news and updates"
+    "2": {
+      "siteName": "More House School",
+      "siteUrl": "https://www.morehouse.org.uk",
+      "siteDescription": "Independent Catholic girls school in London",
+      "pages": {
+        "/": {
+          "name": "Homepage",
+          "role": "landing",
+          "stage": "awareness",
+          "description": "Main landing page for More House School"
+        },
+        "/admissions/": {
+          "name": "Admissions",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Main admissions section"
+        },
+        "/admissions/joining-more-house/": {
+          "name": "Joining More House",
+          "role": "information",
+          "stage": "consideration",
+          "description": "How to join the school"
+        },
+        "/admissions/open-events/": {
+          "name": "Open Events",
+          "role": "conversion",
+          "stage": "decision",
+          "description": "Open day and event booking"
+        },
+        "/admissions/fees/": {
+          "name": "Fees",
+          "role": "information",
+          "stage": "consideration",
+          "description": "School fees information"
+        },
+        "/admissions/bursaries-scholarships/": {
+          "name": "Bursaries & Scholarships",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Financial assistance information"
+        },
+        "/sixth-form/": {
+          "name": "Sixth Form",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Sixth form information"
+        },
+        "/about/": {
+          "name": "About",
+          "role": "information",
+          "stage": "awareness",
+          "description": "About the school"
+        },
+        "/academic/": {
+          "name": "Academic",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Academic information and curriculum"
+        },
+        "/beyond-the-classroom/": {
+          "name": "Beyond the Classroom",
+          "role": "information",
+          "stage": "consideration",
+          "description": "Extra-curricular activities"
+        },
+        "/contact/": {
+          "name": "Contact",
+          "role": "conversion",
+          "stage": "decision",
+          "description": "Contact and enquiry page"
+        }
+      },
+      "ctas": {
+        "book_visit": {
+          "label": "Book a Visit",
+          "intent": "visit",
+          "commitment": "high",
+          "description": "Book an open day or private tour"
+        },
+        "enquire": {
+          "label": "Enquire Now",
+          "intent": "enquire",
+          "commitment": "high",
+          "description": "Submit an enquiry form"
+        },
+        "request_prospectus": {
+          "label": "Request Prospectus",
+          "intent": "prospectus",
+          "commitment": "medium",
+          "description": "Request school prospectus"
+        },
+        "contact_us": {
+          "label": "Contact Us",
+          "intent": "contact",
+          "commitment": "medium",
+          "description": "Get in touch with the school"
+        }
+      },
+      "conversionGoals": [
+        {
+          "name": "Enquiry Submitted",
+          "event": "form_submit",
+          "intent": "enquire",
+          "value": "high"
+        },
+        {
+          "name": "Visit Booked",
+          "event": "cta_click",
+          "intent": "visit",
+          "value": "high"
+        },
+        {
+          "name": "Contact Form Submitted",
+          "event": "form_submit",
+          "intent": "contact",
+          "value": "high"
+        }
+      ]
     }
   },
-  "ctas": {
-    "book_visit": {
-      "label": "Book a Visit",
-      "intent": "visit",
-      "commitment": "high",
-      "description": "Book an open day or private tour"
-    },
-    "enquire": {
-      "label": "Enquire Now",
-      "intent": "enquire",
-      "commitment": "high",
-      "description": "Submit an enquiry form"
-    },
-    "request_prospectus": {
-      "label": "Request Prospectus",
-      "intent": "prospectus",
-      "commitment": "medium",
-      "description": "Request school prospectus"
-    },
-    "contact_us": {
-      "label": "Contact Us",
-      "intent": "contact",
-      "commitment": "medium",
-      "description": "Get in touch with the school"
-    },
-    "apply_now": {
-      "label": "Apply Now",
-      "intent": "apply",
-      "commitment": "high",
-      "description": "Start application process"
-    }
-  },
-  "journeyStages": {
-    "awareness": {
-      "order": 1,
-      "description": "Discovering More House School",
-      "typicalPages": ["/", "/about/", "/news/"]
-    },
-    "consideration": {
-      "order": 2,
-      "description": "Researching the school, academic offerings, and admissions",
-      "typicalPages": ["/admissions/", "/admissions/joining-more-house/", "/admissions/fees/", "/sixth-form/", "/academic/", "/beyond-the-classroom/"]
-    },
-    "decision": {
-      "order": 3,
-      "description": "Ready to enquire, book a visit, or apply",
-      "typicalPages": ["/contact/", "/admissions/open-events/"]
-    }
-  },
-  "conversionGoals": [
-    {
-      "name": "Enquiry Submitted",
-      "event": "form_submit",
-      "intent": "enquire",
-      "value": "high"
-    },
-    {
-      "name": "Visit Booked",
-      "event": "cta_click",
-      "intent": "visit",
-      "value": "high"
-    },
-    {
-      "name": "Contact Form Submitted",
-      "event": "form_submit",
-      "intent": "contact",
-      "value": "high"
-    },
-    {
-      "name": "Prospectus Requested",
-      "event": "cta_click",
-      "intent": "prospectus",
-      "value": "medium"
-    },
-    {
-      "name": "Admissions Page Visited",
-      "event": "page_view",
-      "intent": "explore",
-      "value": "low"
-    }
-  ]
+  "default": "1"
 }

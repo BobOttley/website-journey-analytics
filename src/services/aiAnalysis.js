@@ -1,6 +1,14 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getJourneysInDateRange, insertInsight } = require('../db/queries');
-const siteStructure = require('../config/siteStructure.json');
+const siteStructureConfig = require('../config/siteStructure.json');
+
+/**
+ * Get site-specific configuration
+ */
+function getSiteConfig(siteId) {
+  const id = String(siteId || siteStructureConfig.default);
+  return siteStructureConfig.sites[id] || siteStructureConfig.sites[siteStructureConfig.default];
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
@@ -416,7 +424,9 @@ ${examplesLines || '(none)'}
 /**
  * Build a strict prompt that forces honesty.
  */
-function buildPrompt(formattedData) {
+function buildPrompt(formattedData, siteId) {
+  const siteStructure = getSiteConfig(siteId);
+
   return `You are an expert in website journey analytics and conversion optimisation.
 
 You are analysing reconstructed journeys that include reliability signals:
@@ -436,7 +446,7 @@ NON-NEGOTIABLE RULES:
 7) If there is insufficient high-confidence data, explicitly say so in dataGaps and keep recommendations minimal.
 
 SITE CONTEXT (do not contradict):
-This is ${siteStructure.siteName} (${siteStructure.siteUrl}) - a B2B SaaS company selling admissions software to schools.
+This is ${siteStructure.siteName} (${siteStructure.siteUrl}) - ${siteStructure.siteDescription}.
 
 Pages:
 ${Object.entries(siteStructure.pages || {})
@@ -518,7 +528,7 @@ async function runAnalysis(startDate, endDate, siteId = null) {
 
   const aggregatedData = aggregateJourneyData(journeysRaw);
   const formattedData = formatDataForAI(aggregatedData);
-  const prompt = buildPrompt(formattedData);
+  const prompt = buildPrompt(formattedData, siteId);
 
   try {
     const response = await anthropic.messages.create({
@@ -566,14 +576,17 @@ async function runAnalysis(startDate, endDate, siteId = null) {
 /**
  * Analyse a single journey in detail
  */
-async function analyseSingleJourney(journey) {
+async function analyseSingleJourney(journey, siteId = null) {
   if (!journey || !journey.events || journey.events.length === 0) {
     return { success: false, error: 'Journey has no events to analyse' };
   }
 
+  // Use journey's site_id if available, otherwise use passed siteId
+  const effectiveSiteId = journey.site_id || siteId;
+
   // Format the journey data for AI analysis
   const formattedJourney = formatSingleJourneyForAI(journey);
-  const prompt = buildSingleJourneyPrompt(formattedJourney);
+  const prompt = buildSingleJourneyPrompt(formattedJourney, effectiveSiteId);
 
   try {
     const response = await anthropic.messages.create({
@@ -726,10 +739,12 @@ ${timeline.slice(0, 50).join('\n')}${timeline.length > 50 ? `\n... and ${timelin
 /**
  * Build prompt for single journey analysis
  */
-function buildSingleJourneyPrompt(formattedData) {
+function buildSingleJourneyPrompt(formattedData, siteId) {
+  const siteStructure = getSiteConfig(siteId);
+
   return `You are an expert in website user behaviour analysis. Analyse this single visitor journey and provide insights.
 
-CONTEXT: This is a visitor to ${siteStructure.siteName} (${siteStructure.siteUrl}), a B2B SaaS company selling admissions software to schools.
+CONTEXT: This is a visitor to ${siteStructure.siteName} (${siteStructure.siteUrl}) - ${siteStructure.siteDescription}.
 
 Site pages and their roles:
 ${Object.entries(siteStructure.pages || {})
