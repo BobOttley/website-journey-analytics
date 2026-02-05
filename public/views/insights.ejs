@@ -22,7 +22,7 @@
     <div class="empty-state">
       <h3>No analysis yet</h3>
       <p>Click "Run New Analysis" to generate AI-powered insights from your journey data.</p>
-      <p class="text-small text-muted mt-4">The AI will analyse visitor behaviour patterns, identify friction points, and provide actionable recommendations.</p>
+      <p class="text-small text-muted mt-4">The AI will analyse how your website is performing and recommend improvements.</p>
     </div>
   </div>
 <% } else { %>
@@ -38,7 +38,7 @@
       <h3>Journeys Analysed</h3>
       <div class="value"><%= insight.total_journeys %></div>
     </div>
-    <div class="stat-card <%= insight.conversion_rate >= 5 ? 'success' : insight.conversion_rate >= 2 ? '' : '' %>">
+    <div class="stat-card">
       <h3>Conversion Rate</h3>
       <div class="value"><%= insight.conversion_rate.toFixed(1) %>%</div>
     </div>
@@ -54,72 +54,130 @@
     <!-- Summary Card -->
     <div class="card mb-6">
       <h2>Executive Summary</h2>
-      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text-muted);">
+      <p style="font-size: 1.1rem; line-height: 1.8; color: var(--text-muted);">
         <%= analysis.summary %>
       </p>
 
-      <% if (analysis.keyMetrics) { %>
+      <% if (analysis.performance) { %>
         <div class="stats-grid mt-6">
           <div class="stat-card metric-card">
             <h3>Conversion Rate</h3>
-            <div class="value text-gold"><%= analysis.keyMetrics.conversionRate %>%</div>
+            <div class="value text-gold"><%= analysis.performance.conversionRate %></div>
           </div>
           <div class="stat-card metric-card">
-            <h3>Avg Journey Length</h3>
-            <div class="value"><%= analysis.keyMetrics.avgJourneyLength %></div>
-            <div class="subtitle">events per journey</div>
+            <h3>Total Visitors</h3>
+            <div class="value"><%= analysis.performance.totalVisitors %></div>
           </div>
           <div class="stat-card metric-card">
-            <h3>Avg Time to Action</h3>
-            <div class="value"><%= Math.floor(analysis.keyMetrics.avgTimeToAction / 60) %>m</div>
-            <div class="subtitle"><%= analysis.keyMetrics.avgTimeToAction % 60 %>s</div>
+            <h3>Total Conversions</h3>
+            <div class="value"><%= analysis.performance.totalConversions %></div>
+          </div>
+          <div class="stat-card metric-card">
+            <h3>Bounce Rate</h3>
+            <div class="value"><%= analysis.performance.bounceRate %></div>
           </div>
         </div>
+        <% if (analysis.performance.verdict) { %>
+          <div class="mt-4" style="padding: 16px; background: var(--paper); border-radius: 8px;">
+            <strong>Verdict:</strong> <span class="text-muted"><%= analysis.performance.verdict %></span>
+          </div>
+        <% } %>
       <% } %>
     </div>
 
-    <!-- Quick Wins -->
-    <% if (analysis.quickWins && analysis.quickWins.length > 0) { %>
+    <!-- Visitor Journey -->
+    <% if (analysis.visitorJourney) { %>
+    <div class="card mb-6">
+      <h2>Visitor Journey</h2>
+      <p class="text-muted mb-4">How visitors navigate through your website</p>
+
+      <div class="grid-3 mb-6">
+        <div style="padding: 16px; background: var(--paper); border-radius: 8px;">
+          <h4 style="color: var(--gold); margin-bottom: 12px;">Entry Pages</h4>
+          <p class="text-small text-muted mb-2">Where visitors land</p>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <% if (analysis.visitorJourney.topEntryPages) { %>
+              <% analysis.visitorJourney.topEntryPages.forEach(page => { %>
+                <li style="padding: 4px 0; border-bottom: 1px solid var(--border-color);"><%= page %></li>
+              <% }) %>
+            <% } %>
+          </ul>
+        </div>
+
+        <div style="padding: 16px; background: var(--paper); border-radius: 8px;">
+          <h4 style="color: var(--gold); margin-bottom: 12px;">Common Paths</h4>
+          <p class="text-small text-muted mb-2">Typical navigation patterns</p>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <% if (analysis.visitorJourney.commonPaths) { %>
+              <% analysis.visitorJourney.commonPaths.forEach(path => { %>
+                <li style="padding: 4px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;"><%= path %></li>
+              <% }) %>
+            <% } %>
+          </ul>
+        </div>
+
+        <div style="padding: 16px; background: var(--paper); border-radius: 8px;">
+          <h4 style="color: var(--danger); margin-bottom: 12px;">Exit Pages</h4>
+          <p class="text-small text-muted mb-2">Where visitors leave</p>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <% if (analysis.visitorJourney.topExitPages) { %>
+              <% analysis.visitorJourney.topExitPages.forEach(page => { %>
+                <li style="padding: 4px 0; border-bottom: 1px solid var(--border-color);"><%= page %></li>
+              <% }) %>
+            <% } %>
+          </ul>
+        </div>
+      </div>
+
+      <% if (analysis.visitorJourney.journeyInsight) { %>
+        <div style="padding: 16px; background: var(--paper); border-radius: 8px; border-left: 4px solid var(--gold);">
+          <strong>Journey Insight:</strong>
+          <p class="text-muted mt-2" style="margin-bottom: 0;"><%= analysis.visitorJourney.journeyInsight %></p>
+        </div>
+      <% } %>
+    </div>
+    <% } %>
+
+    <!-- What's Working -->
+    <% if (analysis.whatsWorking && analysis.whatsWorking.length > 0) { %>
     <div class="card mb-6" style="border-left: 4px solid var(--success);">
-      <h2>Quick Wins</h2>
-      <p class="text-muted mb-4">Low-effort changes that can have immediate impact</p>
-      <div class="grid-2">
-        <% analysis.quickWins.forEach((win, index) => { %>
-          <div class="quick-win-item">
-            <div class="quick-win-number">
-              <%= index + 1 %>
-            </div>
-            <div class="quick-win-text"><%= win %></div>
+      <h2>What's Working Well</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <% analysis.whatsWorking.forEach(item => { %>
+          <div style="padding: 16px; background: var(--paper); border-radius: 8px;">
+            <strong style="color: var(--success);"><%= item.finding %></strong>
+            <p class="text-muted text-small mt-2" style="margin-bottom: 0;"><%= item.evidence %></p>
           </div>
         <% }) %>
       </div>
     </div>
     <% } %>
 
-    <!-- Patterns Identified -->
-    <% if (analysis.patterns && analysis.patterns.length > 0) { %>
-    <div class="card mb-6">
-      <h2>Patterns Identified</h2>
+    <!-- Problem Areas -->
+    <% if (analysis.problemAreas && analysis.problemAreas.length > 0) { %>
+    <div class="card mb-6" style="border-left: 4px solid var(--danger);">
+      <h2>Problem Areas</h2>
+      <p class="text-muted mb-4">Pages or areas where visitors are struggling or dropping off</p>
       <div style="overflow-x: auto;">
         <table>
           <thead>
             <tr>
-              <th>Pattern</th>
-              <th>Description</th>
-              <th>Frequency</th>
+              <th>Page</th>
+              <th>Problem</th>
+              <th>Evidence</th>
               <th>Impact</th>
             </tr>
           </thead>
           <tbody>
-            <% analysis.patterns.forEach(pattern => { %>
+            <% analysis.problemAreas.forEach(problem => { %>
               <tr>
-                <td><strong><%= pattern.title %></strong></td>
-                <td><%= pattern.description %></td>
-                <td><span class="badge badge-info"><%= pattern.frequency %></span></td>
+                <td><strong><%= problem.page %></strong></td>
+                <td><%= problem.problem %></td>
+                <td class="text-small text-muted"><%= problem.evidence %></td>
                 <td>
-                  <% if (pattern.impact === 'high') { %>
+                  <% if (problem.impact === 'high') { %>
                     <span class="badge badge-danger">High</span>
-                  <% } else if (pattern.impact === 'medium') { %>
+                  <% } else if (problem.impact === 'medium') { %>
                     <span class="badge badge-warning">Medium</span>
                   <% } else { %>
                     <span class="badge badge-info">Low</span>
@@ -133,11 +191,10 @@
     </div>
     <% } %>
 
-    <!-- Friction Points -->
-    <% if (analysis.frictionPoints && analysis.frictionPoints.length > 0) { %>
+    <!-- Legacy support for old frictionPoints format -->
+    <% if (analysis.frictionPoints && analysis.frictionPoints.length > 0 && !analysis.problemAreas) { %>
     <div class="card mb-6" style="border-left: 4px solid var(--danger);">
       <h2>Friction Points</h2>
-      <p class="text-muted mb-4">Areas where visitors are struggling or dropping off</p>
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -175,39 +232,54 @@
     <% if (analysis.recommendations && analysis.recommendations.length > 0) { %>
     <div class="card mb-6">
       <h2>Recommendations</h2>
+      <p class="text-muted mb-4">Prioritised actions to improve website performance</p>
       <div style="display: flex; flex-direction: column; gap: 20px;">
         <% analysis.recommendations.forEach((rec, index) => { %>
-          <div style="padding: 20px; background: var(--paper); border-radius: 12px; border-left: 4px solid <%= rec.priority === 'high' ? 'var(--danger)' : rec.priority === 'medium' ? 'var(--warning)' : 'var(--info)' %>;">
+          <div style="padding: 20px; background: var(--paper); border-radius: 12px; border-left: 4px solid <%= rec.priority === 1 || rec.priority === 'high' ? 'var(--danger)' : rec.priority === 2 || rec.priority === 'medium' ? 'var(--warning)' : 'var(--info)' %>;">
             <div class="flex justify-between items-center mb-2">
               <h3 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px;">
                 <span style="width: 28px; height: 28px; background: var(--bg-card); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">
-                  <%= index + 1 %>
+                  <%= rec.priority || (index + 1) %>
                 </span>
-                <%= rec.title %>
+                <%= rec.action || rec.title %>
               </h3>
-              <% if (rec.priority === 'high') { %>
+              <% if (rec.priority === 1 || rec.priority === 'high') { %>
                 <span class="badge badge-danger">High Priority</span>
-              <% } else if (rec.priority === 'medium') { %>
+              <% } else if (rec.priority === 2 || rec.priority === 'medium') { %>
                 <span class="badge badge-warning">Medium Priority</span>
               <% } else { %>
                 <span class="badge badge-info">Low Priority</span>
               <% } %>
             </div>
-            <p style="margin: 12px 0; color: var(--text-muted);"><%= rec.description %></p>
-            <% if (rec.expectedImpact) { %>
+            <% if (rec.why || rec.description) { %>
+              <p style="margin: 12px 0; color: var(--text-muted);"><%= rec.why || rec.description %></p>
+            <% } %>
+            <% if (rec.expectedResult || rec.expectedImpact) { %>
               <div class="flex gap-4 mt-4" style="flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 6px;" class="text-small">
-                  <strong>Expected Impact:</strong>
-                  <span class="text-muted"><%= rec.expectedImpact %></span>
+                  <strong>Expected Result:</strong>
+                  <span class="text-muted"><%= rec.expectedResult || rec.expectedImpact %></span>
                 </div>
               </div>
             <% } %>
-            <% if (rec.implementation) { %>
-              <div class="mt-2 text-small" style="display: flex; align-items: center; gap: 6px;">
-                <strong>Implementation:</strong>
-                <span class="text-muted"><%= rec.implementation %></span>
-              </div>
-            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Quick Wins -->
+    <% if (analysis.quickWins && analysis.quickWins.length > 0) { %>
+    <div class="card mb-6" style="border-left: 4px solid var(--success);">
+      <h2>Quick Wins</h2>
+      <p class="text-muted mb-4">Simple changes that could help immediately</p>
+      <div class="grid-2">
+        <% analysis.quickWins.forEach((win, index) => { %>
+          <div class="quick-win-item">
+            <div class="quick-win-number">
+              <%= index + 1 %>
+            </div>
+            <div class="quick-win-text"><%= win %></div>
           </div>
         <% }) %>
       </div>

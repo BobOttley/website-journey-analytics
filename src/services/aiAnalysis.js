@@ -422,99 +422,102 @@ ${examplesLines || '(none)'}
 }
 
 /**
- * Build a strict prompt that forces honesty.
+ * Build prompt focused on website performance and actionable improvements.
  */
 function buildPrompt(formattedData, siteId) {
   const siteStructure = getSiteConfig(siteId);
 
-  return `You are an expert in website journey analytics and conversion optimisation.
+  return `You are a website performance analyst. Your job is to tell me how this website is performing and what we can do to improve conversions.
 
-You are analysing reconstructed journeys that include reliability signals:
-- confidence (0–100) and confidence buckets
-- strength (low/medium/high)
-- friction (detected + severity + signals)
-- engagement metrics (scroll, dwell, pages, sections)
-- outcomes including abandonment depth
+WEBSITE: ${siteStructure.siteName} (${siteStructure.siteUrl})
+${siteStructure.siteDescription}
 
-NON-NEGOTIABLE RULES:
-1) Only use HIGH confidence journeys (>=70) to claim patterns or make recommendations.
-2) Medium confidence data may be used only for tentative hypotheses and must be labelled as such.
-3) Low confidence data (<40) must NOT be used for conclusions.
-4) Friction signals mean confusion/resistance, NOT disinterest. Never claim disinterest when friction exists.
-5) Never invent causes. Every claim must reference evidence from the provided summary/examples.
-6) Never suggest adding CTAs that already exist. Use the CTAs list in site structure as a hard constraint.
-7) If there is insufficient high-confidence data, explicitly say so in dataGaps and keep recommendations minimal.
-
-SITE CONTEXT (do not contradict):
-This is ${siteStructure.siteName} (${siteStructure.siteUrl}) - ${siteStructure.siteDescription}.
-
-Pages:
+KEY PAGES:
 ${Object.entries(siteStructure.pages || {})
-  .map(([path, info]) => `- ${path}: ${info.name} (${info.stage} stage, ${info.role} role)`)
+  .map(([path, info]) => `- ${path}: ${info.name}`)
   .join('\n')}
 
-CTAs that already exist (do NOT suggest adding these):
-${siteStructure.ctas
-  ? Object.values(siteStructure.ctas).map(cta => `- "${cta.label}" (${cta.description})`).join('\n')
-  : '- Not specified'}
-
-Conversion goals:
+CONVERSION GOALS (what we want visitors to do):
 ${Array.isArray(siteStructure.conversionGoals)
-  ? siteStructure.conversionGoals.map(g => `- ${g.name}: ${g.event} intent=${g.intent} value=${g.value}`).join('\n')
-  : '- Not specified'}
+  ? siteStructure.conversionGoals.map(g => `- ${g.name}`).join('\n')
+  : '- Submit an enquiry\n- Book a visit'}
 
-DATA (summary + examples):
+VISITOR JOURNEY DATA:
 ${formattedData}
 
-Respond with ONLY the JSON object matching this schema:
+Based on this data, answer these questions in plain English:
+
+1. HOW IS THE WEBSITE PERFORMING?
+   - What % of visitors convert (submit enquiry, book visit)?
+   - Are visitors engaging with the content or bouncing quickly?
+
+2. WHAT'S THE TYPICAL VISITOR JOURNEY?
+   - Where do most visitors land (entry pages)?
+   - What pages do they visit next?
+   - Where do they leave the site (exit pages)?
+
+3. WHERE ARE WE LOSING PEOPLE?
+   - Which pages have high drop-off rates?
+   - At what point in the journey do people leave?
+   - Are there specific pages that seem to cause confusion?
+
+4. WHAT'S WORKING WELL?
+   - Which entry pages lead to conversions?
+   - Which page sequences result in enquiries?
+   - What do converting visitors have in common?
+
+5. WHAT SHOULD WE FIX?
+   - Specific, actionable recommendations
+   - Prioritised by impact (fix the big problems first)
+
+Respond with ONLY this JSON:
 
 {
-  "summary": "2–3 sentences. Must be factual and based on HIGH confidence data only.",
-  "reliability": {
-    "highConfidenceJourneys": number,
-    "mediumConfidenceJourneys": number,
-    "lowConfidenceJourneys": number,
-    "note": "One sentence explaining how reliability affected conclusions."
+  "summary": "2-3 sentences: How is the website performing overall? Give the headline.",
+
+  "performance": {
+    "conversionRate": "X% of visitors convert",
+    "totalVisitors": number,
+    "totalConversions": number,
+    "averageSessionDuration": "X minutes",
+    "bounceRate": "X% leave after one page",
+    "verdict": "Good/Needs work/Poor - one sentence why"
   },
-  "reliablePatterns": [
+
+  "visitorJourney": {
+    "topEntryPages": ["List the top 3-5 pages where visitors land"],
+    "commonPaths": ["List 2-3 common page sequences visitors take"],
+    "topExitPages": ["List the top 3-5 pages where visitors leave"],
+    "journeyInsight": "One paragraph describing the typical visitor journey story"
+  },
+
+  "problemAreas": [
     {
-      "title": "Pattern name",
-      "description": "What happens. HIGH confidence only.",
-      "evidence": "Reference metrics/examples from the data",
-      "impact": "high|medium|low"
+      "page": "Page URL or name",
+      "problem": "What's wrong (high bounce, confusion, drop-off)",
+      "evidence": "What in the data shows this",
+      "impact": "high/medium/low"
     }
   ],
-  "frictionPoints": [
+
+  "whatsWorking": [
     {
-      "location": "Page/sequence area if identifiable",
-      "issue": "What friction looks like",
-      "evidence": "Specific friction signals and examples",
-      "severity": "high|medium|low"
+      "finding": "What's working well",
+      "evidence": "What in the data shows this"
     }
   ],
-  "abandonmentInsights": [
+
+  "recommendations": [
     {
-      "type": "early|mid|near_complete",
-      "hypothesis": "Likely reason (only if supported)",
-      "evidence": "What in the data supports this",
-      "confidence": "high|medium|low"
+      "priority": 1,
+      "action": "What to do (be specific)",
+      "why": "Why this will help",
+      "expectedResult": "What should improve"
     }
   ],
-  "safeRecommendations": [
-    {
-      "title": "Recommendation",
-      "description": "What to do and why",
-      "priority": "high|medium|low",
-      "expectedImpact": "What should improve",
-      "implementation": "Concrete steps (no new CTAs)",
-      "risk": "What could go wrong if misinterpreted"
-    }
-  ],
+
   "quickWins": [
-    "Short, safe changes backed by HIGH confidence data only"
-  ],
-  "dataGaps": [
-    "What cannot be concluded due to insufficient HIGH confidence evidence"
+    "Simple changes that could help immediately"
   ]
 }`;
 }
