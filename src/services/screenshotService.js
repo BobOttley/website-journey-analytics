@@ -58,11 +58,11 @@ function getScreenshotPath(siteId, pagePath, isMobile = false) {
 
 /**
  * Capture a single page screenshot
+ * Uses request interception to block slow resources for faster loading
  */
 async function captureScreenshot(url, outputPath, options = {}) {
   const viewport = options.viewport || DESKTOP_VIEWPORT;
   const fullPage = options.fullPage !== false; // Default to full page
-  const waitFor = options.waitFor || 2000;
 
   let browser = null;
 
@@ -79,6 +79,39 @@ async function captureScreenshot(url, outputPath, options = {}) {
 
     const page = await browser.newPage();
 
+    // Enable request interception to block slow resources
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      const reqUrl = request.url();
+
+      // Block fonts, videos, and heavy third-party scripts to speed up loading
+      const blockedTypes = ['font', 'media'];
+      const blockedDomains = [
+        'google-analytics.com',
+        'googletagmanager.com',
+        'facebook.net',
+        'doubleclick.net',
+        'hotjar.com',
+        'intercom.io',
+        'cdn.cookielaw.org',
+        'onetrust.com'
+      ];
+
+      if (blockedTypes.includes(resourceType)) {
+        request.abort();
+        return;
+      }
+
+      // Block known slow third-party domains
+      if (blockedDomains.some(domain => reqUrl.includes(domain))) {
+        request.abort();
+        return;
+      }
+
+      request.continue();
+    });
+
     // Set viewport
     await page.setViewport(viewport);
 
@@ -87,15 +120,14 @@ async function captureScreenshot(url, outputPath, options = {}) {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Navigate to page - use 'domcontentloaded' for faster capture
-    // 60 second timeout for slow sites on limited cloud resources
+    // Navigate to page - use networkidle2 for reliable loading
     await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
+      waitUntil: 'networkidle2',
+      timeout: 45000
     });
 
-    // Wait for images and lazy content to load
-    await page.evaluate((ms) => new Promise(r => setTimeout(r, ms)), waitFor + 3000);
+    // Brief wait for lazy content
+    await page.evaluate(() => new Promise(r => setTimeout(r, 1500)));
 
     // Dismiss any cookie banners (common pattern)
     try {
@@ -229,24 +261,61 @@ async function captureAllSitePages(siteId) {
 
 /**
  * Capture a single page using an existing browser instance (fast)
+ * Uses request interception to block slow resources for faster loading
  */
 async function capturePageWithBrowser(browser, url, outputPath, options = {}) {
   const viewport = options.viewport || DESKTOP_VIEWPORT;
 
+  let page = null;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
+
+    // Enable request interception to block slow resources
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      const url = request.url();
+
+      // Block fonts, videos, and heavy third-party scripts to speed up loading
+      const blockedTypes = ['font', 'media'];
+      const blockedDomains = [
+        'google-analytics.com',
+        'googletagmanager.com',
+        'facebook.net',
+        'doubleclick.net',
+        'hotjar.com',
+        'intercom.io',
+        'cdn.cookielaw.org',
+        'onetrust.com'
+      ];
+
+      if (blockedTypes.includes(resourceType)) {
+        request.abort();
+        return;
+      }
+
+      // Block known slow third-party domains
+      if (blockedDomains.some(domain => url.includes(domain))) {
+        request.abort();
+        return;
+      }
+
+      request.continue();
+    });
+
     await page.setViewport(viewport);
     await page.setUserAgent(
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
+    // Increase timeout and use networkidle2 for more reliable loading
     await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000
+      waitUntil: 'networkidle2',
+      timeout: 45000
     });
 
-    // Brief wait for images
-    await page.evaluate(() => new Promise(r => setTimeout(r, 2000)));
+    // Brief wait for any remaining lazy-loaded images
+    await page.evaluate(() => new Promise(r => setTimeout(r, 1500)));
 
     // Hide cookie banners
     try {
@@ -259,11 +328,15 @@ async function capturePageWithBrowser(browser, url, outputPath, options = {}) {
     ensureDirectoryExists(path.dirname(outputPath));
     await page.screenshot({ path: outputPath, fullPage: true, type: 'png' });
     await page.close();
+    page = null;
 
     console.log(`[Screenshot] Captured: ${outputPath}`);
     return { success: true, path: outputPath };
   } catch (error) {
     console.error(`[Screenshot] Error ${url}:`, error.message);
+    if (page) {
+      try { await page.close(); } catch (e) {}
+    }
     return { success: false, error: error.message };
   }
 }
