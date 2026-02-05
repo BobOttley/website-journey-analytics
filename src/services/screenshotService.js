@@ -120,14 +120,14 @@ async function captureScreenshot(url, outputPath, options = {}) {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Navigate to page - use networkidle2 for reliable loading
+    // Use domcontentloaded (fastest) - don't wait for network to settle
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 45000
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
     });
 
-    // Brief wait for lazy content
-    await page.evaluate(() => new Promise(r => setTimeout(r, 1500)));
+    // Fixed wait for images and visual content to render
+    await page.evaluate(() => new Promise(r => setTimeout(r, 4000)));
 
     // Dismiss any cookie banners (common pattern)
     try {
@@ -308,14 +308,15 @@ async function capturePageWithBrowser(browser, url, outputPath, options = {}) {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    // Increase timeout and use networkidle2 for more reliable loading
+    // Use domcontentloaded (fastest) - don't wait for network to settle
+    // as sites with chat widgets/live features may never settle
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 45000
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
     });
 
-    // Brief wait for any remaining lazy-loaded images
-    await page.evaluate(() => new Promise(r => setTimeout(r, 1500)));
+    // Fixed wait for images and visual content to render
+    await page.evaluate(() => new Promise(r => setTimeout(r, 4000)));
 
     // Hide cookie banners
     try {
