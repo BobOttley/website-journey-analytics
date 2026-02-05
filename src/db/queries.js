@@ -245,6 +245,18 @@ async function getJourneyStats(siteId = null) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  // Exclude journeys where entry page indicates existing parent (not prospective family)
+  // Patterns: news, calendar, term-dates, image galleries (/160/), parents association (/90/),
+  // news articles (/115/), fees page, parent portal, uniform info
+  const excludeExistingParents = `AND journey_id NOT IN (
+    SELECT je_entry.journey_id FROM (
+      SELECT DISTINCT ON (journey_id) journey_id, page_url
+      FROM journey_events
+      WHERE event_type = 'page_view' AND page_url IS NOT NULL
+      ORDER BY journey_id, occurred_at ASC
+    ) je_entry
+    WHERE je_entry.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)'
+  )`;
 
   let siteFilter = '';
   const params = [];
@@ -254,69 +266,49 @@ async function getJourneyStats(siteId = null) {
     params.push(siteId);
   }
 
-  // Query with THREE-WAY CLASSIFICATION:
-  // 1. Bots (crawlers, scrapers, etc.)
-  // 2. Existing Parents (humans checking news/calendar - NOT bots)
-  // 3. Prospective Families (humans researching school - the main audience)
+  // Query journey_events directly for accurate counts
+  // Counts UNIQUE VISITORS (people), not sessions/journeys
   const result = await db.query(`
-    WITH entry_pages AS (
-      SELECT DISTINCT ON (journey_id) journey_id, page_url
+    WITH journey_data AS (
+      SELECT DISTINCT journey_id, visitor_id, is_bot
       FROM journey_events
-      WHERE event_type = 'page_view' AND page_url IS NOT NULL
-      ORDER BY journey_id, occurred_at ASC
+      WHERE ${dateFilter} ${siteFilter} ${excludeExistingParents}
     ),
-    journey_classification AS (
-      SELECT
-        jd.journey_id,
-        jd.visitor_id,
-        jd.is_bot,
-        CASE
-          WHEN jd.is_bot = true THEN 'bot'
-          WHEN ep.page_url ~* '/(news|calendar|term-dates|news-and-calendar|115/|160/|90/|parents|uniform|admissions/fees)' THEN 'existing_parent'
-          ELSE 'prospective'
-        END as visitor_type
-      FROM (
-        SELECT DISTINCT journey_id, visitor_id, is_bot
-        FROM journey_events
-        WHERE ${dateFilter} ${siteFilter}
-      ) jd
-      LEFT JOIN entry_pages ep ON jd.journey_id = ep.journey_id
-    ),
-    prospective_visitors AS (
+    human_visitors AS (
       SELECT DISTINCT visitor_id, journey_id
-      FROM journey_classification
-      WHERE visitor_type = 'prospective' AND visitor_id IS NOT NULL
+      FROM journey_data
+      WHERE ${botFilter} AND visitor_id IS NOT NULL
     ),
     visitor_stats AS (
-      SELECT visitor_id, COUNT(DISTINCT journey_id) as journey_count
-      FROM prospective_visitors
+      SELECT
+        visitor_id,
+        COUNT(DISTINCT journey_id) as journey_count
+      FROM human_visitors
       GROUP BY visitor_id
     ),
     conversion_data AS (
       SELECT
-        je.journey_id,
-        MAX(CASE WHEN je.event_type = 'form_submit' AND je.page_url ~* 'prospectus.*onrender' THEN 1 ELSE 0 END) as is_enquiry,
-        MAX(CASE WHEN je.event_type = 'form_submit' AND je.page_url ~* 'booking.*onrender' THEN 1 ELSE 0 END) as is_booking,
+        journey_id,
+        -- Only count Render app form submissions
+        MAX(CASE WHEN event_type = 'form_submit' AND
+          page_url ~* 'prospectus.*onrender' THEN 1 ELSE 0 END) as is_enquiry,
+        MAX(CASE WHEN event_type = 'form_submit' AND
+          page_url ~* 'booking.*onrender' THEN 1 ELSE 0 END) as is_booking,
         COUNT(*) as event_count
-      FROM journey_events je
-      INNER JOIN journey_classification jc ON je.journey_id = jc.journey_id
-      WHERE ${dateFilter} ${siteFilter} AND jc.visitor_type = 'prospective'
-      GROUP BY je.journey_id
+      FROM journey_events
+      WHERE ${dateFilter} AND ${botFilter} ${siteFilter} ${excludeExistingParents}
+      GROUP BY journey_id
     )
     SELECT
-      -- Prospective families stats (for top cards)
-      (SELECT COUNT(DISTINCT visitor_id) FROM prospective_visitors) as human_visitors,
+      (SELECT COUNT(DISTINCT visitor_id) FROM human_visitors) as human_visitors,
+      (SELECT COUNT(DISTINCT journey_id) FROM journey_data WHERE is_bot = true) as bot_count,
       (SELECT COUNT(*) FROM visitor_stats WHERE journey_count > 1) as return_visitors,
       (SELECT COALESCE(SUM(is_enquiry), 0) FROM conversion_data) as enquiries,
       (SELECT COALESCE(SUM(is_booking), 0) FROM conversion_data) as visits_booked,
       (SELECT COUNT(*) FROM conversion_data WHERE is_enquiry = 0 AND is_booking = 0) as no_action,
       (SELECT ROUND(AVG(event_count), 1) FROM conversion_data) as avg_events,
-
-      -- Three-way breakdown for Traffic Quality section (all as journey counts so math adds up)
-      (SELECT COUNT(*) FROM journey_classification) as total_journeys,
-      (SELECT COUNT(*) FROM journey_classification WHERE visitor_type = 'bot') as bot_count,
-      (SELECT COUNT(*) FROM journey_classification WHERE visitor_type = 'existing_parent') as existing_parent_count,
-      (SELECT COUNT(*) FROM journey_classification WHERE visitor_type = 'prospective') as prospective_count
+      (SELECT COUNT(DISTINCT journey_id) FROM journey_data) as total_journeys,
+      (SELECT ROUND(AVG(journey_count), 1) FROM visitor_stats) as avg_visits_per_visitor
   `, params);
   return result.rows[0];
 }
@@ -2348,8 +2340,7 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
-  // Exclude journeys where entry page indicates existing parent (not prospective family)
-  // Matches Dashboard filter exactly for consistency
+  // Exclude journeys where entry page indicates existing parent (matches Dashboard filter)
   const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
@@ -2451,8 +2442,7 @@ async function getFamilyCount(options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
   const conditions = ['ip_address IS NOT NULL'];
-  // Exclude journeys where entry page indicates existing parent (not prospective family)
-  // Matches Dashboard filter exactly for consistency
+  // Exclude journeys where entry page indicates existing parent (matches Dashboard filter)
   const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
       SELECT DISTINCT ON (journey_id) journey_id, page_url
