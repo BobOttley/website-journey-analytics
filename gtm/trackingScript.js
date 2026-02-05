@@ -510,16 +510,27 @@
       const now = Date.now();
       state.lastActivity = now;
 
-      // Rage click detection
+      // Rage click detection (exclude carousel/slider navigation)
       state.clickTimes.push(now);
       state.clickTimes = state.clickTimes.filter(t => now - t < CONFIG.rageClickWindow);
 
       if (state.clickTimes.length >= CONFIG.rageClickThreshold) {
-        sendEvent('rage_click', {
-          click_count: state.clickTimes.length,
-          element: getElementSelector(e.target),
-          position: { x: e.clientX, y: e.clientY },
-        });
+        // Check if this is a carousel/slider navigation button (not a rage click)
+        const clickedEl = e.target.closest('button, a, [role="button"]');
+        const clickedText = (clickedEl?.textContent || '').toLowerCase().trim();
+        const clickedClass = (clickedEl?.className || '') + ' ' + (e.target.className || '');
+
+        const isCarouselNav = /^(next|prev|previous|back|forward|›|‹|»|«|→|←|>|<)$/i.test(clickedText) ||
+          /slick|swiper|carousel|slider|owl|glide|splide|flickity/i.test(clickedClass) ||
+          clickedEl?.closest('.slick-slider, .swiper, .carousel, .slider, .owl-carousel, .glide, .splide');
+
+        if (!isCarouselNav) {
+          sendEvent('rage_click', {
+            click_count: state.clickTimes.length,
+            element: getElementSelector(e.target),
+            position: { x: e.clientX, y: e.clientY },
+          });
+        }
         state.clickTimes = [];
       }
 
