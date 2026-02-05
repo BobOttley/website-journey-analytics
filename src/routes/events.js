@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { insertEvent, getEventsByJourneyId, getSiteByTrackingKey } = require('../db/queries');
+const { insertEvent, getEventsByJourneyId, getSiteByTrackingKey, getVisitorTotalJourneys } = require('../db/queries');
 const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService');
 const emailService = require('../services/emailService');
 const { detectBotForEvent } = require('../services/botDetection');
@@ -279,10 +279,11 @@ router.post('/', async (req, res) => {
           .forEach(id => notifiedJourneys.delete(id));
       }
 
-      const existing = await getEventsByJourneyId(event.journey_id);
-      const isReturn = existing.length > 1;
+      // Check if this visitor has previous journeys (true returning visitor, not just multiple pages in this session)
+      const totalJourneys = await getVisitorTotalJourneys(event.visitor_id, event.ip_address, event.site_id);
+      const isReturn = totalJourneys > 1;
 
-      logEmail(`SENDING: ${event.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}), page=${event.page_url?.substring(0,50)}`);
+      logEmail(`SENDING: ${event.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}, journeys=${totalJourneys}), page=${event.page_url?.substring(0,50)}`);
 
       emailService.sendNewVisitorNotification({
         journey_id: event.journey_id,
@@ -385,10 +386,11 @@ router.post('/batch', async (req, res) => {
         if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id) && location && !botDetection.isBot) {
           notifiedJourneys.add(e.journey_id);
           logEmail(`BATCH TRIGGER: ${e.journey_id.substring(0,8)} with location`);
-          const existing = await getEventsByJourneyId(e.journey_id);
-          const isReturn = existing.length > 1;
+          // Check if this visitor has previous journeys (true returning visitor)
+          const totalJourneys = await getVisitorTotalJourneys(e.visitor_id, clientIP, siteId);
+          const isReturn = totalJourneys > 1;
 
-          logEmail(`BATCH SENDING: ${e.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}), page=${e.page_url?.substring(0,50)}`);
+          logEmail(`BATCH SENDING: ${e.journey_id.substring(0,8)} (${isReturn ? 'return' : 'new'}, journeys=${totalJourneys}), page=${e.page_url?.substring(0,50)}`);
 
           emailService.sendNewVisitorNotification({
             journey_id: e.journey_id,
