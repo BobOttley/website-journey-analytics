@@ -65,19 +65,24 @@
 </div>
 <% } %>
 
-<!-- Traffic Quality (Bot Detection) -->
+<!-- Traffic Quality (Three-Way Breakdown) -->
 <%
-  const totalVisitors = stats.human_visitors + stats.bot_count;
-  const humanPercent = totalVisitors > 0 ? Math.round((stats.human_visitors / totalVisitors) * 100) : 0;
-  const botPercent = totalVisitors > 0 ? Math.round((stats.bot_count / totalVisitors) * 100) : 0;
+  // Traffic Quality shows JOURNEYS (sessions), not unique people
+  const prospectiveJourneys = parseInt(stats.prospective_count) || 0;
+  const existingParentJourneys = parseInt(stats.existing_parent_count) || 0;
+  const botJourneys = parseInt(stats.bot_count) || 0;
+  const totalJourneys = parseInt(stats.total_journeys) || (prospectiveJourneys + existingParentJourneys + botJourneys);
+  const prospectivePercent = totalJourneys > 0 ? Math.round((prospectiveJourneys / totalJourneys) * 100) : 0;
+  const existingPercent = totalJourneys > 0 ? Math.round((existingParentJourneys / totalJourneys) * 100) : 0;
+  const botPercent = totalJourneys > 0 ? Math.round((botJourneys / totalJourneys) * 100) : 0;
 %>
-<% if (totalVisitors > 0) { %>
+<% if (totalJourneys > 0) { %>
 <div class="card mb-6" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(255,255,255,0.1);">
   <div class="flex justify-between items-center mb-4">
     <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
       <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
       Traffic Quality
-      <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(Bot Detection)</span>
+      <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">(All Sessions)</span>
     </h2>
     <form action="/journeys/rebuild" method="POST" style="margin: 0;">
       <button type="submit" class="btn btn-sm" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: none; font-size: 0.75rem;">
@@ -87,39 +92,39 @@
   </div>
 
   <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-    <!-- Total Visitors -->
-    <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #60a5fa;">Total Visitors</h3>
-      <div class="value" style="color: #3b82f6;"><%= totalVisitors %></div>
-      <div class="subtitle" style="font-size: 0.7rem;">
-        All tracked sessions
-      </div>
-    </div>
-
-    <!-- Humans -->
+    <!-- Prospective Families (main audience) -->
     <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #34d399;">Real Humans</h3>
-      <div class="value" style="color: #10b981;"><%= stats.human_visitors %></div>
+      <h3 style="font-size: 0.8rem; color: #34d399;">Prospective Families</h3>
+      <div class="value" style="color: #10b981;"><%= prospectiveJourneys %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Quality visitors
+        <%= prospectivePercent %>% - researching school
       </div>
     </div>
 
-    <!-- Quality Score -->
-    <div class="stat-card" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);">
-      <h3 style="font-size: 0.8rem; color: #a78bfa;">Quality Score</h3>
-      <div class="value" style="color: #8b5cf6;"><%= humanPercent %>%</div>
+    <!-- Existing Parents -->
+    <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #60a5fa;">Existing Parents</h3>
+      <div class="value" style="color: #3b82f6;"><%= existingParentJourneys %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
-        Human visitor rate
+        <%= existingPercent %>% - on news/calendar
       </div>
     </div>
 
     <!-- Bots Detected -->
     <div class="stat-card" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);">
       <h3 style="font-size: 0.8rem; color: #fb923c;">Bots Detected</h3>
-      <div class="value" style="color: #f97316;"><%= stats.bot_count %></div>
+      <div class="value" style="color: #f97316;"><%= botJourneys %></div>
       <div class="subtitle" style="font-size: 0.7rem;">
         <%= botPercent %>% of traffic
+      </div>
+    </div>
+
+    <!-- Total Sessions -->
+    <div class="stat-card" style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);">
+      <h3 style="font-size: 0.8rem; color: #a78bfa;">Total Sessions</h3>
+      <div class="value" style="color: #8b5cf6;"><%= totalJourneys %></div>
+      <div class="subtitle" style="font-size: 0.7rem;">
+        All tracked journeys
       </div>
     </div>
   </div>
