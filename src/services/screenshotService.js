@@ -3,7 +3,8 @@
  * Uses Puppeteer to capture screenshots of website pages for AI analysis
  */
 
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const fs = require('fs');
 const path = require('path');
 const siteStructureConfig = require('../config/siteStructure.json');
@@ -66,26 +67,15 @@ async function captureScreenshot(url, outputPath, options = {}) {
   let browser = null;
 
   try {
-    // Puppeteer launch options - optimised for Render/cloud environments
-    const launchOptions = {
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-web-security',
-        '--disable-gpu',
-        '--single-process',
-        '--no-zygote'
-      ]
-    };
+    // Use @sparticuz/chromium for cloud deployments (Render, Lambda, etc.)
+    const executablePath = await chromium.executablePath();
 
-    // Use custom Chrome path if set (for Render deployments)
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    }
-
-    browser = await puppeteer.launch(launchOptions);
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: executablePath,
+      headless: chromium.headless
+    });
 
     const page = await browser.newPage();
 
