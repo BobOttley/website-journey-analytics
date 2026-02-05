@@ -467,43 +467,39 @@
         // Detect intent from button text/href
         let intentType = detectIntent(text, href);
 
-        // For external links (like booking/enquiry apps), track as cta_click with proper intent
-        // Don't change eventType to 'external_link' - these are still CTAs
         let eventType = 'cta_click';
         if (isDownload) {
           eventType = 'download_click';
           intentType = 'download';
         }
 
-        // For external links, delay navigation to ensure tracking sends
-        if (isExternal && href && btn.tagName === 'A') {
-          e.preventDefault();
+        // Send event immediately - sendBeacon survives page unload
+        const payload = {
+          cta_label: text,
+          intent_type: intentType,
+          element: getElementSelector(btn),
+          href: href || '',
+          is_external: isExternal,
+          position: { x: e.clientX, y: e.clientY },
+        };
 
-          sendEvent(eventType, {
-            cta_label: text,
-            intent_type: intentType,
-            element: getElementSelector(btn),
-            href: href,
-            is_external: true,
-            position: { x: e.clientX, y: e.clientY },
-          });
-
-          // Navigate after brief delay to ensure event sends
-          setTimeout(function() {
-            if (btn.target === '_blank') {
-              window.open(href, '_blank');
-            } else {
-              window.location.href = href;
-            }
-          }, 150);
-        } else {
-          sendEvent(eventType, {
-            cta_label: text,
-            intent_type: intentType,
-            element: getElementSelector(btn),
-            href: href,
-            position: { x: e.clientX, y: e.clientY },
-          });
+        // Use sendBeacon directly for critical CTA clicks to ensure delivery
+        try {
+          const fullPayload = {
+            event_type: eventType,
+            page_url: window.location.href,
+            referrer: document.referrer || '',
+            timestamp: new Date().toISOString(),
+            visitor_id: state.visitorId,
+            journey_id: state.journeyId,
+            device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            ...payload
+          };
+          const blob = new Blob([JSON.stringify(fullPayload)], { type: 'application/json' });
+          navigator.sendBeacon(CONFIG.endpoint, blob);
+        } catch (err) {
+          // Fallback to regular sendEvent
+          sendEvent(eventType, payload);
         }
       }
 
