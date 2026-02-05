@@ -10,10 +10,15 @@
   'use strict';
 
   // ============ CONFIGURATION ============
+  // Read site ID from script tag's data-site-id attribute
+  const scriptTag = document.currentScript || document.querySelector('script[src*="tracking.js"]');
+  const siteId = scriptTag ? (scriptTag.getAttribute('data-site-id') || '') : '';
+
   const CONFIG = {
     endpoint: 'https://website-journey-analytics.onrender.com/api/event',
     pixelEndpoint: 'https://website-journey-analytics.onrender.com/p.gif',
     trackingKey: '',                 // Will be injected by server
+    siteId: siteId,                  // Site ID from data attribute
     heartbeatInterval: 30000,        // 30 seconds
     scrollThresholds: [25, 50, 75, 90, 100],
     hoverThreshold: 2000,            // 2 seconds to count as meaningful hover
@@ -323,6 +328,7 @@
       user_agent: navigator.userAgent,  // Full User-Agent for bot detection
       occurred_at: new Date().toISOString(),
       tracking_key: CONFIG.trackingKey,  // For multi-tenant site identification
+      site_id: CONFIG.siteId ? parseInt(CONFIG.siteId, 10) : null,  // Site ID from data attribute
       metadata
     };
 
@@ -493,6 +499,7 @@
             visitor_id: state.visitorId,
             journey_id: state.journeyId,
             device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            site_id: CONFIG.siteId ? parseInt(CONFIG.siteId, 10) : null,
             ...payload
           };
           const blob = new Blob([JSON.stringify(fullPayload)], { type: 'application/json' });
