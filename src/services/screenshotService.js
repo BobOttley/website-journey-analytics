@@ -137,6 +137,7 @@ async function captureScreenshot(url, outputPath, options = {}) {
 
 /**
  * Capture all configured pages for a site
+ * Uses a SINGLE browser instance for all pages (much faster)
  */
 async function captureAllSitePages(siteId) {
   const config = getSiteConfig(siteId);
@@ -168,46 +169,103 @@ async function captureAllSitePages(siteId) {
 
   console.log(`[Screenshot] Capturing ${pagesToCapture.length} pages for ${config.siteName}`);
 
-  // Capture each page
-  for (const page of pagesToCapture) {
-    const url = baseUrl + page.path;
-
-    // Desktop screenshot
-    const desktopPath = getScreenshotPath(siteId, page.path, false);
-    const desktopResult = await captureScreenshot(url, desktopPath, {
-      viewport: screenshotConfig.viewport || DESKTOP_VIEWPORT,
-      fullPage: true
+  // Launch browser ONCE for all screenshots
+  let browser = null;
+  try {
+    const executablePath = await chromium.executablePath();
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: executablePath,
+      headless: chromium.headless
     });
+    console.log('[Screenshot] Browser launched');
 
-    if (desktopResult.success) {
-      results.captured.push({ page: page.path, name: page.name, type: 'desktop', path: desktopPath });
-    } else {
-      results.failed.push({ page: page.path, name: page.name, type: 'desktop', error: desktopResult.error });
-    }
+    // Capture each page using the same browser
+    for (const pageConfig of pagesToCapture) {
+      const url = baseUrl + pageConfig.path;
 
-    // Mobile screenshot (if enabled)
-    if (screenshotConfig.captureMobile !== false) {
-      const mobilePath = getScreenshotPath(siteId, page.path, true);
-      const mobileResult = await captureScreenshot(url, mobilePath, {
-        viewport: screenshotConfig.mobileViewport || MOBILE_VIEWPORT,
-        fullPage: true
+      // Desktop screenshot
+      const desktopPath = getScreenshotPath(siteId, pageConfig.path, false);
+      const desktopResult = await capturePageWithBrowser(browser, url, desktopPath, {
+        viewport: screenshotConfig.viewport || DESKTOP_VIEWPORT
       });
 
-      if (mobileResult.success) {
-        results.captured.push({ page: page.path, name: page.name, type: 'mobile', path: mobilePath });
+      if (desktopResult.success) {
+        results.captured.push({ page: pageConfig.path, name: pageConfig.name, type: 'desktop', path: desktopPath });
       } else {
-        results.failed.push({ page: page.path, name: page.name, type: 'mobile', error: mobileResult.error });
+        results.failed.push({ page: pageConfig.path, name: pageConfig.name, type: 'desktop', error: desktopResult.error });
+      }
+
+      // Mobile screenshot (if enabled)
+      if (screenshotConfig.captureMobile !== false) {
+        const mobilePath = getScreenshotPath(siteId, pageConfig.path, true);
+        const mobileResult = await capturePageWithBrowser(browser, url, mobilePath, {
+          viewport: screenshotConfig.mobileViewport || MOBILE_VIEWPORT
+        });
+
+        if (mobileResult.success) {
+          results.captured.push({ page: pageConfig.path, name: pageConfig.name, type: 'mobile', path: mobilePath });
+        } else {
+          results.failed.push({ page: pageConfig.path, name: pageConfig.name, type: 'mobile', error: mobileResult.error });
+        }
       }
     }
-
-    // Small delay between pages to be polite
-    await new Promise(r => setTimeout(r, 500));
+  } catch (error) {
+    console.error('[Screenshot] Browser error:', error.message);
+    return { success: false, error: error.message };
+  } finally {
+    if (browser) {
+      await browser.close();
+      console.log('[Screenshot] Browser closed');
+    }
   }
 
   results.success = results.failed.length === 0;
   console.log(`[Screenshot] Completed: ${results.captured.length} captured, ${results.failed.length} failed`);
 
   return results;
+}
+
+/**
+ * Capture a single page using an existing browser instance (fast)
+ */
+async function capturePageWithBrowser(browser, url, outputPath, options = {}) {
+  const viewport = options.viewport || DESKTOP_VIEWPORT;
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport(viewport);
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+
+    // Brief wait for images
+    await page.evaluate(() => new Promise(r => setTimeout(r, 2000)));
+
+    // Hide cookie banners
+    try {
+      await page.evaluate(() => {
+        document.querySelectorAll('[class*="cookie"], [id*="cookie"], [class*="consent"], .cc-window')
+          .forEach(el => el.style.display = 'none');
+      });
+    } catch (e) {}
+
+    ensureDirectoryExists(path.dirname(outputPath));
+    await page.screenshot({ path: outputPath, fullPage: true, type: 'png' });
+    await page.close();
+
+    console.log(`[Screenshot] Captured: ${outputPath}`);
+    return { success: true, path: outputPath };
+  } catch (error) {
+    console.error(`[Screenshot] Error ${url}:`, error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
