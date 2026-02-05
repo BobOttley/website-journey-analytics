@@ -2161,15 +2161,10 @@ async function getCombinedVisitorStats(siteId = null, days = 30) {
  */
 async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   const db = getDb();
-  const conditions = [];
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const conditions = ['ip_address IS NOT NULL'];
   const params = [];
   let paramIndex = 1;
-
-  // Base condition: must have an IP address
-  conditions.push('primary_ip_address IS NOT NULL');
-
-  // Exclude internal analytics traffic
-  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
 
   // Filter by site_id
   if (options.siteId) {
@@ -2185,51 +2180,66 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
     conditions.push('is_bot = true');
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const whereClause = `WHERE ${dateFilter} AND ${conditions.join(' AND ')}`;
 
   // Build HAVING conditions for engagement and visits filters
   const havingConditions = [];
 
-  // Engagement filter
+  // Engagement filter (based on total events)
   if (options.engagement === 'high') {
-    havingConditions.push('(SUM(event_count) > 50 OR COUNT(*) > 2)');
+    havingConditions.push('(total_events > 50 OR visit_count > 2)');
   } else if (options.engagement === 'medium') {
-    havingConditions.push('((SUM(event_count) > 20 OR COUNT(*) > 1) AND NOT (SUM(event_count) > 50 OR COUNT(*) > 2))');
+    havingConditions.push('((total_events > 20 OR visit_count > 1) AND NOT (total_events > 50 OR visit_count > 2))');
   } else if (options.engagement === 'low') {
-    havingConditions.push('(SUM(event_count) <= 20 AND COUNT(*) <= 1)');
+    havingConditions.push('(total_events <= 20 AND visit_count <= 1)');
   }
 
   // Visits filter
   if (options.visits === '1') {
-    havingConditions.push('COUNT(*) = 1');
+    havingConditions.push('visit_count = 1');
   } else if (options.visits === '2-3') {
-    havingConditions.push('COUNT(*) >= 2 AND COUNT(*) <= 3');
+    havingConditions.push('visit_count >= 2 AND visit_count <= 3');
   } else if (options.visits === '4+') {
-    havingConditions.push('COUNT(*) >= 4');
+    havingConditions.push('visit_count >= 4');
   }
 
-  const havingClause = havingConditions.length > 0 ? `HAVING ${havingConditions.join(' AND ')}` : '';
+  const havingClause = havingConditions.length > 0 ? `WHERE ${havingConditions.join(' AND ')}` : '';
 
   params.push(limit);
   params.push(offset);
 
+  // Use journey_events for accurate family data
   const result = await db.query(`
-    SELECT
-      primary_ip_address,
-      COUNT(*) as visit_count,
-      SUM(event_count) as total_events,
-      MIN(first_seen) as first_visit,
-      MAX(last_seen) as last_visit,
-      array_agg(DISTINCT journey_id ORDER BY journey_id) as journey_ids,
-      MAX(CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN outcome ELSE NULL END) as best_outcome,
-      MAX(CASE WHEN outcome = 'enquiry_submitted' THEN 1 WHEN outcome = 'visit_booked' THEN 1 ELSE 0 END) as has_converted,
-      MAX(metadata->'engagement_metrics'->>'max_scroll_depth')::integer as max_scroll,
-      BOOL_OR(is_bot) as has_bot_activity
-    FROM journeys
-    ${whereClause}
-    GROUP BY primary_ip_address
+    WITH family_journeys AS (
+      SELECT
+        ip_address,
+        journey_id,
+        MIN(occurred_at) as journey_start,
+        MAX(occurred_at) as journey_end,
+        COUNT(*) as event_count,
+        BOOL_OR(is_bot) as is_bot
+      FROM journey_events
+      ${whereClause}
+      GROUP BY ip_address, journey_id
+    ),
+    family_data AS (
+      SELECT
+        ip_address as primary_ip_address,
+        COUNT(DISTINCT journey_id) as visit_count,
+        SUM(event_count) as total_events,
+        MIN(journey_start) as first_visit,
+        MAX(journey_end) as last_visit,
+        array_agg(DISTINCT journey_id) as journey_ids,
+        NULL as best_outcome,
+        0 as has_converted,
+        NULL as max_scroll,
+        BOOL_OR(is_bot) as has_bot_activity
+      FROM family_journeys
+      GROUP BY ip_address
+    )
+    SELECT * FROM family_data
     ${havingClause}
-    ORDER BY MAX(last_seen) DESC
+    ORDER BY last_visit DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `, params);
 
@@ -2238,15 +2248,14 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
 
 /**
  * Get total count of unique families (IPs)
+ * Uses journey_events for accuracy
  */
 async function getFamilyCount(options = {}) {
   const db = getDb();
-  const conditions = [];
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const conditions = ['ip_address IS NOT NULL'];
   const params = [];
   let paramIndex = 1;
-
-  conditions.push('primary_ip_address IS NOT NULL');
-  conditions.push("(entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')");
 
   if (options.siteId) {
     conditions.push(`site_id = $${paramIndex}`);
@@ -2260,39 +2269,40 @@ async function getFamilyCount(options = {}) {
     conditions.push('is_bot = true');
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const whereClause = `WHERE ${dateFilter} AND ${conditions.join(' AND ')}`;
 
   // Build HAVING conditions for engagement and visits filters
   const havingConditions = [];
 
-  // Engagement filter
   if (options.engagement === 'high') {
-    havingConditions.push('(SUM(event_count) > 50 OR COUNT(*) > 2)');
+    havingConditions.push('(total_events > 50 OR visit_count > 2)');
   } else if (options.engagement === 'medium') {
-    havingConditions.push('((SUM(event_count) > 20 OR COUNT(*) > 1) AND NOT (SUM(event_count) > 50 OR COUNT(*) > 2))');
+    havingConditions.push('((total_events > 20 OR visit_count > 1) AND NOT (total_events > 50 OR visit_count > 2))');
   } else if (options.engagement === 'low') {
-    havingConditions.push('(SUM(event_count) <= 20 AND COUNT(*) <= 1)');
+    havingConditions.push('(total_events <= 20 AND visit_count <= 1)');
   }
 
-  // Visits filter
   if (options.visits === '1') {
-    havingConditions.push('COUNT(*) = 1');
+    havingConditions.push('visit_count = 1');
   } else if (options.visits === '2-3') {
-    havingConditions.push('COUNT(*) >= 2 AND COUNT(*) <= 3');
+    havingConditions.push('visit_count >= 2 AND visit_count <= 3');
   } else if (options.visits === '4+') {
-    havingConditions.push('COUNT(*) >= 4');
+    havingConditions.push('visit_count >= 4');
   }
 
-  const havingClause = havingConditions.length > 0 ? `HAVING ${havingConditions.join(' AND ')}` : '';
+  const havingClause = havingConditions.length > 0 ? `WHERE ${havingConditions.join(' AND ')}` : '';
 
   const result = await db.query(`
-    SELECT COUNT(*) as count FROM (
-      SELECT primary_ip_address
-      FROM journeys
+    WITH family_data AS (
+      SELECT
+        ip_address,
+        COUNT(DISTINCT journey_id) as visit_count,
+        COUNT(*) as total_events
+      FROM journey_events
       ${whereClause}
-      GROUP BY primary_ip_address
-      ${havingClause}
-    ) as filtered_families
+      GROUP BY ip_address
+    )
+    SELECT COUNT(*) as count FROM family_data ${havingClause}
   `, params);
 
   return parseInt(result.rows[0].count);
@@ -2397,23 +2407,46 @@ async function getFamilyByIP(ipAddress, siteId = null) {
  */
 async function getFamilyStats(siteId = null) {
   const db = getDb();
-  let whereClause = "WHERE primary_ip_address IS NOT NULL AND (entry_referrer IS NULL OR entry_referrer NOT LIKE '%website-journey-analytics.onrender.com%')";
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+  let siteFilter = '';
   const params = [];
 
   if (siteId) {
-    whereClause += ' AND site_id = $1';
+    siteFilter = 'AND site_id = $1';
     params.push(siteId);
   }
 
+  // Use journey_events for accurate family stats
   const result = await db.query(`
+    WITH family_data AS (
+      SELECT
+        ip_address,
+        journey_id,
+        is_bot,
+        COUNT(*) as events
+      FROM journey_events
+      WHERE ip_address IS NOT NULL
+        AND ${dateFilter}
+        ${siteFilter}
+      GROUP BY ip_address, journey_id, is_bot
+    ),
+    family_stats AS (
+      SELECT
+        ip_address,
+        COUNT(DISTINCT journey_id) as visit_count,
+        SUM(events) as total_events,
+        BOOL_OR(is_bot) as has_bot_visits
+      FROM family_data
+      GROUP BY ip_address
+    )
     SELECT
-      COUNT(DISTINCT primary_ip_address) as total_families,
-      COUNT(DISTINCT CASE WHEN is_bot = false OR is_bot IS NULL THEN primary_ip_address END) as human_families,
-      COUNT(DISTINCT CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked') THEN primary_ip_address END) as converted_families,
-      COUNT(DISTINCT CASE WHEN visit_number > 1 THEN primary_ip_address END) as returning_families,
-      AVG(event_count) as avg_events_per_visit
-    FROM journeys
-    ${whereClause}
+      COUNT(*) as total_families,
+      COUNT(*) FILTER (WHERE has_bot_visits = false OR has_bot_visits IS NULL) as human_families,
+      0 as converted_families,
+      COUNT(*) FILTER (WHERE visit_count > 1) as returning_families,
+      ROUND(AVG(total_events / visit_count), 1) as avg_events_per_visit
+    FROM family_stats
   `, params);
 
   return result.rows[0];
