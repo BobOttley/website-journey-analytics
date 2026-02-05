@@ -268,8 +268,8 @@ router.post('/', async (req, res) => {
 
     const location = metadata.location || null;
 
-    // Only send email if we have location data (skip empty notifications)
-    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id) && location) {
+    // Only send email if we have location data and NOT a bot (skip bots and empty notifications)
+    if (event.event_type === 'page_view' && !notifiedJourneys.has(event.journey_id) && location && !event.is_bot) {
       notifiedJourneys.add(event.journey_id);
       logEmail(`TRIGGER: ${event.journey_id.substring(0,8)} with location`);
 
@@ -381,8 +381,8 @@ router.post('/batch', async (req, res) => {
         // Email notification for batch events (same logic as single endpoint)
         const location = metadata.location || null;
 
-        // Only send email if we have location data (skip empty notifications)
-        if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id) && location) {
+        // Only send email if we have location data and NOT a bot (skip bots and empty notifications)
+        if (e.event_type === 'page_view' && !notifiedJourneys.has(e.journey_id) && location && !botDetection.isBot) {
           notifiedJourneys.add(e.journey_id);
           logEmail(`BATCH TRIGGER: ${e.journey_id.substring(0,8)} with location`);
           const existing = await getEventsByJourneyId(e.journey_id);
