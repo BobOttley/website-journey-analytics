@@ -989,16 +989,34 @@
   function trackSectionVisibilityTime() {
     if (!('IntersectionObserver' in window)) return;
 
-    // Only track elements with proper identifiers to avoid duplicates
-    const elementsToTrack = document.querySelectorAll('section[id], [data-track-time], [data-section]');
+    // Track all sections - generate ID from heading text or position if none exists
+    const elementsToTrack = document.querySelectorAll('section, article, main > div, [data-track-time], [data-section]');
     const visibilityTimers = new Map();
     const sentSections = new Set(); // Prevent duplicate sends
+
+    // Helper to generate section ID from content
+    function getSectionId(el, index) {
+      if (el.id) return el.id;
+      if (el.dataset.section) return el.dataset.section;
+      if (el.dataset.trackTime) return el.dataset.trackTime;
+      // Try to get heading text
+      const heading = el.querySelector('h1, h2, h3, h4');
+      if (heading && heading.textContent) {
+        return heading.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30);
+      }
+      // Fallback to class name or position
+      if (el.className) {
+        const mainClass = el.className.split(' ')[0];
+        if (mainClass && mainClass.length > 2) return mainClass;
+      }
+      return 'section-' + index;
+    }
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const el = entry.target;
-        const id = el.id || el.dataset.section || el.dataset.trackTime;
-        if (!id) return; // Skip elements without proper ID
+        const id = el._sectionId; // Use pre-assigned ID
+        if (!id) return;
 
         if (entry.isIntersecting) {
           // Element came into view - start timer
@@ -1023,7 +1041,11 @@
       });
     }, { threshold: 0.5 });
 
-    elementsToTrack.forEach(el => observer.observe(el));
+    // Assign IDs and start observing
+    elementsToTrack.forEach((el, index) => {
+      el._sectionId = getSectionId(el, index);
+      observer.observe(el);
+    });
 
     // Send visibility times when leaving page
     window.addEventListener('beforeunload', function() {
