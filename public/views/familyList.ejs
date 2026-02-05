@@ -47,6 +47,28 @@
   </div>
 </div>
 
+<!-- Top 10 Locations -->
+<% if (topLocations && topLocations.length > 0) { %>
+<div class="card mb-4">
+  <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+    <span>&#127759;</span> Top 10 Locations
+    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(Last 7 days)</span>
+  </h2>
+  <div class="locations-grid">
+    <% topLocations.forEach((loc, index) => { %>
+      <div class="location-item">
+        <span class="location-rank"><%= index + 1 %></span>
+        <div class="location-info">
+          <span class="location-city"><%= loc.city %></span>
+          <span class="location-country"><%= loc.country %></span>
+        </div>
+        <span class="location-count"><%= loc.visitor_count %> <span style="font-size: 0.7rem; color: var(--text-muted);">visitors</span></span>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
 <!-- Family Cards -->
 <div class="card">
   <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
@@ -406,5 +428,62 @@
   .family-card-actions .btn {
     flex: 1;
     text-align: center;
+  }
+
+  /* Top Locations */
+  .locations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .location-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--paper);
+    border-radius: 8px;
+    border: 1px solid var(--border-grey);
+  }
+
+  .location-rank {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 0.75rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .location-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .location-city {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .location-country {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .location-count {
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
   }
 </style>

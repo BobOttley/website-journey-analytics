@@ -621,6 +621,60 @@ async function getVisitorLocations(withinSeconds = 300, siteId = null) {
 }
 
 /**
+ * Get top 10 locations by visitor count (last 7 days, humans only)
+ */
+async function getTopLocations(siteId = null, limit = 10) {
+  const db = getDb();
+  const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
+  const botFilter = '(is_bot = false OR is_bot IS NULL)';
+
+  let siteFilter = '';
+  const params = [limit];
+
+  if (siteId) {
+    siteFilter = 'AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get one location per visitor_id, then count by city/country
+  const result = await db.query(`
+    WITH visitor_locations AS (
+      SELECT DISTINCT ON (visitor_id)
+        visitor_id,
+        metadata->>'location' as location_json
+      FROM journey_events
+      WHERE visitor_id IS NOT NULL
+        AND ${dateFilter}
+        AND ${botFilter}
+        AND metadata->>'location' IS NOT NULL
+        ${siteFilter}
+      ORDER BY visitor_id, occurred_at DESC
+    ),
+    parsed_locations AS (
+      SELECT
+        visitor_id,
+        (location_json::jsonb)->>'city' as city,
+        (location_json::jsonb)->>'region' as region,
+        (location_json::jsonb)->>'country' as country,
+        (location_json::jsonb)->>'countryCode' as country_code
+      FROM visitor_locations
+      WHERE location_json IS NOT NULL
+    )
+    SELECT
+      COALESCE(city, region, 'Unknown') as city,
+      COALESCE(country, country_code, 'Unknown') as country,
+      COUNT(DISTINCT visitor_id) as visitor_count
+    FROM parsed_locations
+    WHERE city IS NOT NULL OR region IS NOT NULL
+    GROUP BY city, region, country, country_code
+    ORDER BY visitor_count DESC
+    LIMIT $1
+  `, params);
+
+  return result.rows;
+}
+
+/**
  * Get outcome distribution for funnel chart
  */
 async function getOutcomeDistribution(siteId = null) {
@@ -2803,6 +2857,7 @@ module.exports = {
   getDailyJourneyTrend,
   getScrollDepthDistribution,
   getVisitorLocations,
+  getTopLocations,
   getOutcomeDistribution,
   getConversionFunnel,
   getReturnVisitorStats,

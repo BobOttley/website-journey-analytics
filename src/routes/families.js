@@ -6,6 +6,7 @@ const {
   getFamilyByIP,
   getFamilyByVisitorId,
   getFamilyStats,
+  getTopLocations,
   getEventsByIPAddress
 } = require('../db/queries');
 const { getSiteId } = require('../middleware/auth');
@@ -30,10 +31,11 @@ router.get('/', async (req, res) => {
       visits: visits !== 'all' ? visits : null
     };
 
-    const [families, totalCount, stats] = await Promise.all([
+    const [families, totalCount, stats, topLocations] = await Promise.all([
       getAllFamilies(limit, offset, filterOptions),
       getFamilyCount(filterOptions),
-      getFamilyStats(siteId)
+      getFamilyStats(siteId),
+      getTopLocations(siteId, 10)
     ]);
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -50,6 +52,7 @@ router.get('/', async (req, res) => {
     res.render('familyList', {
       families,
       stats: parsedStats,
+      topLocations,
       filter,
       engagement,
       visits,
