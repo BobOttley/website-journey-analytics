@@ -6,6 +6,11 @@ const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService')
 const emailService = require('../services/emailService');
 const { detectBotForEvent } = require('../services/botDetection');
 
+// IP addresses to exclude from tracking (owner/admin IPs)
+const EXCLUDED_IPS = [
+  '77.96.153.18'  // Bob's Gloucester IP
+];
+
 // Cache for tracking key -> site_id lookups (avoids DB hit on every event)
 const trackingKeyCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -227,6 +232,11 @@ router.post('/', async (req, res) => {
     // Extract client IP
     const clientIP = getClientIP(req);
 
+    // Skip excluded IPs (owner/admin traffic)
+    if (EXCLUDED_IPS.includes(clientIP)) {
+      return res.status(200).json({ success: true, skipped: true, reason: 'excluded_ip' });
+    }
+
     // Run bot detection
     const botDetection = detectBotForEvent({
       userAgent,
@@ -326,6 +336,12 @@ router.post('/batch', async (req, res) => {
         success: false,
         error: 'events must be an array'
       });
+    }
+
+    // Skip excluded IPs (owner/admin traffic)
+    const batchClientIP = getClientIP(req);
+    if (EXCLUDED_IPS.includes(batchClientIP)) {
+      return res.status(200).json({ success: true, skipped: true, reason: 'excluded_ip', inserted: 0 });
     }
 
     const results = [];

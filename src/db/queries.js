@@ -356,9 +356,8 @@ async function getTopPages(limit = 10, siteId = null) {
             regexp_replace(page_url, '.*\\?s=([^&]+).*', '\\1'),
             'unknown'
           )
-          -- Home page variants
-          WHEN regexp_replace(regexp_replace(page_url, '^https?://[^/]+', ''), '[/?].*$', '') IN ('', '/')
-            AND page_url NOT LIKE '%?s=%'
+          -- Home page: URL is just domain with optional trailing slash and/or query string (not search)
+          WHEN page_url ~ '^https?://[^/]+/?($|\\?)' AND page_url NOT LIKE '%?s=%'
           THEN '/'
           -- Other pages: extract path, remove query string and trailing slash
           ELSE LOWER(regexp_replace(
