@@ -44,10 +44,31 @@
     }
 
     function formatPageName(path) {
-      // Convert /some-page.html to "Some Page"
-      let name = path.replace(/^\//, '').replace('.html', '').replace(/-/g, ' ');
-      if (!name || name === '/') return 'Home';
-      return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      // Handle empty or root paths
+      if (!path || path === '/' || path === '/index.html') return 'Home';
+
+      // Remove leading/trailing slashes, query strings, and .html
+      let clean = path.replace(/^\/+|\/+$/g, '').split('?')[0].replace(/\.html?$/i, '');
+
+      // Split into segments and get the last meaningful one
+      const segments = clean.split('/').filter(s => s && !s.match(/^\d+$/)); // Filter out numeric-only segments
+      if (segments.length === 0) return 'Home';
+
+      // Take the last segment (most specific page name)
+      let name = segments[segments.length - 1];
+
+      // Clean up: replace hyphens/underscores with spaces
+      name = name.replace(/[-_]/g, ' ');
+
+      // Capitalise each word
+      name = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+      // Truncate if too long (max 25 chars)
+      if (name.length > 25) {
+        name = name.substring(0, 22) + '...';
+      }
+
+      return name || 'Home';
     }
 
     function getPageIcon(url) {
