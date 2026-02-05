@@ -509,8 +509,8 @@ Respond with ONLY the JSON object matching this schema:
 }`;
 }
 
-async function runAnalysis(startDate, endDate) {
-  const journeysRaw = await getJourneysInDateRange(startDate, endDate);
+async function runAnalysis(startDate, endDate, siteId = null) {
+  const journeysRaw = await getJourneysInDateRange(startDate, endDate, siteId);
 
   if (!journeysRaw || journeysRaw.length === 0) {
     return { success: false, error: 'No journeys found in the specified date range' };
@@ -544,7 +544,8 @@ async function runAnalysis(startDate, endDate) {
       period_end: endDate,
       total_journeys: aggregatedData.totals.journeys,
       conversion_rate: aggregatedData.conversionRate,
-      analysis_result: analysisResult
+      analysis_result: analysisResult,
+      site_id: siteId
     };
 
     await insertInsight(insight);
