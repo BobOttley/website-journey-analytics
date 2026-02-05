@@ -3,7 +3,7 @@
   <div class="stat-card highlight">
     <h3>Total Families</h3>
     <div class="value"><%= stats.total_families || 0 %></div>
-    <div class="subtitle">Unique IP addresses</div>
+    <div class="subtitle">Unique visitors tracked</div>
   </div>
   <div class="stat-card" style="border-top-color: #8b5cf6;">
     <h3>Returning Families</h3>
@@ -41,7 +41,7 @@
     <div>
       <strong style="color: #60a5fa;">Family Profiles</strong>
       <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">
-        Visitors grouped by IP address - see complete history across all visits
+        Individual visitors tracked - see complete history across all visits
       </span>
     </div>
   </div>
@@ -193,7 +193,7 @@
           </div>
 
           <div class="family-card-actions">
-            <a href="/families/<%= encodeURIComponent(family.primary_ip_address) %>" class="btn btn-outline btn-sm">View Family</a>
+            <a href="/families/<%= encodeURIComponent(family.visitor_id) %>" class="btn btn-outline btn-sm">View Family</a>
           </div>
         </div>
       <% }) %>

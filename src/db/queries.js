@@ -2339,7 +2339,7 @@ async function getCombinedVisitorStats(siteId = null, days = 30) {
 async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
-  const conditions = ['ip_address IS NOT NULL'];
+  const conditions = ['visitor_id IS NOT NULL'];
   // Exclude journeys where entry page indicates existing parent (matches Dashboard filter)
   const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
@@ -2397,9 +2397,11 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
   params.push(offset);
 
   // Use journey_events for accurate family data
+  // Group by visitor_id (not IP) to match Dashboard
   const result = await db.query(`
     WITH family_journeys AS (
       SELECT
+        visitor_id,
         ip_address,
         journey_id,
         MIN(occurred_at) as journey_start,
@@ -2408,11 +2410,12 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
         BOOL_OR(is_bot) as is_bot
       FROM journey_events
       ${whereClause}
-      GROUP BY ip_address, journey_id
+      GROUP BY visitor_id, ip_address, journey_id
     ),
     family_data AS (
       SELECT
-        ip_address as primary_ip_address,
+        visitor_id,
+        MAX(ip_address) as primary_ip_address,
         COUNT(DISTINCT journey_id) as visit_count,
         SUM(event_count) as total_events,
         MIN(journey_start) as first_visit,
@@ -2423,7 +2426,7 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
         NULL as max_scroll,
         BOOL_OR(is_bot) as has_bot_activity
       FROM family_journeys
-      GROUP BY ip_address
+      GROUP BY visitor_id
     )
     SELECT * FROM family_data
     ${havingClause}
@@ -2435,13 +2438,13 @@ async function getAllFamilies(limit = 50, offset = 0, options = {}) {
 }
 
 /**
- * Get total count of unique families (IPs)
- * Uses journey_events for accuracy
+ * Get total count of unique families (visitor_ids)
+ * Uses journey_events for accuracy - matches Dashboard counting
  */
 async function getFamilyCount(options = {}) {
   const db = getDb();
   const dateFilter = `occurred_at >= NOW() - INTERVAL '7 days'`;
-  const conditions = ['ip_address IS NOT NULL'];
+  const conditions = ['visitor_id IS NOT NULL'];
   // Exclude journeys where entry page indicates existing parent (matches Dashboard filter)
   const excludeExistingParents = `journey_id NOT IN (
     SELECT je_entry.journey_id FROM (
@@ -2494,12 +2497,12 @@ async function getFamilyCount(options = {}) {
   const result = await db.query(`
     WITH family_data AS (
       SELECT
-        ip_address,
+        visitor_id,
         COUNT(DISTINCT journey_id) as visit_count,
         COUNT(*) as total_events
       FROM journey_events
       ${whereClause}
-      GROUP BY ip_address
+      GROUP BY visitor_id
     )
     SELECT COUNT(*) as count FROM family_data ${havingClause}
   `, params);
@@ -2602,6 +2605,115 @@ async function getFamilyByIP(ipAddress, siteId = null) {
 }
 
 /**
+ * Get a single family profile by visitor_id with all their journeys
+ */
+async function getFamilyByVisitorId(visitorId, siteId = null) {
+  const db = getDb();
+
+  let siteFilter = '';
+  const params = [visitorId];
+
+  if (siteId) {
+    siteFilter = ' AND site_id = $2';
+    params.push(siteId);
+  }
+
+  // Get all journeys for this visitor_id from journey_events
+  const journeysResult = await db.query(`
+    SELECT
+      journey_id,
+      MIN(occurred_at) as first_seen,
+      MAX(occurred_at) as last_seen,
+      COUNT(*) as event_count,
+      MAX(ip_address) as ip_address
+    FROM journey_events
+    WHERE visitor_id = $1 ${siteFilter}
+    GROUP BY journey_id
+    ORDER BY first_seen ASC
+  `, params);
+
+  if (journeysResult.rows.length === 0) {
+    return null;
+  }
+
+  const journeys = journeysResult.rows;
+
+  // Get location from first event with metadata containing location
+  const locationResult = await db.query(`
+    SELECT metadata
+    FROM journey_events
+    WHERE visitor_id = $1
+      AND metadata IS NOT NULL
+      AND metadata->>'location' IS NOT NULL
+    LIMIT 1
+  `, [visitorId]);
+
+  let location = null;
+  if (locationResult.rows.length > 0) {
+    try {
+      const metadata = typeof locationResult.rows[0].metadata === 'string'
+        ? JSON.parse(locationResult.rows[0].metadata)
+        : locationResult.rows[0].metadata;
+      location = metadata?.location || null;
+    } catch (e) {}
+  }
+
+  // Aggregate stats
+  const totalEvents = journeys.reduce((sum, j) => sum + parseInt(j.event_count || 0), 0);
+
+  // Get unique pages across all journeys
+  const pagesResult = await db.query(`
+    SELECT DISTINCT page_url
+    FROM journey_events
+    WHERE visitor_id = $1 AND page_url IS NOT NULL
+  `, [visitorId]);
+  const uniquePages = pagesResult.rows.map(r => r.page_url);
+
+  // Get devices used
+  const devicesResult = await db.query(`
+    SELECT DISTINCT device_type
+    FROM journey_events
+    WHERE visitor_id = $1
+      AND device_type IS NOT NULL
+  `, [visitorId]);
+  const devices = devicesResult.rows.map(r => r.device_type);
+
+  // Get entry pages for each journey
+  const entryPagesResult = await db.query(`
+    SELECT DISTINCT ON (journey_id) journey_id, page_url
+    FROM journey_events
+    WHERE visitor_id = $1 AND event_type = 'page_view' AND page_url IS NOT NULL
+    ORDER BY journey_id, occurred_at ASC
+  `, [visitorId]);
+  const entryPages = {};
+  entryPagesResult.rows.forEach(r => {
+    entryPages[r.journey_id] = r.page_url;
+  });
+
+  return {
+    visitor_id: visitorId,
+    ip_address: journeys[0]?.ip_address || 'Unknown',
+    visit_count: journeys.length,
+    total_events: totalEvents,
+    first_visit: journeys[0].first_seen,
+    last_visit: journeys[journeys.length - 1].last_seen,
+    best_outcome: 'no_action', // Can be enhanced later
+    location: location,
+    unique_pages: uniquePages,
+    devices: devices,
+    journeys: journeys.map(j => ({
+      journey_id: j.journey_id,
+      first_seen: j.first_seen,
+      last_seen: j.last_seen,
+      event_count: parseInt(j.event_count),
+      outcome: 'browsing',
+      entry_page: entryPages[j.journey_id] || null,
+      page_sequence: []
+    }))
+  };
+}
+
+/**
  * Get family stats for dashboard
  */
 async function getFamilyStats(siteId = null) {
@@ -2629,32 +2741,33 @@ async function getFamilyStats(siteId = null) {
   }
 
   // Use journey_events for accurate family stats
+  // Count by visitor_id (not IP) to match Dashboard
   const result = await db.query(`
     WITH family_data AS (
       SELECT
-        ip_address,
+        visitor_id,
         journey_id,
         is_bot,
         COUNT(*) as events
       FROM journey_events
-      WHERE ip_address IS NOT NULL
+      WHERE visitor_id IS NOT NULL
         AND ${dateFilter}
+        AND ${botFilter}
         ${siteFilter}
         ${excludeExistingParents}
-      GROUP BY ip_address, journey_id, is_bot
+      GROUP BY visitor_id, journey_id, is_bot
     ),
     family_stats AS (
       SELECT
-        ip_address,
+        visitor_id,
         COUNT(DISTINCT journey_id) as visit_count,
-        SUM(events) as total_events,
-        BOOL_OR(is_bot) as has_bot_visits
+        SUM(events) as total_events
       FROM family_data
-      GROUP BY ip_address
+      GROUP BY visitor_id
     )
     SELECT
       COUNT(*) as total_families,
-      COUNT(*) FILTER (WHERE has_bot_visits = false OR has_bot_visits IS NULL) as human_families,
+      COUNT(*) as human_families,
       0 as converted_families,
       COUNT(*) FILTER (WHERE visit_count > 1) as returning_families,
       ROUND(AVG(total_events / visit_count), 1) as avg_events_per_visit
@@ -2681,6 +2794,7 @@ module.exports = {
   getAllFamilies,
   getFamilyCount,
   getFamilyByIP,
+  getFamilyByVisitorId,
   getFamilyStats,
   // Chart Data
   getTopPages,

@@ -4,6 +4,7 @@ const {
   getAllFamilies,
   getFamilyCount,
   getFamilyByIP,
+  getFamilyByVisitorId,
   getFamilyStats,
   getEventsByIPAddress
 } = require('../db/queries');
@@ -69,13 +70,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /families/:ip - Family detail view
-router.get('/:ip', async (req, res) => {
+// GET /families/:visitorId - Family detail view (by visitor_id)
+router.get('/:visitorId', async (req, res) => {
   try {
-    const ipAddress = req.params.ip;
+    const visitorId = req.params.visitorId;
     const siteId = getSiteId(req);
 
-    const family = await getFamilyByIP(ipAddress, siteId);
+    const family = await getFamilyByVisitorId(visitorId, siteId);
 
     if (!family) {
       return res.status(404).render('error', { error: 'Family not found' });
@@ -84,7 +85,7 @@ router.get('/:ip', async (req, res) => {
     res.render('familyDetail', {
       family,
       currentPage: 'families',
-      title: `Family ${ipAddress.substring(0, 8)}... - SMART Journey`
+      title: `Family ${visitorId.substring(0, 8)}... - SMART Journey`
     });
   } catch (error) {
     console.error('Error fetching family:', error);
