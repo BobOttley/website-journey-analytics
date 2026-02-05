@@ -370,10 +370,35 @@ function determineInitialIntent(events) {
 function determineOutcome(events) {
   const sorted = sortEventsByTime(events);
 
-  // 1) Form submit (highest value)
+  // 1) Form submit (highest value) - but exclude search forms
   const submits = sorted.filter(e => e.event_type === 'form_submit');
-  if (submits.length > 0) {
-    const last = submits[submits.length - 1];
+
+  // Filter out search form submissions
+  const realFormSubmits = submits.filter(submit => {
+    const submitIndex = sorted.indexOf(submit);
+    const submitTime = new Date(submit.occurred_at).getTime();
+
+    // Check if there's a site_search event within 2 seconds after this submit
+    const followingSearch = sorted.find((e, idx) => {
+      if (idx <= submitIndex) return false;
+      if (e.event_type !== 'site_search') return false;
+      const timeDiff = new Date(e.occurred_at).getTime() - submitTime;
+      return timeDiff >= 0 && timeDiff < 2000; // Within 2 seconds
+    });
+
+    // Also check if the page URL after submit contains ?s= (search results)
+    const followingPage = sorted.find((e, idx) => {
+      if (idx <= submitIndex) return false;
+      return e.event_type === 'page_view';
+    });
+    const isSearchResult = followingPage?.page_url?.includes('?s=') || followingPage?.page_url?.includes('search');
+
+    // Exclude if it was a search form
+    return !followingSearch && !isSearchResult;
+  });
+
+  if (realFormSubmits.length > 0) {
+    const last = realFormSubmits[realFormSubmits.length - 1];
     if (last.intent_type === 'book_visit') {
       return { outcome: 'visit_booked', raw_outcome: 'visit_booked', intent_type: last.intent_type };
     }
@@ -384,8 +409,18 @@ function determineOutcome(events) {
   }
 
   // 2) Form started but not submitted => abandonment classification
+  // Exclude search forms (form_start followed by site_search or on search-related pages)
   const starts = sorted.filter(e => e.event_type === 'form_start');
-  if (starts.length > 0) {
+  const realFormStarts = starts.filter(start => {
+    // Check if there's a site_search event anywhere in the session (means they used search)
+    const hasSearch = sorted.some(e => e.event_type === 'site_search');
+    // Check if this form_start is on a search-only page
+    const isSearchForm = start.metadata?.form_id?.toLowerCase().includes('search') ||
+                         start.cta_label?.toLowerCase().includes('search');
+    return !hasSearch && !isSearchForm;
+  });
+
+  if (realFormStarts.length > 0 && realFormSubmits.length === 0) {
     const abandonType = classifyFormAbandonment(sorted) || 'form_early_abandon';
     return { outcome: abandonType, raw_outcome: 'form_abandoned', intent_type: null };
   }
