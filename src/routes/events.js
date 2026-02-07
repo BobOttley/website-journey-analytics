@@ -6,10 +6,8 @@ const { getClientIP, lookupIP, isPrivateIP } = require('../services/geoService')
 const emailService = require('../services/emailService');
 const { detectBotForEvent } = require('../services/botDetection');
 
-// IP addresses to exclude from tracking (owner/admin IPs)
-const EXCLUDED_IPS = [
-  '77.96.153.18'  // Bob's Gloucester IP
-];
+// Excluded IPs loaded from environment (comma-separated)
+const EXCLUDED_IPS = (process.env.EXCLUDED_IPS || '').split(',').filter(Boolean);
 
 // Cache for tracking key -> site_id lookups (avoids DB hit on every event)
 const trackingKeyCache = new Map();

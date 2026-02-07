@@ -96,18 +96,18 @@ async function lookupIP(ip) {
   }
 
   try {
-    // Use ip-api.com (free, 45 requests/minute)
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`);
+    // Use ipwho.is (free, HTTPS, no key required)
+    const response = await fetch(`https://ipwho.is/${ip}`);
     const data = await response.json();
 
-    if (data.status === 'success') {
+    if (data.success !== false) {
       const location = {
         country: data.country,
-        countryCode: data.countryCode,
-        region: data.regionName || data.region,
+        countryCode: data.country_code,
+        region: data.region,
         city: data.city,
-        flag: getCountryFlag(data.countryCode),
-        displayName: data.city ? `${data.city}, ${data.countryCode}` : data.country
+        flag: getCountryFlag(data.country_code),
+        displayName: data.city ? `${data.city}, ${data.country_code}` : data.country
       };
 
       // Cache the result

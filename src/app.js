@@ -3,9 +3,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
-const { initializeSchema, getDb } = require('./db/database');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const compression = require('compression');
+const helmet = require('helmet');
+const cron = require('node-cron');
+const { initializeSchema, getDb, closeDb } = require('./db/database');
 
 // Import routes
 const eventsRouter = require('./routes/events');
@@ -18,6 +24,8 @@ const authRouter = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const uxRouter = require('./routes/ux');
 const screenshotsRouter = require('./routes/screenshots');
+const exportRouter = require('./routes/export');
+const funnelRouter = require('./routes/funnel');
 
 // Import middleware
 const { requireAuth, attachUserContext } = require('./middleware/auth');
@@ -67,8 +75,67 @@ async function resolvePixelSiteId(trackingKey) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// ============================================
+// SECURITY MIDDLEWARE
+// ============================================
+
+// Security headers (CSP disabled for EJS inline scripts)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// Compression
+app.use(compression());
+
+// CORS - restrict to tracked domains + dashboard
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (server-to-server, pixel tracking, etc.)
+    if (!origin) return callback(null, true);
+    // If no origins configured, allow all (backwards compatible)
+    if (allowedOrigins.length === 0) return callback(null, true);
+    // Allow configured origins
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(null, false);
+  },
+  credentials: true
+}));
+
+// Request logging
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('short'));
+}
+
+// Rate limiting
+const eventLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 300,
+  message: { success: false, error: 'Too many requests' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { success: false, error: 'Too many login attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const analysisLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  message: { success: false, error: 'Analysis rate limit reached, please wait' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// ============================================
+// BODY PARSING
+// ============================================
 
 // Handle text/plain as JSON (sendBeacon sends text/plain)
 app.use(express.text({ type: 'text/plain' }));
@@ -90,14 +157,19 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Trust proxy - required for secure cookies behind Render/Heroku/etc
 app.set('trust proxy', 1);
 
-// Session configuration - must be before routes
+// Session configuration - secure secret handling
+const sessionSecret = process.env.SESSION_SECRET || (() => {
+  console.warn('WARNING: No SESSION_SECRET set. Using random secret - sessions will not persist across restarts!');
+  return require('crypto').randomBytes(32).toString('hex');
+})();
+
 app.use(session({
   store: new pgSession({
     conString: process.env.DATABASE_URL,
     tableName: 'session',
     createTableIfMissing: true
   }),
-  secret: process.env.SESSION_SECRET || 'smart-journey-secret-change-in-production',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -141,67 +213,59 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve tracking script with correct endpoint and tracking key
+// ============================================
+// TRACKING SCRIPT (cached in memory)
+// ============================================
+
+let cachedTrackingScript = null;
+let trackingScriptMtime = 0;
+
 app.get('/tracking.js', (req, res) => {
-  const fs = require('fs');
   const scriptPath = path.join(__dirname, '../gtm/trackingScript.js');
-  let script = fs.readFileSync(scriptPath, 'utf8');
 
-  // Get tracking key from query param
+  try {
+    const stat = fs.statSync(scriptPath);
+    if (!cachedTrackingScript || stat.mtimeMs > trackingScriptMtime) {
+      cachedTrackingScript = fs.readFileSync(scriptPath, 'utf8');
+      trackingScriptMtime = stat.mtimeMs;
+    }
+  } catch (err) {
+    return res.status(500).send('// Tracking script not found');
+  }
+
+  let script = cachedTrackingScript;
   const trackingKey = req.query.key || '';
+  const serverUrl = process.env.SERVER_URL || 'https://website-journey-analytics.onrender.com';
 
-  // Replace endpoint with actual server URL
-  const serverUrl = process.env.SERVER_URL || `https://website-journey-analytics.onrender.com`;
   script = script.replace(
     /endpoint: ['"][^'"]+['"]/,
     `endpoint: '${serverUrl}/api/event'`
   );
-
-  // Replace pixel endpoint
   script = script.replace(
     /pixelEndpoint: ['"][^'"]+['"]/,
     `pixelEndpoint: '${serverUrl}/p.gif'`
   );
-
-  // Inject tracking key
   script = script.replace(
     /trackingKey: ['"][^'"]*['"]/,
     `trackingKey: '${trackingKey}'`
   );
 
   res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(script);
 });
 
-/**
- * Pixel Tracking Endpoint
- *
- * Usage: <img src="https://website-journey-analytics.onrender.com/p.gif?k=TRACKING_KEY&p=PAGE_URL" />
- *
- * Query params:
- *   k  = tracking key (required for multi-tenant)
- *   p  = page URL (defaults to referrer)
- *   r  = referrer URL
- *   t  = title (optional page title)
- *   v  = visitor ID (optional, for linking to JS tracking)
- *   j  = journey ID (optional, for linking to JS tracking)
- *
- * This captures visitors who:
- * - Have JavaScript disabled
- * - Use ad blockers that block tracking scripts
- * - Leave before JavaScript loads
- * - Are bots that don't execute JavaScript
- */
+// ============================================
+// PIXEL TRACKING ENDPOINT
+// ============================================
+
 app.get('/p.gif', async (req, res) => {
-  // Always return the pixel immediately (non-blocking)
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.send(PIXEL_GIF);
 
-  // Process the tracking asynchronously (don't delay the image response)
   setImmediate(async () => {
     try {
       const trackingKey = req.query.k || req.query.key || null;
@@ -211,27 +275,22 @@ app.get('/p.gif', async (req, res) => {
       const visitorId = req.query.v || req.query.visitor || `pxl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const journeyId = req.query.j || req.query.journey || `pxl_jrn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Get client info
       const userAgent = req.get('User-Agent') || 'Unknown';
       const clientIP = getClientIP(req);
 
-      // Detect device type from user agent
       let deviceType = 'desktop';
       if (/mobile|android|iphone|ipad|ipod/i.test(userAgent)) {
         deviceType = /ipad|tablet/i.test(userAgent) ? 'tablet' : 'mobile';
       }
 
-      // Run bot detection
       const botDetection = detectBotForEvent({
         userAgent,
         ipAddress: clientIP,
         metadata: {}
       });
 
-      // Resolve site ID
       const siteId = await resolvePixelSiteId(trackingKey);
 
-      // Get geolocation for the IP
       let location = null;
       if (clientIP && !isPrivateIP(clientIP)) {
         try {
@@ -241,7 +300,6 @@ app.get('/p.gif', async (req, res) => {
         }
       }
 
-      // Build metadata
       const metadata = {
         tracking_method: 'pixel',
         page_title: pageTitle,
@@ -249,7 +307,6 @@ app.get('/p.gif', async (req, res) => {
         ip_address: clientIP
       };
 
-      // Insert the pixel view event
       await insertEvent({
         journey_id: journeyId,
         visitor_id: visitorId,
@@ -276,21 +333,25 @@ app.get('/p.gif', async (req, res) => {
   });
 });
 
-// Health check endpoint
+// ============================================
+// HEALTH CHECK
+// ============================================
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '2.0.0'
   });
 });
 
-// Cleanup test pixel data endpoint
-app.get('/cleanup-pixel-tests', async (req, res) => {
+// ============================================
+// DEBUG/ADMIN ENDPOINTS (PROTECTED)
+// ============================================
+
+app.get('/cleanup-pixel-tests', requireAuth, async (req, res) => {
   try {
     const db = getDb();
-
-    // Delete pixel-only test journeys (journey_id starts with pxl_jrn_)
     const events = await db.query("DELETE FROM journey_events WHERE journey_id LIKE 'pxl_jrn_%' RETURNING journey_id");
     const journeys = await db.query("DELETE FROM journeys WHERE journey_id LIKE 'pxl_jrn_%' RETURNING journey_id");
 
@@ -307,9 +368,8 @@ app.get('/cleanup-pixel-tests', async (req, res) => {
   }
 });
 
-// Email debug endpoint
 const emailService = require('./services/emailService');
-app.get('/debug-email', async (req, res) => {
+app.get('/debug-email', requireAuth, async (req, res) => {
   const configured = emailService.isConfigured();
   const envCheck = {
     MS_CLIENT_ID: !!process.env.MS_CLIENT_ID,
@@ -319,7 +379,6 @@ app.get('/debug-email', async (req, res) => {
     EMAIL_NOTIFY: !!process.env.EMAIL_NOTIFY
   };
 
-  // If ?send=1 is passed, try to send a test email
   if (req.query.send === '1' && configured) {
     try {
       const result = await emailService.sendNewVisitorNotification({
@@ -340,15 +399,13 @@ app.get('/debug-email', async (req, res) => {
   res.json({ configured, envCheck, hint: 'Add ?send=1 to send a test email' });
 });
 
-// Debug endpoint to check event count
-app.get('/debug', async (req, res) => {
+app.get('/debug', requireAuth, async (req, res) => {
   try {
     const db = getDb();
     const eventCount = await db.query('SELECT COUNT(*) as count FROM journey_events');
     const journeyCount = await db.query('SELECT COUNT(*) as count FROM journeys');
     const recentEvents = await db.query('SELECT * FROM journey_events ORDER BY occurred_at DESC LIMIT 5');
 
-    // Check IP addresses with multiple journeys
     const ipJourneys = await db.query(`
       SELECT ip_address, COUNT(DISTINCT journey_id) as journey_count
       FROM journey_events
@@ -359,7 +416,6 @@ app.get('/debug', async (req, res) => {
       LIMIT 10
     `);
 
-    // Check current visit_number values in journeys table
     const visitNumbers = await db.query(`
       SELECT journey_id, visitor_id, visit_number, first_seen, site_id
       FROM journeys
@@ -367,49 +423,40 @@ app.get('/debug', async (req, res) => {
       LIMIT 15
     `);
 
-    // Check journeys specifically for site_id=1 (BSMART)
-    const bsmartJourneys = await db.query(`
-      SELECT journey_id, visitor_id, visit_number, ip_address, first_seen
-      FROM journeys j
-      LEFT JOIN (
-        SELECT DISTINCT journey_id, ip_address
-        FROM journey_events
-        WHERE ip_address IS NOT NULL
-      ) e ON j.journey_id = e.journey_id
-      WHERE j.site_id = 1
-      ORDER BY first_seen DESC
-      LIMIT 10
-    `);
-
     res.json({
       events: parseInt(eventCount.rows[0].count),
       journeys: parseInt(journeyCount.rows[0].count),
       recentEvents: recentEvents.rows,
       ipsWithMultipleJourneys: ipJourneys.rows,
-      recentJourneysWithVisitNumber: visitNumbers.rows,
-      bsmartJourneys: bsmartJourneys.rows
+      recentJourneysWithVisitNumber: visitNumbers.rows
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Auth Routes (public - no auth required)
-app.use('/', authRouter);
+// ============================================
+// ROUTES
+// ============================================
 
-// API Routes (public - tracking events don't require auth)
-app.use('/api/event', eventsRouter);
-app.use('/api/events', eventsRouter);
+// Auth Routes (public - with rate limiting)
+app.use('/', authLimiter, authRouter);
+
+// API Routes (public - tracking events with rate limiting)
+app.use('/api/event', eventLimiter, eventsRouter);
+app.use('/api/events', eventLimiter, eventsRouter);
 
 // Web Routes (protected - require authentication)
 app.use('/journeys', requireAuth, journeysRouter);
 app.use('/families', requireAuth, familiesRouter);
 app.use('/realtime', requireAuth, realtimeRouter);
 app.use('/insights', requireAuth, insightsRouter);
+app.use('/funnel', requireAuth, funnelRouter);
 app.use('/bots', requireAuth, botsRouter);
 app.use('/ux', requireAuth, uxRouter);
 app.use('/admin', requireAuth, adminRouter);
 app.use('/screenshots', requireAuth, screenshotsRouter);
+app.use('/export', requireAuth, exportRouter);
 
 // Root redirect
 app.get('/', (req, res) => {
@@ -431,11 +478,13 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { error: 'Internal server error' });
 });
 
-// Background job to rebuild recent journeys (keeps journeys table fresh for Recent Sessions)
+// ============================================
+// BACKGROUND JOBS
+// ============================================
+
 async function rebuildRecentJourneys() {
   try {
     const db = getDb();
-    // Get journey_ids with activity in the last 5 minutes
     const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const result = await db.query(
       `SELECT DISTINCT journey_id FROM journey_events WHERE occurred_at > $1`,
@@ -447,7 +496,7 @@ async function rebuildRecentJourneys() {
         const journey = await reconstructJourney(row.journey_id);
         if (journey) await upsertJourney(journey);
       } catch (err) {
-        // Silently continue - don't let one failure stop others
+        // Silently continue
       }
     }
   } catch (err) {
@@ -455,22 +504,29 @@ async function rebuildRecentJourneys() {
   }
 }
 
-// Initialize database and start server
+// ============================================
+// SERVER STARTUP
+// ============================================
+
+let server;
+
 async function start() {
   try {
     await initializeSchema();
 
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════╗
-║              SMART Journey Analytics                  ║
+║              SMART Journey Analytics v2.0             ║
 ║              Website Visitor Tracking                 ║
 ╠═══════════════════════════════════════════════════════╣
 ║  Dashboard:  http://localhost:${PORT}/journeys            ║
+║  Funnel:     http://localhost:${PORT}/funnel              ║
 ║  Families:   http://localhost:${PORT}/families            ║
 ║  Real-time:  http://localhost:${PORT}/realtime            ║
 ║  UX:         http://localhost:${PORT}/ux                  ║
 ║  Insights:   http://localhost:${PORT}/insights            ║
+║  Export:     http://localhost:${PORT}/export              ║
 ║  API:        http://localhost:${PORT}/api/event           ║
 ║  Pixel:      http://localhost:${PORT}/p.gif               ║
 ║  Health:     http://localhost:${PORT}/health              ║
@@ -479,12 +535,38 @@ async function start() {
 
       // Start background journey sync (every 30 seconds)
       setInterval(rebuildRecentJourneys, 30000);
-      rebuildRecentJourneys(); // Run immediately on startup
+      rebuildRecentJourneys();
 
       // Run pixel-only bot detection on startup and every 5 minutes
       if (botsRouter.runPixelOnlyBotDetection) {
         botsRouter.runPixelOnlyBotDetection();
         setInterval(() => botsRouter.runPixelOnlyBotDetection(), 5 * 60 * 1000);
+      }
+
+      // Scheduled AI analysis - runs daily at 6am
+      if (process.env.ENABLE_SCHEDULED_ANALYSIS === 'true') {
+        cron.schedule('0 6 * * *', async () => {
+          console.log('[CRON] Running scheduled AI analysis...');
+          try {
+            const { runAnalysis } = require('./services/aiAnalysis');
+            const db = getDb();
+            const sitesResult = await db.query('SELECT id, name FROM sites');
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            for (const site of sitesResult.rows) {
+              try {
+                await runAnalysis(startDate, endDate, site.id);
+                console.log(`[CRON] Analysis complete for site: ${site.name}`);
+              } catch (err) {
+                console.error(`[CRON] Analysis failed for site ${site.name}:`, err.message);
+              }
+            }
+          } catch (err) {
+            console.error('[CRON] Scheduled analysis failed:', err.message);
+          }
+        });
+        console.log('[CRON] Scheduled analysis enabled (daily at 6am)');
       }
     });
   } catch (error) {
@@ -493,7 +575,34 @@ async function start() {
   }
 }
 
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+
+function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  if (server) {
+    server.close(() => {
+      console.log('HTTP server closed');
+      closeDb().then(() => {
+        console.log('Database connections closed');
+        process.exit(0);
+      }).catch(() => process.exit(1));
+    });
+
+    setTimeout(() => {
+      console.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 start();
 
 module.exports = app;
-// Deployed: Thu  5 Feb 2026 10:56:40 GMT

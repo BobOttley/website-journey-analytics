@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix data inconsistency: Families page now uses visitor_id \\(not IP\\)\n\n- Changed getFamilyStats, getAllFamilies, getFamilyCount to group by visitor_id instead of ip_address\n- This makes Families page consistent with Dashboard \\(both now show 62 humans, not 72 IPs\\)\n- Added getFamilyByVisitorId function for family detail lookups\n- Updated familyList.ejs to link by visitor_id\n- Returning visitors now accurate \\(was showing 75% based on IP, now shows correct ~8%\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "mcp__claude-accountability__get_knowledge",
+      "mcp__claude-accountability__get_project_status",
+      "mcp__claude-accountability__log_progress",
+      "mcp__claude-accountability__add_knowledge"
+    ]
+  }
+}
