@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
       SELECT COUNT(DISTINCT journey_id) as count
       FROM journeys
       WHERE first_seen >= $1 ${siteFilter}
-        AND (is_bot = false OR is_bot IS NULL)
+        AND is_bot IS NOT TRUE AND COALESCE(bot_score, 0) < 30
     `, params);
 
     // Scrolled (had meaningful scroll depth)
@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
       FROM journey_events je
       JOIN journeys j ON j.journey_id = je.journey_id
       WHERE je.occurred_at >= $1 ${eventSiteFilter}
-        AND (j.is_bot = false OR j.is_bot IS NULL)
+        AND j.is_bot IS NOT TRUE AND COALESCE(j.bot_score, 0) < 30
         AND je.event_type = 'scroll_depth'
     `, params);
 
@@ -47,7 +47,7 @@ router.get('/', async (req, res) => {
       FROM journey_events je
       JOIN journeys j ON j.journey_id = je.journey_id
       WHERE je.occurred_at >= $1 ${eventSiteFilter}
-        AND (j.is_bot = false OR j.is_bot IS NULL)
+        AND j.is_bot IS NOT TRUE AND COALESCE(j.bot_score, 0) < 30
         AND je.event_type IN ('cta_click', 'download_click', 'external_link', 'form_start', 'form_submit')
     `, params);
 
@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
       FROM journey_events je
       JOIN journeys j ON j.journey_id = je.journey_id
       WHERE je.occurred_at >= $1 ${eventSiteFilter}
-        AND (j.is_bot = false OR j.is_bot IS NULL)
+        AND j.is_bot IS NOT TRUE AND COALESCE(j.bot_score, 0) < 30
         AND je.event_type = 'form_start'
     `, params);
 
@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
       FROM journey_events je
       JOIN journeys j ON j.journey_id = je.journey_id
       WHERE je.occurred_at >= $1 ${eventSiteFilter}
-        AND (j.is_bot = false OR j.is_bot IS NULL)
+        AND j.is_bot IS NOT TRUE AND COALESCE(j.bot_score, 0) < 30
         AND je.event_type = 'form_submit'
     `, params);
 
@@ -82,7 +82,7 @@ router.get('/', async (req, res) => {
         ROUND(AVG(CASE WHEN confidence > 0 THEN confidence END)) as avg_confidence
       FROM journeys
       WHERE first_seen >= $1 ${siteFilter}
-        AND (is_bot = false OR is_bot IS NULL)
+        AND is_bot IS NOT TRUE AND COALESCE(bot_score, 0) < 30
         AND entry_page IS NOT NULL
       GROUP BY entry_page
       ORDER BY total_journeys DESC
@@ -100,7 +100,7 @@ router.get('/', async (req, res) => {
       FROM journeys
       WHERE first_seen >= $1 AND first_seen < $2
         ${siteId ? 'AND site_id = $3' : ''}
-        AND (is_bot = false OR is_bot IS NULL)
+        AND is_bot IS NOT TRUE AND COALESCE(bot_score, 0) < 30
     `, prevParams);
 
     const prevConversionsResult = await db.query(`
@@ -109,7 +109,7 @@ router.get('/', async (req, res) => {
       JOIN journeys j ON j.journey_id = je.journey_id
       WHERE je.occurred_at >= $1 AND je.occurred_at < $2
         ${siteId ? 'AND je.site_id = $3' : ''}
-        AND (j.is_bot = false OR j.is_bot IS NULL)
+        AND j.is_bot IS NOT TRUE AND COALESCE(j.bot_score, 0) < 30
         AND je.event_type = 'form_submit'
     `, prevParams);
 
@@ -121,7 +121,7 @@ router.get('/', async (req, res) => {
         COUNT(CASE WHEN outcome IN ('enquiry_submitted', 'visit_booked', 'form_submitted') THEN 1 END) as conversions
       FROM journeys
       WHERE first_seen >= $1 ${siteFilter}
-        AND (is_bot = false OR is_bot IS NULL)
+        AND is_bot IS NOT TRUE AND COALESCE(bot_score, 0) < 30
       GROUP BY DATE(first_seen)
       ORDER BY date
     `, params);
